@@ -22,6 +22,17 @@ async function deleteNotebook(id: string) {
   await fetch(`${API}/api/notebooks/${id}`, { method: "DELETE" });
 }
 
+async function updateNotebook(id: string, updates: Record<string, unknown>) {
+  await fetch(`${API}/api/notebooks/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(updates),
+  });
+}
+
+/** Find the drawing layer regardless of view mode (touch-none or touch-pan-y). */
+const DRAWING_LAYER = "[class*='touch-']";
+
 async function drawStroke(page: import("@playwright/test").Page, selector: string) {
   const target = page.locator(selector).first();
   const box = await target.boundingBox();
@@ -41,6 +52,19 @@ async function drawStroke(page: import("@playwright/test").Page, selector: strin
   await page.mouse.up();
 }
 
+/** Navigate to a notebook's writing page and wait for toolbar + drawing surface. */
+async function openNotebook(
+  page: import("@playwright/test").Page,
+  notebookTitle: string,
+) {
+  await page.goto("/");
+  await expect(page.getByText("Notebooks")).toBeVisible();
+  await page.getByText(notebookTitle).click();
+  await page.waitForURL(/\/notebook\/nb_.*\/page\//);
+  // Wait for toolbar
+  await expect(page.getByRole("button", { name: "pen" })).toBeVisible();
+}
+
 test.describe("Writing - Single page view", () => {
   let notebookId: string;
   let notebookTitle: string;
@@ -49,6 +73,7 @@ test.describe("Writing - Single page view", () => {
     const nb = await createNotebook(`E2E Single ${Date.now()}_${Math.random().toString(36).slice(2, 8)}`);
     notebookId = nb.id;
     notebookTitle = nb.title;
+    await addPage(notebookId);
   });
 
   test.afterEach(async () => {
@@ -56,21 +81,17 @@ test.describe("Writing - Single page view", () => {
   });
 
   test("draw a stroke and verify SVG path appears", async ({ page }) => {
-    await page.goto("/");
-    await expect(page.getByText("Notebooks")).toBeVisible();
+    await openNotebook(page, notebookTitle);
 
-    await page.getByText(notebookTitle).click();
-    await page.waitForURL(/\/notebook\/nb_.*\/page\//);
-
-    // Verify toolbar is visible with pen button active
-    await expect(page.getByRole("button", { name: "pen" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Single" })).toBeVisible();
+    // Ensure we're in single page mode
+    await page.getByRole("button", { name: "Single" }).click();
+    await expect(page.locator(".touch-none").first()).toBeVisible({ timeout: 5000 });
 
     // Draw a stroke on the drawing layer
     await drawStroke(page, ".touch-none");
 
     // Wait for SVG path element to appear (stroke rendered)
-    await expect(page.locator("svg path")).toBeVisible({ timeout: 5000 });
+    await expect(page.locator(".bg-white.shadow-sm svg path")).toBeVisible({ timeout: 5000 });
 
     // Wait for batch save to persist
     await page.waitForTimeout(3000);
@@ -78,15 +99,15 @@ test.describe("Writing - Single page view", () => {
     // Reload and verify stroke persists
     await page.reload();
     await page.waitForURL(/\/notebook\/nb_.*\/page\//);
-    await expect(page.locator("svg path")).toBeVisible({ timeout: 10000 });
+    await page.getByRole("button", { name: "Single" }).click();
+    await expect(page.locator(".bg-white.shadow-sm svg path")).toBeVisible({ timeout: 10000 });
   });
 
   test("drawing layer uses touch-none in single page view", async ({ page }) => {
-    await page.goto("/");
-    await expect(page.getByText("Notebooks")).toBeVisible();
+    await openNotebook(page, notebookTitle);
 
-    await page.getByText(notebookTitle).click();
-    await page.waitForURL(/\/notebook\/nb_.*\/page\//);
+    // Switch to single page mode
+    await page.getByRole("button", { name: "Single" }).click();
 
     // In single page mode, the drawing layer should have touch-none (not touch-pan-y)
     await expect(page.locator(".touch-none").first()).toBeVisible({ timeout: 5000 });
@@ -97,11 +118,10 @@ test.describe("Writing - Single page view", () => {
   });
 
   test("zoom container structure is present in single page view", async ({ page }) => {
-    await page.goto("/");
-    await expect(page.getByText("Notebooks")).toBeVisible();
+    await openNotebook(page, notebookTitle);
 
-    await page.getByText(notebookTitle).click();
-    await page.waitForURL(/\/notebook\/nb_.*\/page\//);
+    // Switch to single page mode
+    await page.getByRole("button", { name: "Single" }).click();
 
     // The single page view should have overflow-hidden for zoom containment
     const zoomContainer = page.locator(".overflow-hidden.bg-gray-100");
@@ -126,6 +146,7 @@ test.describe("Writing - Undo/Redo", () => {
     const nb = await createNotebook(`E2E Undo ${Date.now()}_${Math.random().toString(36).slice(2, 8)}`);
     notebookId = nb.id;
     notebookTitle = nb.title;
+    await addPage(notebookId);
   });
 
   test.afterEach(async () => {
@@ -133,17 +154,15 @@ test.describe("Writing - Undo/Redo", () => {
   });
 
   test("undo removes stroke and redo restores it", async ({ page }) => {
-    await page.goto("/");
-    await expect(page.getByText("Notebooks")).toBeVisible();
+    await openNotebook(page, notebookTitle);
 
-    await page.getByText(notebookTitle).click();
-    await page.waitForURL(/\/notebook\/nb_.*\/page\//);
+    // Switch to single page mode for consistent drawing layer
+    await page.getByRole("button", { name: "Single" }).click();
+    await expect(page.locator(".touch-none").first()).toBeVisible({ timeout: 5000 });
 
     // Verify undo/redo buttons exist and are disabled initially
     const undoBtn = page.getByRole("button", { name: "Undo" });
     const redoBtn = page.getByRole("button", { name: "Redo" });
-    await expect(undoBtn).toBeVisible();
-    await expect(redoBtn).toBeVisible();
     await expect(undoBtn).toBeDisabled();
     await expect(redoBtn).toBeDisabled();
 
@@ -151,7 +170,7 @@ test.describe("Writing - Undo/Redo", () => {
     await drawStroke(page, ".touch-none");
 
     // Wait for SVG path to appear
-    await expect(page.locator("svg path")).toBeVisible({ timeout: 5000 });
+    await expect(page.locator(".bg-white.shadow-sm svg path")).toBeVisible({ timeout: 5000 });
 
     // Wait for batch save (stroke must be persisted before undo is available)
     await page.waitForTimeout(3000);
@@ -163,7 +182,7 @@ test.describe("Writing - Undo/Redo", () => {
     await undoBtn.click();
 
     // SVG path should disappear
-    await expect(page.locator("svg path")).toHaveCount(0, { timeout: 5000 });
+    await expect(page.locator(".bg-white.shadow-sm svg path")).toHaveCount(0, { timeout: 5000 });
 
     // Redo should now be enabled
     await expect(redoBtn).toBeEnabled({ timeout: 2000 });
@@ -172,30 +191,30 @@ test.describe("Writing - Undo/Redo", () => {
     await redoBtn.click();
 
     // SVG path should reappear
-    await expect(page.locator("svg path")).toBeVisible({ timeout: 5000 });
+    await expect(page.locator(".bg-white.shadow-sm svg path")).toBeVisible({ timeout: 5000 });
   });
 
   test("Ctrl+Z and Ctrl+Shift+Z keyboard shortcuts work", async ({ page }) => {
-    await page.goto("/");
-    await expect(page.getByText("Notebooks")).toBeVisible();
+    await openNotebook(page, notebookTitle);
 
-    await page.getByText(notebookTitle).click();
-    await page.waitForURL(/\/notebook\/nb_.*\/page\//);
+    // Switch to single page mode for consistent drawing layer
+    await page.getByRole("button", { name: "Single" }).click();
+    await expect(page.locator(".touch-none").first()).toBeVisible({ timeout: 5000 });
 
     // Draw a stroke
     await drawStroke(page, ".touch-none");
-    await expect(page.locator("svg path")).toBeVisible({ timeout: 5000 });
+    await expect(page.locator(".bg-white.shadow-sm svg path")).toBeVisible({ timeout: 5000 });
 
     // Wait for batch save
     await page.waitForTimeout(3000);
 
     // Ctrl+Z to undo
     await page.keyboard.press("Control+z");
-    await expect(page.locator("svg path")).toHaveCount(0, { timeout: 5000 });
+    await expect(page.locator(".bg-white.shadow-sm svg path")).toHaveCount(0, { timeout: 5000 });
 
     // Ctrl+Shift+Z to redo
     await page.keyboard.press("Control+Shift+z");
-    await expect(page.locator("svg path").first()).toBeVisible({ timeout: 5000 });
+    await expect(page.locator(".bg-white.shadow-sm svg path").first()).toBeVisible({ timeout: 5000 });
   });
 });
 
@@ -207,6 +226,7 @@ test.describe("Writing - Color presets", () => {
     const nb = await createNotebook(`E2E Color ${Date.now()}_${Math.random().toString(36).slice(2, 8)}`);
     notebookId = nb.id;
     notebookTitle = nb.title;
+    await addPage(notebookId);
   });
 
   test.afterEach(async () => {
@@ -214,11 +234,11 @@ test.describe("Writing - Color presets", () => {
   });
 
   test("can switch ink color and draw with it", async ({ page }) => {
-    await page.goto("/");
-    await expect(page.getByText("Notebooks")).toBeVisible();
+    await openNotebook(page, notebookTitle);
 
-    await page.getByText(notebookTitle).click();
-    await page.waitForURL(/\/notebook\/nb_.*\/page\//);
+    // Switch to single page mode for consistent drawing layer
+    await page.getByRole("button", { name: "Single" }).click();
+    await expect(page.locator(".touch-none").first()).toBeVisible({ timeout: 5000 });
 
     // Color buttons should be visible (Black, Blue, Red)
     await expect(page.getByRole("button", { name: "Black", exact: true })).toBeVisible();
@@ -232,10 +252,10 @@ test.describe("Writing - Color presets", () => {
     await drawStroke(page, ".touch-none");
 
     // Wait for SVG path to appear
-    await expect(page.locator("svg path")).toBeVisible({ timeout: 5000 });
+    await expect(page.locator(".bg-white.shadow-sm svg path")).toBeVisible({ timeout: 5000 });
 
     // The stroke should use the blue color (#1e40af)
-    const path = page.locator("svg path").first();
+    const path = page.locator(".bg-white.shadow-sm svg path").first();
     const fill = await path.getAttribute("fill");
     const stroke = await path.getAttribute("stroke");
     // Depending on pen style, the color is in fill or stroke attribute
@@ -252,6 +272,10 @@ test.describe("Writing - Background templates", () => {
     const nb = await createNotebook(`E2E Grid ${Date.now()}_${Math.random().toString(36).slice(2, 8)}`);
     notebookId = nb.id;
     notebookTitle = nb.title;
+    await addPage(notebookId);
+    // Explicitly set gridType to "none" so the test starts from a known state,
+    // regardless of what the global defaultGridType is configured to.
+    await updateNotebook(notebookId, { settings: { gridType: "none" } });
   });
 
   test.afterEach(async () => {
@@ -259,11 +283,11 @@ test.describe("Writing - Background templates", () => {
   });
 
   test("can switch between grid types", async ({ page }) => {
-    await page.goto("/");
-    await expect(page.getByText("Notebooks")).toBeVisible();
+    await openNotebook(page, notebookTitle);
 
-    await page.getByText(notebookTitle).click();
-    await page.waitForURL(/\/notebook\/nb_.*\/page\//);
+    // Switch to single page view (grid patterns are on the page background)
+    await page.getByRole("button", { name: "Single" }).click();
+    await expect(page.locator(".touch-none").first()).toBeVisible({ timeout: 5000 });
 
     // Grid type buttons should be visible
     await expect(page.getByRole("button", { name: "Plain" })).toBeVisible();
@@ -297,11 +321,11 @@ test.describe("Writing - Background templates", () => {
   });
 
   test("grid type persists after page reload", async ({ page }) => {
-    await page.goto("/");
-    await expect(page.getByText("Notebooks")).toBeVisible();
+    await openNotebook(page, notebookTitle);
 
-    await page.getByText(notebookTitle).click();
-    await page.waitForURL(/\/notebook\/nb_.*\/page\//);
+    // Switch to single page view
+    await page.getByRole("button", { name: "Single" }).click();
+    await expect(page.locator(".touch-none").first()).toBeVisible({ timeout: 5000 });
 
     // Switch to Lined
     await page.getByRole("button", { name: "Lined" }).click();
@@ -310,6 +334,9 @@ test.describe("Writing - Background templates", () => {
     // Reload the page
     await page.reload();
     await page.waitForURL(/\/notebook\/nb_.*\/page\//);
+
+    // Switch to single page view again (global default may differ)
+    await page.getByRole("button", { name: "Single" }).click();
 
     // Lined pattern should still be present after reload (setting was persisted)
     await expect(page.locator("svg pattern#lined-pattern")).toHaveCount(1, { timeout: 10000 });
@@ -334,11 +361,7 @@ test.describe("Writing - Scroll view", () => {
   });
 
   test("switch to scroll mode and verify scroll container appears", async ({ page }) => {
-    await page.goto("/");
-    await expect(page.getByText("Notebooks")).toBeVisible();
-
-    await page.getByText(notebookTitle).click();
-    await page.waitForURL(/\/notebook\/nb_.*\/page\//);
+    await openNotebook(page, notebookTitle);
 
     // Switch to Scroll view
     await page.getByRole("button", { name: "Scroll" }).click();
@@ -355,11 +378,7 @@ test.describe("Writing - Scroll view", () => {
   });
 
   test("draw a stroke in scroll mode and verify SVG path appears", async ({ page }) => {
-    await page.goto("/");
-    await expect(page.getByText("Notebooks")).toBeVisible();
-
-    await page.getByText(notebookTitle).click();
-    await page.waitForURL(/\/notebook\/nb_.*\/page\//);
+    await openNotebook(page, notebookTitle);
 
     // Switch to Scroll view
     await page.getByRole("button", { name: "Scroll" }).click();
@@ -373,7 +392,7 @@ test.describe("Writing - Scroll view", () => {
     await drawStroke(page, ".touch-pan-y");
 
     // SVG path element should appear (stroke rendered)
-    await expect(page.locator("svg path")).toBeVisible({ timeout: 5000 });
+    await expect(page.locator(".bg-white.shadow-sm svg path")).toBeVisible({ timeout: 5000 });
 
     // Wait for batch save to persist
     await page.waitForTimeout(3000);
@@ -382,15 +401,11 @@ test.describe("Writing - Scroll view", () => {
     await page.reload();
     await page.waitForURL(/\/notebook\/nb_.*\/page\//);
     await page.getByRole("button", { name: "Scroll" }).click();
-    await expect(page.locator("svg path")).toBeVisible({ timeout: 10000 });
+    await expect(page.locator(".bg-white.shadow-sm svg path")).toBeVisible({ timeout: 10000 });
   });
 
   test("drawing layer allows touch scrolling via touch-pan-y", async ({ page }) => {
-    await page.goto("/");
-    await expect(page.getByText("Notebooks")).toBeVisible();
-
-    await page.getByText(notebookTitle).click();
-    await page.waitForURL(/\/notebook\/nb_.*\/page\//);
+    await openNotebook(page, notebookTitle);
 
     // Switch to Scroll view
     await page.getByRole("button", { name: "Scroll" }).click();
@@ -423,11 +438,7 @@ test.describe("Writing - Canvas view", () => {
   });
 
   test("switch to canvas mode and verify pages visible", async ({ page }) => {
-    await page.goto("/");
-    await expect(page.getByText("Notebooks")).toBeVisible();
-
-    await page.getByText(notebookTitle).click();
-    await page.waitForURL(/\/notebook\/nb_.*\/page\//);
+    await openNotebook(page, notebookTitle);
 
     // Switch to Canvas view
     await page.getByRole("button", { name: "Canvas" }).click();
@@ -444,11 +455,7 @@ test.describe("Writing - Canvas view", () => {
   });
 
   test("drawing layer uses touch-none in canvas mode", async ({ page }) => {
-    await page.goto("/");
-    await expect(page.getByText("Notebooks")).toBeVisible();
-
-    await page.getByText(notebookTitle).click();
-    await page.waitForURL(/\/notebook\/nb_.*\/page\//);
+    await openNotebook(page, notebookTitle);
 
     // Switch to Canvas view
     await page.getByRole("button", { name: "Canvas" }).click();
@@ -463,11 +470,7 @@ test.describe("Writing - Canvas view", () => {
   });
 
   test("middle-click dragging a page in canvas mode does not create strokes", async ({ page }) => {
-    await page.goto("/");
-    await expect(page.getByText("Notebooks")).toBeVisible();
-
-    await page.getByText(notebookTitle).click();
-    await page.waitForURL(/\/notebook\/nb_.*\/page\//);
+    await openNotebook(page, notebookTitle);
 
     // Switch to Canvas view
     await page.getByRole("button", { name: "Canvas" }).click();
@@ -497,7 +500,7 @@ test.describe("Writing - Canvas view", () => {
     await page.waitForTimeout(500);
 
     // No SVG path elements should exist — middle-click dragging must not create strokes
-    await expect(page.locator("svg path")).toHaveCount(0);
+    await expect(page.locator(".bg-white.shadow-sm svg path")).toHaveCount(0);
 
     // Also verify via API: fetch strokes for the first page
     const pagesRes = await fetch(`${API}/api/notebooks/${notebookId}/pages`);

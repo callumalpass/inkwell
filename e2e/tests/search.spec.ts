@@ -1,18 +1,6 @@
 import { test, expect } from "@playwright/test";
-import { writeFile } from "node:fs/promises";
-import { join, dirname } from "node:path";
-import { fileURLToPath } from "node:url";
 
 const API = "http://localhost:3001";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
-/**
- * The server data directory. Uses DATA_DIR env var if set,
- * otherwise defaults to ./data relative to the server/ directory.
- */
-const DATA_DIR = process.env.DATA_DIR || join(__dirname, "../../server/data");
 
 async function createNotebook(title: string) {
   const res = await fetch(`${API}/api/notebooks`, {
@@ -30,20 +18,12 @@ async function addPage(notebookId: string) {
   return (await res.json()) as { id: string };
 }
 
-async function writeTranscription(
-  notebookId: string,
-  pageId: string,
-  content: string,
-) {
-  const filePath = join(
-    DATA_DIR,
-    "notebooks",
-    notebookId,
-    "pages",
-    pageId,
-    "transcription.md",
-  );
-  await writeFile(filePath, content, "utf-8");
+async function writeTranscription(pageId: string, content: string) {
+  await fetch(`${API}/api/pages/${pageId}/transcription`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ content }),
+  });
 }
 
 async function deleteNotebook(id: string) {
@@ -63,9 +43,8 @@ test.describe("Search", () => {
     const pg = await addPage(notebookId);
     pageId = pg.id;
 
-    // Write a transcription file so search can find it
+    // Write a transcription via the API so search can find it
     await writeTranscription(
-      notebookId,
       pageId,
       `Meeting notes about ${uniqueToken}\n\nDiscussed project timeline and budget allocation.`,
     );

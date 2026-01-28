@@ -51,6 +51,20 @@ async function getPages(notebookId: string) {
   return (await res.json()) as { id: string }[];
 }
 
+/** Navigate to notebook and switch to single page mode for consistent drawing layer. */
+async function openNotebookSingleMode(
+  page: import("@playwright/test").Page,
+  notebookTitle: string,
+) {
+  await page.goto("/");
+  await expect(page.getByText("Notebooks")).toBeVisible();
+  await page.getByText(notebookTitle).first().click();
+  await page.waitForURL(/\/notebook\/nb_.*\/page\//);
+  // Switch to single page mode (global default may be different)
+  await page.getByRole("button", { name: "Single" }).click();
+  await expect(page.locator(".touch-none").first()).toBeVisible({ timeout: 5000 });
+}
+
 test.describe("Offline support", () => {
   let notebookId: string;
   let notebookTitle: string;
@@ -66,11 +80,7 @@ test.describe("Offline support", () => {
   });
 
   test("shows syncing indicator when strokes are queued offline", async ({ page, context }) => {
-    await page.goto("/");
-    await expect(page.getByText("Notebooks")).toBeVisible();
-
-    await page.getByText(notebookTitle).first().click();
-    await page.waitForURL(/\/notebook\/nb_.*\/page\//);
+    await openNotebookSingleMode(page, notebookTitle);
 
     // Should NOT show offline indicator when online
     await expect(page.getByTestId("offline-indicator")).not.toBeVisible();
@@ -81,7 +91,7 @@ test.describe("Offline support", () => {
 
     // Draw a stroke — the batch save will fail and queue to IndexedDB
     await drawStroke(page, ".touch-none");
-    await expect(page.locator("svg path")).toBeVisible({ timeout: 5000 });
+    await expect(page.locator(".bg-white.shadow-sm svg path")).toBeVisible({ timeout: 5000 });
 
     // Wait for the batch save interval (2s) to trigger and fail
     await page.waitForTimeout(3500);
@@ -101,11 +111,7 @@ test.describe("Offline support", () => {
   });
 
   test("strokes drawn offline are queued and synced when back online", async ({ page, context }) => {
-    await page.goto("/");
-    await expect(page.getByText("Notebooks")).toBeVisible();
-
-    await page.getByText(notebookTitle).first().click();
-    await page.waitForURL(/\/notebook\/nb_.*\/page\//);
+    await openNotebookSingleMode(page, notebookTitle);
 
     // Wait for initial load to finish
     await page.waitForTimeout(1000);
@@ -118,7 +124,7 @@ test.describe("Offline support", () => {
     await drawStroke(page, ".touch-none");
 
     // SVG path should appear locally (rendered immediately)
-    await expect(page.locator("svg path")).toBeVisible({ timeout: 5000 });
+    await expect(page.locator(".bg-white.shadow-sm svg path")).toBeVisible({ timeout: 5000 });
 
     // Wait for the batch save interval to trigger (2s) + a buffer
     await page.waitForTimeout(3500);
@@ -141,18 +147,14 @@ test.describe("Offline support", () => {
   });
 
   test("strokes persist across reload after offline sync", async ({ page, context }) => {
-    await page.goto("/");
-    await expect(page.getByText("Notebooks")).toBeVisible();
-
-    await page.getByText(notebookTitle).first().click();
-    await page.waitForURL(/\/notebook\/nb_.*\/page\//);
+    await openNotebookSingleMode(page, notebookTitle);
 
     await page.waitForTimeout(1000);
 
     // Go offline and draw
     await context.setOffline(true);
     await drawStroke(page, ".touch-none");
-    await expect(page.locator("svg path")).toBeVisible({ timeout: 5000 });
+    await expect(page.locator(".bg-white.shadow-sm svg path")).toBeVisible({ timeout: 5000 });
 
     // Wait for batch save to queue the strokes
     await page.waitForTimeout(3500);
@@ -164,15 +166,13 @@ test.describe("Offline support", () => {
     // Reload the page — strokes should still be there (they were synced to server)
     await page.reload();
     await page.waitForURL(/\/notebook\/nb_.*\/page\//);
-    await expect(page.locator("svg path")).toBeVisible({ timeout: 10000 });
+    // Switch to single page mode again after reload
+    await page.getByRole("button", { name: "Single" }).click();
+    await expect(page.locator(".bg-white.shadow-sm svg path")).toBeVisible({ timeout: 10000 });
   });
 
   test("drawing works continuously while offline", async ({ page, context }) => {
-    await page.goto("/");
-    await expect(page.getByText("Notebooks")).toBeVisible();
-
-    await page.getByText(notebookTitle).first().click();
-    await page.waitForURL(/\/notebook\/nb_.*\/page\//);
+    await openNotebookSingleMode(page, notebookTitle);
 
     await page.waitForTimeout(1000);
 
@@ -201,7 +201,7 @@ test.describe("Offline support", () => {
     }
 
     // All strokes should be rendered locally
-    const pathCount = await page.locator("svg path").count();
+    const pathCount = await page.locator(".bg-white.shadow-sm svg path").count();
     expect(pathCount).toBeGreaterThanOrEqual(3);
 
     // Go back online and wait for sync
