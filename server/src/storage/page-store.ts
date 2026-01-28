@@ -51,7 +51,7 @@ export async function createPage(meta: PageMeta): Promise<void> {
 
 export async function updatePage(
   pageId: string,
-  updates: Partial<Pick<PageMeta, "canvasX" | "canvasY" | "pageNumber">>,
+  updates: Partial<Pick<PageMeta, "canvasX" | "canvasY" | "pageNumber" | "transcription">>,
 ): Promise<PageMeta | null> {
   const index = await readPageIndex();
   const notebookId = index[pageId];

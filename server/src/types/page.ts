@@ -1,3 +1,11 @@
+export type TranscriptionStatus = "none" | "pending" | "processing" | "complete" | "failed";
+
+export interface TranscriptionMeta {
+  status: TranscriptionStatus;
+  lastAttempt: string | null;
+  error: string | null;
+}
+
 export interface PageMeta {
   id: string;
   notebookId: string;
@@ -6,6 +14,7 @@ export interface PageMeta {
   canvasY: number;
   createdAt: string;
   updatedAt: string;
+  transcription?: TranscriptionMeta;
 }
 
 export interface PageIndex {

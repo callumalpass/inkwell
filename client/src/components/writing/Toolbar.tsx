@@ -3,6 +3,7 @@ import { useViewStore, type ViewMode } from "../../stores/view-store";
 import { useNotebookPagesStore } from "../../stores/notebook-pages-store";
 import { useNavigate, useParams } from "react-router-dom";
 import type { PenStyle } from "../../lib/pen-styles";
+import { TranscriptionIndicator } from "./TranscriptionIndicator";
 
 const WIDTHS = [2, 3, 5, 8];
 
@@ -26,6 +27,8 @@ export function Toolbar() {
     useNotebookPagesStore();
   const navigate = useNavigate();
   const { notebookId } = useParams<{ notebookId: string }>();
+
+  const currentPage = pages[currentPageIndex] ?? null;
 
   const handlePageNav = (direction: "prev" | "next") => {
     if (direction === "prev") {
@@ -138,6 +141,14 @@ export function Toolbar() {
             Next
           </button>
         </div>
+      )}
+
+      {/* Transcription indicator (visible in single-page mode) */}
+      {viewMode === "single" && currentPage && (
+        <>
+          <div className="h-4 w-px bg-gray-300" />
+          <TranscriptionIndicator pageId={currentPage.id} />
+        </>
       )}
 
       {/* New page button */}

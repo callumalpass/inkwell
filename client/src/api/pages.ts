@@ -1,4 +1,11 @@
 import { apiFetch } from "./client";
+import type { TranscriptionStatus } from "./transcription";
+
+export interface TranscriptionMeta {
+  status: TranscriptionStatus;
+  lastAttempt: string | null;
+  error: string | null;
+}
 
 export interface PageMeta {
   id: string;
@@ -8,6 +15,7 @@ export interface PageMeta {
   canvasY: number;
   createdAt: string;
   updatedAt: string;
+  transcription?: TranscriptionMeta;
 }
 
 export function listPages(notebookId: string) {

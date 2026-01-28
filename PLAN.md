@@ -974,11 +974,11 @@ doc.path(pathData).fill(stroke.color);
 
 ### Phase 3: Transcription
 
-- [ ] Gemini API integration
-- [ ] Transcription queue and worker
-- [ ] Auto-transcribe on idle
-- [ ] Transcription status UI
-- [ ] View/edit transcription
+- [x] Gemini API integration
+- [x] Transcription queue and worker
+- [x] Auto-transcribe on idle
+- [x] Transcription status UI
+- [x] View/edit transcription
 
 **Milestone**: Pages automatically transcribed, can search transcriptions.
 

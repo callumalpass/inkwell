@@ -1,11 +1,13 @@
 import { useEffect, useRef } from "react";
 import { usePageStore } from "../stores/page-store";
+import { useTranscriptionStore } from "../stores/transcription-store";
 
 export function useMultiPageWebSocket(pageIds: string[]) {
   const wsMapRef = useRef<Map<string, WebSocket>>(new Map());
   const addSavedStrokes = usePageStore((s) => s.addSavedStrokes);
   const removeSavedStroke = usePageStore((s) => s.removeSavedStroke);
   const clearSavedStrokes = usePageStore((s) => s.clearSavedStrokes);
+  const updateTranscriptionStatus = useTranscriptionStore((s) => s.updateStatus);
 
   useEffect(() => {
     const wsMap = wsMapRef.current;
@@ -46,6 +48,12 @@ export function useMultiPageWebSocket(pageIds: string[]) {
               case "strokes:cleared":
                 clearSavedStrokes(pageId);
                 break;
+              case "transcription:complete":
+                updateTranscriptionStatus(pageId, "complete", msg.content);
+                break;
+              case "transcription:failed":
+                updateTranscriptionStatus(pageId, "failed", undefined, msg.error);
+                break;
             }
           } catch {
             // ignore malformed messages
@@ -76,5 +84,5 @@ export function useMultiPageWebSocket(pageIds: string[]) {
       }
       wsMap.clear();
     };
-  }, [pageIds.join(","), addSavedStrokes, removeSavedStroke, clearSavedStrokes]);
+  }, [pageIds.join(","), addSavedStrokes, removeSavedStroke, clearSavedStrokes, updateTranscriptionStatus]);
 }

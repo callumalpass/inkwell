@@ -68,7 +68,7 @@ export function pageRoutes(app: FastifyInstance) {
     "/api/pages/:pageId",
     async (req, reply) => {
       const { canvasX, canvasY, pageNumber } = req.body;
-      const updates: Partial<Pick<PageMeta, "canvasX" | "canvasY" | "pageNumber">> = {};
+      const updates: Partial<Pick<PageMeta, "canvasX" | "canvasY" | "pageNumber" | "transcription">> = {};
       if (canvasX !== undefined) updates.canvasX = canvasX;
       if (canvasY !== undefined) updates.canvasY = canvasY;
       if (pageNumber !== undefined) updates.pageNumber = pageNumber;

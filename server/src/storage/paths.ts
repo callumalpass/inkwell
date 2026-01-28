@@ -15,5 +15,7 @@ export const paths = {
     join(config.dataDir, "notebooks", notebookId, "pages", pageId, "strokes.json"),
   thumbnail: (notebookId: string, pageId: string) =>
     join(config.dataDir, "notebooks", notebookId, "pages", pageId, "thumbnail.png"),
+  transcription: (notebookId: string, pageId: string) =>
+    join(config.dataDir, "notebooks", notebookId, "pages", pageId, "transcription.md"),
   pageIndex: () => join(config.dataDir, "page-index.json"),
 };

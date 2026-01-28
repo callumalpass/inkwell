@@ -1,8 +1,42 @@
 import type { FastifyInstance } from "fastify";
-import { strokeStore } from "../storage/index.js";
+import { strokeStore, pageStore } from "../storage/index.js";
 import type { Stroke } from "../types/index.js";
 import { broadcastToPage } from "../ws/handlers.js";
 import { invalidateThumbnail } from "../services/thumbnail.js";
+import { config } from "../config.js";
+import { enqueueTranscription } from "../services/transcription-queue.js";
+
+// Track idle timers per page for auto-transcription
+const idleTimers = new Map<string, ReturnType<typeof setTimeout>>();
+
+function scheduleAutoTranscribe(pageId: string): void {
+  if (!config.transcription.autoTranscribe || !config.gemini.apiKey) return;
+
+  // Clear existing timer for this page
+  const existing = idleTimers.get(pageId);
+  if (existing) clearTimeout(existing);
+
+  const timer = setTimeout(async () => {
+    idleTimers.delete(pageId);
+    try {
+      const page = await pageStore.getPage(pageId);
+      if (!page) return;
+      // Only auto-transcribe if not already complete or in progress
+      if (
+        page.transcription?.status === "complete" ||
+        page.transcription?.status === "pending" ||
+        page.transcription?.status === "processing"
+      ) {
+        return;
+      }
+      enqueueTranscription(pageId, page.notebookId);
+    } catch {
+      // Best-effort auto-transcribe
+    }
+  }, config.transcription.idleDelayMs);
+
+  idleTimers.set(pageId, timer);
+}
 
 export function strokeRoutes(app: FastifyInstance) {
   app.get<{ Params: { pageId: string } }>(
@@ -30,6 +64,7 @@ export function strokeRoutes(app: FastifyInstance) {
       });
 
       invalidateThumbnail(req.params.pageId);
+      scheduleAutoTranscribe(req.params.pageId);
 
       return { count: result.length };
     },
