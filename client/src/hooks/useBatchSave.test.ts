@@ -184,6 +184,20 @@ describe("useBatchSave", () => {
       expect(mockPostStrokes).not.toHaveBeenCalled();
     });
 
+    it("flushes all pages on unmount", async () => {
+      const s1 = makeStroke("s1");
+      const s2 = makeStroke("s2");
+      const { unmount } = renderHook(() => useBatchSave());
+
+      seedPending("pageA", [s1]);
+      seedPending("pageB", [s2]);
+
+      unmount();
+
+      expect(mockPostStrokes).toHaveBeenCalledWith("pageA", [s1]);
+      expect(mockPostStrokes).toHaveBeenCalledWith("pageB", [s2]);
+    });
+
     it("skips pages whose pending array is empty", async () => {
       // Seed one page with strokes and another with an empty array
       seedPending("pageA", [makeStroke("s1")]);
@@ -286,6 +300,20 @@ describe("useBatchSave", () => {
       await vi.advanceTimersByTimeAsync(200);
 
       expect(mockPostStrokes).not.toHaveBeenCalled();
+    });
+
+    it("flushes pending strokes on unmount so nothing is lost", async () => {
+      const stroke = makeStroke("s1");
+      const { unmount } = renderHook(() => useBatchSave("page1"));
+
+      // Add pending strokes without waiting for an interval tick
+      seedPending("page1", [stroke]);
+
+      unmount();
+
+      // The unmount cleanup should have flushed pending strokes
+      expect(mockPostStrokes).toHaveBeenCalledWith("page1", [stroke]);
+      expect(usePageStore.getState().strokesByPage["page1"]).toEqual([stroke]);
     });
 
     it("restarts the interval when pageId changes", async () => {

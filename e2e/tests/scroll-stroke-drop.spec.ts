@@ -1,92 +1,18 @@
 import { test, expect } from "@playwright/test";
-
-const API = "http://localhost:3001";
-
-async function createNotebook(title: string) {
-  const res = await fetch(`${API}/api/notebooks`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ title }),
-  });
-  return (await res.json()) as { id: string; title: string };
-}
-
-async function addPage(notebookId: string) {
-  const res = await fetch(`${API}/api/notebooks/${notebookId}/pages`, {
-    method: "POST",
-  });
-  return (await res.json()) as { id: string };
-}
-
-async function deleteNotebook(id: string) {
-  await fetch(`${API}/api/notebooks/${id}`, { method: "DELETE" });
-}
-
-async function getPageIds(notebookId: string): Promise<string[]> {
-  const res = await fetch(`${API}/api/notebooks/${notebookId}/pages`);
-  const pages = (await res.json()) as { id: string }[];
-  return pages.map((p) => p.id);
-}
-
-async function getStrokeCount(pageId: string): Promise<number> {
-  const res = await fetch(`${API}/api/pages/${pageId}/strokes`);
-  const strokes = (await res.json()) as unknown[];
-  return strokes.length;
-}
-
-/** Draw a diagonal stroke on a specific element. */
-async function drawStroke(
-  page: import("@playwright/test").Page,
-  selector: string,
-  index = 0,
-) {
-  const target = page.locator(selector).nth(index);
-  const box = await target.boundingBox();
-  if (!box) throw new Error(`No bounding box for ${selector} [${index}]`);
-
-  const startX = box.x + box.width * 0.3;
-  const startY = box.y + box.height * 0.3;
-  const endX = box.x + box.width * 0.7;
-  const endY = box.y + box.height * 0.7;
-  const midX = (startX + endX) / 2;
-  const midY = startY + (endY - startY) * 0.3;
-
-  await page.mouse.move(startX, startY);
-  await page.mouse.down();
-  await page.mouse.move(midX, midY, { steps: 5 });
-  await page.mouse.move(endX, endY, { steps: 5 });
-  await page.mouse.up();
-}
-
-/**
- * Draw a short horizontal stroke within a bounding box.
- * Uses enough steps to guarantee multiple points in the stroke buffer,
- * preventing rejection by the < 2 point guard in endStroke.
- */
-async function drawQuickStroke(
-  page: import("@playwright/test").Page,
-  box: { x: number; y: number; width: number; height: number },
-  yOffset: number,
-) {
-  const x1 = box.x + box.width * 0.2;
-  const x2 = box.x + box.width * 0.5;
-  const y = box.y + box.height * yOffset;
-  await page.mouse.move(x1, y);
-  await page.mouse.down();
-  await page.mouse.move(x2, y, { steps: 5 });
-  await page.mouse.up();
-}
-
-async function openNotebook(
-  page: import("@playwright/test").Page,
-  notebookTitle: string,
-) {
-  await page.goto("/");
-  await expect(page.getByText("Notebooks")).toBeVisible();
-  await page.getByText(notebookTitle).click();
-  await page.waitForURL(/\/notebook\/nb_.*\/page\//);
-  await expect(page.getByRole("button", { name: "pen" })).toBeVisible();
-}
+import {
+  createNotebook,
+  addPage,
+  deleteNotebook,
+  getPageIds,
+  getStrokeCount,
+  drawStroke,
+  drawQuickStroke,
+  visibleBox,
+  openNotebook,
+  uniqueTitle,
+  clearStrokes,
+  API,
+} from "../helpers";
 
 // ─── Scroll/unload persistence tests ───────────────────────────────────────
 
@@ -95,9 +21,7 @@ test.describe("Scroll view – stroke persistence across scroll", () => {
   let notebookTitle: string;
 
   test.beforeEach(async () => {
-    const nb = await createNotebook(
-      `E2E ScrollDrop ${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
-    );
+    const nb = await createNotebook(uniqueTitle("E2E ScrollDrop"));
     notebookId = nb.id;
     notebookTitle = nb.title;
     for (let i = 0; i < 5; i++) await addPage(notebookId);
@@ -117,7 +41,7 @@ test.describe("Scroll view – stroke persistence across scroll", () => {
       timeout: 5000,
     });
 
-    await drawStroke(page, ".touch-pan-y", 0);
+    await drawStroke(page, ".touch-pan-y");
     const firstPage = page.locator(".bg-white.shadow-sm").first();
     await expect(firstPage.locator("svg path")).toBeVisible({ timeout: 5000 });
 
@@ -144,7 +68,7 @@ test.describe("Scroll view – stroke persistence across scroll", () => {
       timeout: 5000,
     });
 
-    await drawStroke(page, ".touch-pan-y", 0);
+    await drawStroke(page, ".touch-pan-y");
     await expect(
       page.locator(".bg-white.shadow-sm").first().locator("svg path"),
     ).toBeVisible({ timeout: 5000 });
@@ -171,9 +95,7 @@ test.describe("Scroll view – stroke capture reliability", () => {
   let notebookTitle: string;
 
   test.beforeEach(async () => {
-    const nb = await createNotebook(
-      `E2E StrokeCapture ${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
-    );
+    const nb = await createNotebook(uniqueTitle("E2E StrokeCapture"));
     notebookId = nb.id;
     notebookTitle = nb.title;
     await addPage(notebookId);
@@ -201,8 +123,8 @@ test.describe("Scroll view – stroke capture reliability", () => {
 
     for (let i = 0; i < N; i++) {
       await drawQuickStroke(page, singleBox, 0.1 + i * 0.15);
-      // Allow pointer events to fully settle between strokes
-      await page.waitForTimeout(150);
+      // Allow pointer events and RAF to fully settle between strokes
+      await page.waitForTimeout(300);
     }
 
     await page.waitForTimeout(4000);
@@ -210,9 +132,7 @@ test.describe("Scroll view – stroke capture reliability", () => {
     const singleCount = await getStrokeCount(pageIds[0]);
 
     // Clear strokes before scroll test
-    await fetch(`${API}/api/pages/${pageIds[0]}/strokes`, {
-      method: "DELETE",
-    });
+    await clearStrokes(pageIds[0]);
 
     // --- Scroll mode ---
     await page.reload();
@@ -222,13 +142,12 @@ test.describe("Scroll view – stroke capture reliability", () => {
       timeout: 5000,
     });
 
-    const scrollBox = await page.locator(".touch-pan-y").first().boundingBox();
-    if (!scrollBox) throw new Error("No bounding box");
+    const scrollBox = await visibleBox(page, ".touch-pan-y", 0);
 
     for (let i = 0; i < N; i++) {
       await drawQuickStroke(page, scrollBox, 0.1 + i * 0.15);
       // Same timing as single mode for fair comparison
-      await page.waitForTimeout(150);
+      await page.waitForTimeout(300);
     }
 
     await page.waitForTimeout(4000);
@@ -246,14 +165,13 @@ test.describe("Scroll view – stroke capture reliability", () => {
       timeout: 5000,
     });
 
-    const box = await page.locator(".touch-pan-y").first().boundingBox();
-    if (!box) throw new Error("No bounding box");
+    const box = await visibleBox(page, ".touch-pan-y", 0);
 
-    // Draw 8 quick strokes with enough delay for pointer events to settle
+    // Draw 8 quick strokes with enough delay for pointer events and RAF to settle
     const TOTAL = 8;
     for (let i = 0; i < TOTAL; i++) {
       await drawQuickStroke(page, box, 0.05 + i * 0.1);
-      await page.waitForTimeout(100);
+      await page.waitForTimeout(300);
     }
 
     // Wait for batch save to persist all strokes
@@ -354,7 +272,7 @@ test.describe("Scroll view – stroke capture reliability", () => {
     await expect(page.locator(".touch-pan-y").first()).toBeVisible({
       timeout: 5000,
     });
-    await drawStroke(page, ".touch-pan-y", 0);
+    await drawStroke(page, ".touch-pan-y");
 
     await page.waitForTimeout(4000);
 

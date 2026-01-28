@@ -84,6 +84,11 @@ export async function addStroke(pageId: string) {
   });
 }
 
+/** Clear all strokes for a page via the API. */
+export async function clearStrokes(pageId: string) {
+  await fetch(`${API}/api/pages/${pageId}/strokes`, { method: "DELETE" });
+}
+
 /** Find the drawing layer regardless of view mode (touch-none or touch-pan-y). */
 export const DRAWING_LAYER = "[class*='touch-']";
 
@@ -121,6 +126,44 @@ export async function openNotebookSingleMode(page: Page, notebookTitle: string) 
   await openNotebook(page, notebookTitle);
   await page.getByRole("button", { name: "Single" }).click();
   await expect(page.locator(".touch-none").first()).toBeVisible({ timeout: 5000 });
+}
+
+/**
+ * Draw a short horizontal stroke within a bounding box.
+ * Uses enough steps to guarantee multiple points in the stroke buffer,
+ * preventing rejection by the < 2 point guard in endStroke.
+ */
+export async function drawQuickStroke(
+  page: Page,
+  box: { x: number; y: number; width: number; height: number },
+  yOffset: number,
+) {
+  const x1 = box.x + box.width * 0.2;
+  const x2 = box.x + box.width * 0.5;
+  const y = box.y + box.height * yOffset;
+  await page.mouse.move(x1, y);
+  await page.mouse.down();
+  await page.mouse.move(x2, y, { steps: 5 });
+  await page.mouse.up();
+}
+
+/**
+ * Return the portion of the element's bounding box that is visible within the
+ * viewport. In scroll mode the page canvas can extend below the fold, so
+ * Playwright pointer events targeted at those coordinates won't fire.
+ */
+export async function visibleBox(
+  page: Page,
+  selector: string,
+  index = 0,
+) {
+  const el = page.locator(selector).nth(index);
+  const box = await el.boundingBox();
+  if (!box) throw new Error(`No bounding box for ${selector} [${index}]`);
+  const viewport = page.viewportSize();
+  if (!viewport) throw new Error("No viewport size");
+  const bottom = Math.min(box.y + box.height, viewport.height);
+  return { x: box.x, y: box.y, width: box.width, height: bottom - box.y };
 }
 
 /** Generate a unique notebook title for E2E tests. */

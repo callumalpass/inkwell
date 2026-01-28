@@ -28,34 +28,34 @@ async function saveStrokes(pid: string, strokes: Stroke[]) {
   }
 }
 
+function flushAndSave(pageId?: string) {
+  const store = useDrawingStore.getState();
+
+  if (pageId) {
+    const pending = store.flushPendingForPage(pageId);
+    if (pending.length === 0) return;
+    saveStrokes(pageId, pending);
+  } else {
+    const allPending = store.flushAllPending();
+    for (const pid of Object.keys(allPending)) {
+      const pending = allPending[pid];
+      if (!pending || pending.length === 0) continue;
+      saveStrokes(pid, pending);
+    }
+  }
+}
+
 export function useBatchSave(pageId?: string) {
-  const intervalRef = useRef<ReturnType<typeof setInterval>>();
+  const pageIdRef = useRef(pageId);
+  pageIdRef.current = pageId;
 
   useEffect(() => {
-    intervalRef.current = setInterval(async () => {
-      const store = useDrawingStore.getState();
-
-      if (pageId) {
-        const pending = store.flushPendingForPage(pageId);
-        if (pending.length === 0) return;
-        await saveStrokes(pageId, pending);
-      } else {
-        const allPending = store.flushAllPending();
-        const pageIds = Object.keys(allPending);
-        if (pageIds.length === 0) return;
-
-        await Promise.all(
-          pageIds.map(async (pid) => {
-            const pending = allPending[pid];
-            if (!pending || pending.length === 0) return;
-            await saveStrokes(pid, pending);
-          }),
-        );
-      }
-    }, BATCH_SAVE_INTERVAL_MS);
+    const interval = setInterval(() => flushAndSave(pageIdRef.current), BATCH_SAVE_INTERVAL_MS);
 
     return () => {
-      clearInterval(intervalRef.current);
+      clearInterval(interval);
+      // Flush any remaining pending strokes so nothing is lost on unmount
+      flushAndSave(pageIdRef.current);
     };
   }, [pageId]);
 }
