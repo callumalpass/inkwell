@@ -436,7 +436,6 @@ describe("OverviewView - Export Dialog", () => {
 describe("OverviewView - Delete", () => {
   it("shows confirmation dialog when Delete is clicked", async () => {
     const user = userEvent.setup();
-    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false);
     const pages = [makePage({ pageNumber: 1 })];
     useNotebookPagesStore.setState({ pages });
 
@@ -445,16 +444,12 @@ describe("OverviewView - Delete", () => {
     await user.click(screen.getByRole("checkbox"));
     await user.click(screen.getByText("Delete"));
 
-    expect(confirmSpy).toHaveBeenCalledWith(
-      "Delete 1 page? This cannot be undone.",
-    );
-
-    confirmSpy.mockRestore();
+    expect(screen.getByTestId("confirm-dialog")).toBeInTheDocument();
+    expect(screen.getByText(/Are you sure you want to delete 1 page/)).toBeInTheDocument();
   });
 
   it("calls removePages when confirmed", async () => {
     const user = userEvent.setup();
-    vi.spyOn(window, "confirm").mockReturnValue(true);
     const removePages = vi.fn().mockResolvedValue(undefined);
     const page = makePage({ pageNumber: 1 });
     useNotebookPagesStore.setState({ pages: [page], removePages });
@@ -463,13 +458,15 @@ describe("OverviewView - Delete", () => {
 
     await user.click(screen.getByRole("checkbox"));
     await user.click(screen.getByText("Delete"));
+
+    // Click the confirm button in the dialog
+    await user.click(screen.getByTestId("confirm-dialog-confirm"));
 
     expect(removePages).toHaveBeenCalledWith([page.id]);
   });
 
   it("does not call removePages when cancelled", async () => {
     const user = userEvent.setup();
-    vi.spyOn(window, "confirm").mockReturnValue(false);
     const removePages = vi.fn().mockResolvedValue(undefined);
     const page = makePage({ pageNumber: 1 });
     useNotebookPagesStore.setState({ pages: [page], removePages });
@@ -478,6 +475,9 @@ describe("OverviewView - Delete", () => {
 
     await user.click(screen.getByRole("checkbox"));
     await user.click(screen.getByText("Delete"));
+
+    // Click the cancel button in the dialog
+    await user.click(screen.getByTestId("confirm-dialog-cancel"));
 
     expect(removePages).not.toHaveBeenCalled();
   });
