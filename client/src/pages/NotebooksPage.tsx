@@ -27,9 +27,18 @@ export function NotebooksPage() {
   const [exportNotebook, setExportNotebook] = useState<NotebookMeta | null>(null);
   const [sortField, setSortField] = useState<SortField>("modified");
   const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
+  const [filterQuery, setFilterQuery] = useState("");
 
-  const sortedNotebooks = useMemo(() => {
-    return [...notebooks].sort((a, b) => {
+  const filteredAndSortedNotebooks = useMemo(() => {
+    // First filter by name
+    const filtered = filterQuery.trim()
+      ? notebooks.filter((nb) =>
+          nb.title.toLowerCase().includes(filterQuery.toLowerCase())
+        )
+      : notebooks;
+
+    // Then sort
+    return [...filtered].sort((a, b) => {
       let comparison = 0;
       switch (sortField) {
         case "name":
@@ -44,7 +53,7 @@ export function NotebooksPage() {
       }
       return sortOrder === "asc" ? comparison : -comparison;
     });
-  }, [notebooks, sortField, sortOrder]);
+  }, [notebooks, sortField, sortOrder, filterQuery]);
 
   const handleSortChange = (field: SortField) => {
     if (field === sortField) {
@@ -79,6 +88,28 @@ export function NotebooksPage() {
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <h2 className="text-xl font-semibold">Notebooks</h2>
         <div className="flex flex-wrap items-center gap-2">
+          {/* Filter input */}
+          <div className="relative">
+            <input
+              type="text"
+              value={filterQuery}
+              onChange={(e) => setFilterQuery(e.target.value)}
+              placeholder="Filter notebooks..."
+              className="w-40 rounded border border-gray-300 px-3 py-2 text-sm placeholder-gray-400 focus:border-gray-400 focus:outline-none sm:w-48"
+              data-testid="notebook-filter"
+            />
+            {filterQuery && (
+              <button
+                onClick={() => setFilterQuery("")}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                aria-label="Clear filter"
+              >
+                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            )}
+          </div>
           {/* Sort controls */}
           <div className="flex items-center gap-1 rounded border border-gray-200 bg-gray-50 p-1" data-testid="sort-controls">
             <span className="px-2 text-xs text-gray-500">Sort:</span>
@@ -129,9 +160,13 @@ export function NotebooksPage() {
       </div>
       {loading ? (
         <p className="text-center text-gray-500">Loading...</p>
+      ) : filteredAndSortedNotebooks.length === 0 && filterQuery ? (
+        <p className="text-center text-gray-500" data-testid="no-filter-results">
+          No notebooks match "{filterQuery}"
+        </p>
       ) : (
         <NotebookList
-          notebooks={sortedNotebooks}
+          notebooks={filteredAndSortedNotebooks}
           onDelete={deleteNotebook}
           onDuplicate={duplicateNotebook}
           onRename={renameNotebook}
