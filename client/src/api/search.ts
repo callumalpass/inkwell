@@ -11,6 +11,8 @@ export interface SearchResult {
   thumbnailUrl: string;
   tags?: string[];
   matchType: MatchType;
+  /** Relevance score for ranking (higher is better) */
+  score: number;
 }
 
 export interface SearchResponse {

@@ -1,4 +1,4 @@
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, rm, utimes } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { config } from "../config.js";
@@ -11,6 +11,9 @@ import {
   _isProcessing,
   _clearQueue,
   initQueue,
+  cleanupFailedJobs,
+  listFailedJobs,
+  retryFailedJob,
 } from "./transcription-queue.js";
 import { ensureDir, writeJson } from "../storage/fs-utils.js";
 import { paths } from "../storage/paths.js";
@@ -87,10 +90,11 @@ describe("enqueueTranscription", () => {
   });
 });
 
-describe("getQueueStatus", () => {
+describe("getQueueStatus - basic", () => {
   it("returns empty queue when nothing enqueued", async () => {
     const status = await getQueueStatus();
     expect(status.pending).toBe(0);
+    expect(status.failed).toBe(0);
     expect(status.jobs).toEqual([]);
   });
 });
@@ -253,5 +257,142 @@ describe("queue persistence", () => {
 
     // Clean up
     await _clearQueue();
+  });
+});
+
+describe("cleanupFailedJobs", () => {
+  it("removes failed jobs older than 7 days", async () => {
+    await ensureDir(paths.queueFailed());
+
+    // Create an old failed job (8 days ago)
+    const oldJobPath = paths.queueJob("failed", "old_pg_old");
+    await writeJson(oldJobPath, {
+      pageId: "pg_old",
+      notebookId: "nb_test",
+      createdAt: new Date(Date.now() - 8 * 24 * 60 * 60 * 1000).toISOString(),
+      attempts: 3,
+      lastError: "Test error",
+      force: false,
+    });
+    // Set file mtime to 8 days ago
+    const oldTime = new Date(Date.now() - 8 * 24 * 60 * 60 * 1000);
+    await utimes(oldJobPath, oldTime, oldTime);
+
+    // Create a recent failed job (1 day ago)
+    const recentJobPath = paths.queueJob("failed", "recent_pg_recent");
+    await writeJson(recentJobPath, {
+      pageId: "pg_recent",
+      notebookId: "nb_test",
+      createdAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
+      attempts: 3,
+      lastError: "Test error",
+      force: false,
+    });
+
+    // Run cleanup
+    const cleaned = await cleanupFailedJobs();
+
+    // Should have cleaned up 1 job
+    expect(cleaned).toBe(1);
+
+    // Recent job should still exist
+    const remaining = await listFailedJobs();
+    expect(remaining.length).toBe(1);
+    expect(remaining[0].pageId).toBe("pg_recent");
+  });
+
+  it("returns 0 when no jobs to clean up", async () => {
+    const cleaned = await cleanupFailedJobs();
+    expect(cleaned).toBe(0);
+  });
+});
+
+describe("listFailedJobs", () => {
+  it("returns empty array when no failed jobs", async () => {
+    const jobs = await listFailedJobs();
+    expect(jobs).toEqual([]);
+  });
+
+  it("returns all failed jobs", async () => {
+    await ensureDir(paths.queueFailed());
+
+    await writeJson(paths.queueJob("failed", "1_pg_fail1"), {
+      pageId: "pg_fail1",
+      notebookId: "nb_test",
+      createdAt: new Date().toISOString(),
+      attempts: 3,
+      lastError: "Error 1",
+      force: false,
+    });
+
+    await writeJson(paths.queueJob("failed", "2_pg_fail2"), {
+      pageId: "pg_fail2",
+      notebookId: "nb_test",
+      createdAt: new Date().toISOString(),
+      attempts: 3,
+      lastError: "Error 2",
+      force: false,
+    });
+
+    const jobs = await listFailedJobs();
+    expect(jobs.length).toBe(2);
+    expect(jobs.map((j) => j.pageId).sort()).toEqual(["pg_fail1", "pg_fail2"]);
+  });
+});
+
+describe("retryFailedJob", () => {
+  it("moves failed job back to pending queue", async () => {
+    await setupTestPage("nb_test", "pg_retry");
+    await ensureDir(paths.queueFailed());
+
+    await writeJson(paths.queueJob("failed", "1_pg_retry"), {
+      pageId: "pg_retry",
+      notebookId: "nb_test",
+      createdAt: new Date().toISOString(),
+      attempts: 3,
+      lastError: "Previous error",
+      force: false,
+    });
+
+    // Stop queue to prevent immediate processing
+    stopQueue();
+
+    const result = await retryFailedJob("pg_retry");
+    expect(result).toBe(true);
+
+    // Should be in pending queue now
+    const pending = await _getQueue();
+    expect(pending.some((j) => j.pageId === "pg_retry")).toBe(true);
+
+    // Should not be in failed queue
+    const failed = await listFailedJobs();
+    expect(failed.some((j) => j.pageId === "pg_retry")).toBe(false);
+
+    // Clean up
+    await _clearQueue();
+  });
+
+  it("returns false for non-existent job", async () => {
+    const result = await retryFailedJob("pg_nonexistent");
+    expect(result).toBe(false);
+  });
+});
+
+describe("getQueueStatus", () => {
+  it("includes failed job count", async () => {
+    await ensureDir(paths.queueFailed());
+
+    await writeJson(paths.queueJob("failed", "1_pg_status_fail"), {
+      pageId: "pg_status_fail",
+      notebookId: "nb_test",
+      createdAt: new Date().toISOString(),
+      attempts: 3,
+      lastError: "Error",
+      force: false,
+    });
+
+    const status = await getQueueStatus();
+    expect(status.failed).toBe(1);
+    expect(status.jobs.some((j) => j.status === "failed")).toBe(true);
   });
 });

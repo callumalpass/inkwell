@@ -1,4 +1,4 @@
-import { readdir, unlink, rename } from "node:fs/promises";
+import { readdir, unlink, rename, stat } from "node:fs/promises";
 import { config } from "../config.js";
 import { updatePage } from "../storage/page-store.js";
 import { transcribePage } from "./transcription.js";
@@ -23,8 +23,12 @@ type JobListener = (
 
 let processing = false;
 let pollTimer: ReturnType<typeof setTimeout> | null = null;
+let cleanupTimer: ReturnType<typeof setInterval> | null = null;
 let listener: JobListener | null = null;
 let initialized = false;
+
+/** How many days to keep failed jobs before automatic cleanup */
+const FAILED_JOB_RETENTION_DAYS = 7;
 
 export function setTranscriptionListener(fn: JobListener): void {
   listener = fn;
@@ -126,10 +130,110 @@ async function getNextPendingJob(): Promise<TranscriptionJob | null> {
   return jobs[0] ?? null;
 }
 
+/**
+ * Clean up failed transcription jobs older than FAILED_JOB_RETENTION_DAYS.
+ * Returns the number of jobs cleaned up.
+ */
+export async function cleanupFailedJobs(): Promise<number> {
+  await ensureQueueDirs();
+  const failedDir = paths.queueFailed();
+  let files: string[];
+  try {
+    files = await readdir(failedDir);
+  } catch {
+    return 0;
+  }
+
+  const now = Date.now();
+  const maxAgeMs = FAILED_JOB_RETENTION_DAYS * 24 * 60 * 60 * 1000;
+  let cleaned = 0;
+
+  for (const file of files.filter(f => f.endsWith(".json"))) {
+    const filePath = `${failedDir}/${file}`;
+    try {
+      const fileStat = await stat(filePath);
+      const fileAgeMs = now - fileStat.mtime.getTime();
+
+      if (fileAgeMs > maxAgeMs) {
+        await unlink(filePath);
+        cleaned++;
+      }
+    } catch {
+      // Ignore errors for individual files
+    }
+  }
+
+  return cleaned;
+}
+
+/**
+ * List all failed transcription jobs.
+ */
+export async function listFailedJobs(): Promise<TranscriptionJob[]> {
+  await ensureQueueDirs();
+  const dir = paths.queueFailed();
+  let files: string[];
+  try {
+    files = await readdir(dir);
+  } catch {
+    return [];
+  }
+
+  const jobs: TranscriptionJob[] = [];
+  for (const file of files.filter(f => f.endsWith(".json")).sort()) {
+    const filePath = `${dir}/${file}`;
+    const job = await readJson<TranscriptionJob>(filePath);
+    if (job) {
+      jobs.push(job);
+    }
+  }
+  return jobs;
+}
+
+/**
+ * Retry a failed transcription job by moving it back to the pending queue.
+ */
+export async function retryFailedJob(pageId: string): Promise<boolean> {
+  const jobs = await listFailedJobs();
+  const job = jobs.find(j => j.pageId === pageId);
+  if (!job) return false;
+
+  // Remove from failed
+  await removeJob("failed", job);
+
+  // Reset attempts and re-queue
+  job.attempts = 0;
+  job.lastError = null;
+  job.createdAt = new Date().toISOString();
+  await writeJob("pending", job);
+
+  await updatePageTranscriptionStatus(pageId, {
+    status: "pending",
+    lastAttempt: null,
+    error: null,
+  });
+
+  if (!processing) {
+    processNext();
+  }
+
+  return true;
+}
+
 export async function initQueue(): Promise<void> {
   if (initialized) return;
   await ensureQueueDirs();
   initialized = true;
+
+  // Run initial cleanup
+  await cleanupFailedJobs();
+
+  // Schedule periodic cleanup every 24 hours
+  if (!cleanupTimer) {
+    cleanupTimer = setInterval(async () => {
+      await cleanupFailedJobs();
+    }, 24 * 60 * 60 * 1000);
+  }
 
   // Start processing if there are pending jobs
   const pendingJobs = await listPendingJobs();
@@ -183,16 +287,27 @@ export async function enqueueTranscription(
 
 export async function getQueueStatus(): Promise<{
   pending: number;
-  jobs: Array<{ pageId: string; attempts: number; status: string }>;
+  failed: number;
+  jobs: Array<{ pageId: string; attempts: number; status: string; lastError?: string }>;
 }> {
-  const jobs = await listPendingJobs();
+  const pendingJobs = await listPendingJobs();
+  const failedJobs = await listFailedJobs();
   return {
-    pending: jobs.length,
-    jobs: jobs.map((j) => ({
-      pageId: j.pageId,
-      attempts: j.attempts,
-      status: j.attempts === 0 ? "pending" : "retrying",
-    })),
+    pending: pendingJobs.length,
+    failed: failedJobs.length,
+    jobs: [
+      ...pendingJobs.map((j) => ({
+        pageId: j.pageId,
+        attempts: j.attempts,
+        status: j.attempts === 0 ? "pending" : "retrying",
+      })),
+      ...failedJobs.map((j) => ({
+        pageId: j.pageId,
+        attempts: j.attempts,
+        status: "failed",
+        lastError: j.lastError ?? undefined,
+      })),
+    ],
   };
 }
 
@@ -284,6 +399,10 @@ export function stopQueue(): void {
   if (pollTimer) {
     clearTimeout(pollTimer);
     pollTimer = null;
+  }
+  if (cleanupTimer) {
+    clearInterval(cleanupTimer);
+    cleanupTimer = null;
   }
   processing = false;
   listener = null;

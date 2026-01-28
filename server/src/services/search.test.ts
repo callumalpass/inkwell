@@ -261,19 +261,59 @@ describe("searchTranscriptions", () => {
     expect(result.total).toBe(2);
   });
 
-  it("sorts results by modified date descending", async () => {
+  it("sorts results by relevance score", async () => {
+    // Create pages with different relevance characteristics
     await setupNotebookWithTranscription(
-      "nb_sort1", "Older", "pg_sort1", "common word",
+      "nb_rel1", "Notebook A", "pg_rel1", "This has the word apple mentioned once at the end.",
     );
-    // Create newer one with a slightly later timestamp
-    await new Promise((resolve) => setTimeout(resolve, 10));
     await setupNotebookWithTranscription(
-      "nb_sort2", "Newer", "pg_sort2", "common word",
+      "nb_rel2", "Notebook B", "pg_rel2", "apple apple apple - mentioned multiple times",
+    );
+    await setupNotebookWithTranscription(
+      "nb_rel3", "Notebook C", "pg_rel3", "The apple appears early and is an exact word match",
     );
 
-    const result = await searchTranscriptions("common");
+    const result = await searchTranscriptions("apple");
+    expect(result.total).toBe(3);
+    // Results should include score and be sorted by it
+    expect(result.results[0]).toHaveProperty("score");
+    expect(typeof result.results[0].score).toBe("number");
+    // Higher scores should come first
+    expect(result.results[0].score).toBeGreaterThanOrEqual(result.results[1].score);
+    expect(result.results[1].score).toBeGreaterThanOrEqual(result.results[2].score);
+  });
+
+  it("gives higher score to exact word matches", async () => {
+    await setupNotebookWithTranscription(
+      "nb_exact1", "Notebook A", "pg_exact1", "I love test code quality",
+    );
+    await setupNotebookWithTranscription(
+      "nb_exact2", "Notebook B", "pg_exact2", "I was testing something",
+    );
+
+    const result = await searchTranscriptions("test");
     expect(result.total).toBe(2);
-    expect(result.results[0].notebookName).toBe("Newer");
-    expect(result.results[1].notebookName).toBe("Older");
+    // "test" as exact word vs "testing" which only contains "test"
+    const exactMatch = result.results.find((r) => r.notebookName === "Notebook A");
+    const partialMatch = result.results.find((r) => r.notebookName === "Notebook B");
+    expect(exactMatch).toBeDefined();
+    expect(partialMatch).toBeDefined();
+    // The exact word match should score higher
+    expect(exactMatch!.score).toBeGreaterThan(partialMatch!.score);
+  });
+
+  it("gives higher score to multiple occurrences", async () => {
+    await setupNotebookWithTranscription(
+      "nb_multi1", "Single", "pg_multi1", "This mentions budget once",
+    );
+    await setupNotebookWithTranscription(
+      "nb_multi2", "Multiple", "pg_multi2", "budget budget budget - budget planning for budget",
+    );
+
+    const result = await searchTranscriptions("budget");
+    expect(result.total).toBe(2);
+    const singleMatch = result.results.find((r) => r.notebookName === "Single");
+    const multiMatch = result.results.find((r) => r.notebookName === "Multiple");
+    expect(multiMatch!.score).toBeGreaterThan(singleMatch!.score);
   });
 });

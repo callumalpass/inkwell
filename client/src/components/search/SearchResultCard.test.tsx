@@ -11,6 +11,7 @@ const MOCK_RESULT: SearchResult = {
   modified: "2025-01-28T10:00:00Z",
   thumbnailUrl: "/api/pages/pg_1/thumbnail",
   matchType: "transcription",
+  score: 100,
 };
 
 describe("SearchResultCard", () => {

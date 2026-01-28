@@ -4,6 +4,7 @@ import { useViewStore } from "../../stores/view-store";
 import { useNotebookPagesStore } from "../../stores/notebook-pages-store";
 import { useDrawingStore } from "../../stores/drawing-store";
 import { useUIStore } from "../../stores/ui-store";
+import { useTranscriptionStore } from "../../stores/transcription-store";
 import { Toolbar } from "./toolbar";
 import { SinglePageView } from "./SinglePageView";
 import { CanvasView } from "./CanvasView";
@@ -13,6 +14,8 @@ import { PageLinksPanel } from "./PageLinksPanel";
 import { PageTagsPanel } from "./PageTagsPanel";
 import { SearchView } from "../search/SearchView";
 import { KeyboardShortcutsDialog } from "../ui/KeyboardShortcutsDialog";
+import { ViewErrorBoundary } from "../ui/ViewErrorBoundary";
+import { WelcomeTooltip } from "../ui/WelcomeTooltip";
 import { PageJumpDialog } from "./PageJumpDialog";
 import { useUndoRedoKeyboard } from "../../hooks/useUndoRedo";
 import { useOfflineSync } from "../../hooks/useOfflineSync";
@@ -32,6 +35,7 @@ export function WritingView() {
   const setTool = useDrawingStore((s) => s.setTool);
   const pageJumpOpen = useUIStore((s) => s.pageJumpOpen);
   const setPageJumpOpen = useUIStore((s) => s.setPageJumpOpen);
+  const triggerTranscription = useTranscriptionStore((s) => s.triggerTranscription);
   const [searchOpen, setSearchOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [creatingPage, setCreatingPage] = useState(false);
@@ -140,8 +144,17 @@ export function WritingView() {
     if (e.key === "h" && !e.metaKey && !e.ctrlKey && !e.altKey) {
       e.preventDefault();
       setTool("highlighter");
+      return;
     }
-  }, [handleCreatePage, setViewMode, fitAll, viewMode, setTool, setPageJumpOpen]);
+
+    // T to trigger transcription for current page (single page view only)
+    if (e.key === "t" && !e.metaKey && !e.ctrlKey && !e.altKey) {
+      e.preventDefault();
+      if (viewMode === "single" && currentPageId) {
+        triggerTranscription(currentPageId);
+      }
+    }
+  }, [handleCreatePage, setViewMode, fitAll, viewMode, setTool, setPageJumpOpen, currentPageId, triggerTranscription]);
 
   useEffect(() => {
     document.addEventListener("keydown", handleKeyDown);
@@ -151,10 +164,24 @@ export function WritingView() {
   return (
     <div className="flex h-screen flex-col">
       <Toolbar />
-      {viewMode === "single" && <SinglePageView />}
-      {viewMode === "canvas" && <CanvasView />}
-      {viewMode === "overview" && <OverviewView />}
-      <TranscriptionPanel />
+      {viewMode === "single" && (
+        <ViewErrorBoundary viewName="Single Page View">
+          <SinglePageView />
+        </ViewErrorBoundary>
+      )}
+      {viewMode === "canvas" && (
+        <ViewErrorBoundary viewName="Canvas View">
+          <CanvasView />
+        </ViewErrorBoundary>
+      )}
+      {viewMode === "overview" && (
+        <ViewErrorBoundary viewName="Overview">
+          <OverviewView />
+        </ViewErrorBoundary>
+      )}
+      <ViewErrorBoundary viewName="Transcription Panel">
+        <TranscriptionPanel />
+      </ViewErrorBoundary>
       <PageLinksPanel />
       <PageTagsPanel />
       <SearchView open={searchOpen} onClose={() => setSearchOpen(false)} />
@@ -166,6 +193,7 @@ export function WritingView() {
         open={pageJumpOpen}
         onClose={() => setPageJumpOpen(false)}
       />
+      <WelcomeTooltip />
     </div>
   );
 }

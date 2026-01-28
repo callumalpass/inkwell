@@ -12,6 +12,8 @@ export interface SearchResult {
   thumbnailUrl: string;
   tags?: string[];
   matchType: "transcription" | "tag" | "notebook";
+  /** Relevance score for ranking (higher is better) */
+  score: number;
 }
 
 export interface SearchResponse {
@@ -21,6 +23,88 @@ export interface SearchResponse {
 }
 
 const EXCERPT_CONTEXT_CHARS = 80;
+
+/**
+ * Calculate a relevance score for a search result.
+ * Higher scores indicate better matches.
+ *
+ * Factors considered:
+ * - Match type priority (transcription > tag > notebook)
+ * - Number of matches in content
+ * - Exact word match vs partial match
+ * - Match position (earlier matches score higher)
+ * - Recency (more recent pages score higher)
+ */
+function calculateRelevanceScore(
+  content: string | null,
+  query: string,
+  matchType: "transcription" | "tag" | "notebook",
+  matchedTag: string | null,
+  modified: string,
+): number {
+  let score = 0;
+  const lowerQuery = query.toLowerCase();
+
+  // Base score by match type
+  switch (matchType) {
+    case "transcription":
+      score += 100;
+      break;
+    case "tag":
+      score += 80;
+      break;
+    case "notebook":
+      score += 60;
+      break;
+  }
+
+  // Count occurrences for transcription matches
+  if (content && matchType === "transcription") {
+    const lowerContent = content.toLowerCase();
+    let count = 0;
+    let pos = 0;
+    while ((pos = lowerContent.indexOf(lowerQuery, pos)) !== -1) {
+      count++;
+      pos += lowerQuery.length;
+    }
+    // Each additional occurrence adds points (diminishing returns)
+    score += Math.min(count * 10, 50);
+
+    // Bonus for early position in content
+    const firstPos = lowerContent.indexOf(lowerQuery);
+    if (firstPos !== -1) {
+      // First 200 chars get full bonus, then diminishes
+      score += Math.max(0, 20 - Math.floor(firstPos / 50));
+    }
+
+    // Bonus for exact word match (surrounded by word boundaries)
+    const wordBoundaryRegex = new RegExp(
+      `\\b${query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`,
+      "i"
+    );
+    if (wordBoundaryRegex.test(content)) {
+      score += 30;
+    }
+  }
+
+  // Tag match bonuses
+  if (matchedTag) {
+    // Exact tag match gets bonus
+    if (matchedTag.toLowerCase() === lowerQuery) {
+      score += 40;
+    }
+  }
+
+  // Recency bonus (pages modified in last 7 days get up to 15 points)
+  const modifiedDate = new Date(modified);
+  const now = new Date();
+  const daysSinceModified = (now.getTime() - modifiedDate.getTime()) / (1000 * 60 * 60 * 24);
+  if (daysSinceModified < 7) {
+    score += Math.floor(15 * (1 - daysSinceModified / 7));
+  }
+
+  return score;
+}
 
 /**
  * Extract a text excerpt around the first match of the query.
@@ -167,22 +251,35 @@ export async function searchTranscriptions(
         if (!matchTypeFilter.includes(matchType)) continue;
       }
 
+      const modifiedDate = pageMeta?.updatedAt ?? notebookMeta.updatedAt;
+      const score = calculateRelevanceScore(
+        content,
+        query,
+        matchType,
+        matchedTag,
+        modifiedDate,
+      );
+
       seenPages.add(pageId);
       results.push({
         pageId,
         notebookId,
         notebookName: notebookMeta.title,
         excerpt,
-        modified: pageMeta?.updatedAt ?? notebookMeta.updatedAt,
+        modified: modifiedDate,
         thumbnailUrl: `/api/pages/${pageId}/thumbnail`,
         tags: pageMeta?.tags,
         matchType,
+        score,
       });
     }
   }
 
-  // Sort by most recently modified first
-  results.sort((a, b) => b.modified.localeCompare(a.modified));
+  // Sort by relevance score (highest first), then by modified date as tiebreaker
+  results.sort((a, b) => {
+    if (b.score !== a.score) return b.score - a.score;
+    return b.modified.localeCompare(a.modified);
+  });
 
   const total = results.length;
   const paginatedResults = results.slice(offset, offset + limit);

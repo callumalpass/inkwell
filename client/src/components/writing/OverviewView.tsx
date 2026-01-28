@@ -3,6 +3,12 @@ import { useNotebookPagesStore } from "../../stores/notebook-pages-store";
 import { useViewStore } from "../../stores/view-store";
 import { ConfirmDialog } from "../ui/ConfirmDialog";
 import { showError, showSuccess, showInfo } from "../../stores/toast-store";
+import {
+  useBulkOperationStore,
+  startBulkOperation,
+  incrementBulkProgress,
+  finishBulkOperation,
+} from "../../stores/bulk-operation-store";
 import { triggerTranscription, bulkTranscribe } from "../../api/transcription";
 import {
   TagDialog,
@@ -214,27 +220,65 @@ export function OverviewView() {
     }
   };
 
+  // Get cancelled state from bulk operation store
+  const bulkOperation = useBulkOperationStore((s) => s.operation);
+  const cancelledRef = useRef(false);
+
+  // Reset cancelled ref when operation starts
+  useEffect(() => {
+    if (bulkOperation) {
+      cancelledRef.current = false;
+    }
+  }, [bulkOperation?.id]);
+
+  // Track cancellation
+  useEffect(() => {
+    if (!bulkOperation && cancelledRef.current === false) {
+      // Operation was cancelled externally
+      cancelledRef.current = true;
+    }
+  }, [bulkOperation]);
+
   // Transcription operations
   const handleTranscribeSelected = async () => {
     if (selectedCount === 0) return;
     setTranscribing(true);
-    showInfo(
-      `Queuing ${selectedCount} page${selectedCount > 1 ? "s" : ""} for transcription...`,
+    cancelledRef.current = false;
+
+    startBulkOperation(
+      "transcribe",
+      `Transcribing ${selectedCount} page${selectedCount > 1 ? "s" : ""}`,
+      selectedCount,
     );
+
     try {
       let queued = 0;
+      let failed = 0;
       for (const pageId of selectedIds) {
+        // Check if operation was cancelled
+        if (cancelledRef.current) {
+          showInfo("Transcription cancelled");
+          break;
+        }
         try {
           await triggerTranscription(pageId, false);
           queued++;
+          incrementBulkProgress(true);
         } catch {
-          // Continue with other pages even if one fails
+          failed++;
+          incrementBulkProgress(false);
         }
       }
-      showSuccess(
-        `Queued ${queued} page${queued > 1 ? "s" : ""} for transcription`,
-      );
+      finishBulkOperation();
+      if (queued > 0) {
+        showSuccess(
+          `Queued ${queued} page${queued > 1 ? "s" : ""} for transcription${failed > 0 ? ` (${failed} failed)` : ""}`,
+        );
+      } else if (failed > 0) {
+        showError(`Failed to queue ${failed} page${failed > 1 ? "s" : ""}`);
+      }
     } catch (err: unknown) {
+      finishBulkOperation();
       showError(
         err instanceof Error ? err.message : "Failed to queue transcription",
       );
@@ -265,21 +309,42 @@ export function OverviewView() {
   const handleDuplicate = async () => {
     if (selectedCount === 0) return;
     setDuplicating(true);
+    cancelledRef.current = false;
+
+    startBulkOperation(
+      "duplicate",
+      `Duplicating ${selectedCount} page${selectedCount > 1 ? "s" : ""}`,
+      selectedCount,
+    );
+
     try {
       let duplicated = 0;
+      let failed = 0;
       for (const pageId of selectedIds) {
+        if (cancelledRef.current) {
+          showInfo("Duplication cancelled");
+          break;
+        }
         try {
           await duplicatePage(pageId);
           duplicated++;
+          incrementBulkProgress(true);
         } catch {
-          // Continue with other pages even if one fails
+          failed++;
+          incrementBulkProgress(false);
         }
       }
-      showSuccess(
-        `Duplicated ${duplicated} page${duplicated > 1 ? "s" : ""}`,
-      );
-      clearSelection();
+      finishBulkOperation();
+      if (duplicated > 0) {
+        showSuccess(
+          `Duplicated ${duplicated} page${duplicated > 1 ? "s" : ""}${failed > 0 ? ` (${failed} failed)` : ""}`,
+        );
+        clearSelection();
+      } else if (failed > 0) {
+        showError(`Failed to duplicate ${failed} page${failed > 1 ? "s" : ""}`);
+      }
     } catch (err: unknown) {
+      finishBulkOperation();
       showError(
         err instanceof Error ? err.message : "Failed to duplicate pages",
       );

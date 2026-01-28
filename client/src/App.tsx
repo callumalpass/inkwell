@@ -5,6 +5,7 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { listPages, createPage } from "./api/pages";
 import { useSettingsStore } from "./stores/settings-store";
 import { Toaster } from "./components/ui/Toaster";
+import { BulkProgressIndicator } from "./components/ui/BulkProgressIndicator";
 import { KeyboardShortcutsDialog } from "./components/ui/KeyboardShortcutsDialog";
 import { ErrorBoundary } from "./components/ui/ErrorBoundary";
 import { setQuotaExceededCallback } from "./lib/offline-queue";
@@ -93,6 +94,7 @@ export function App() {
           <Route path="/notebook/:notebookId/page/:pageId" element={<WritingPage />} />
         </Routes>
         <Toaster />
+        <BulkProgressIndicator />
         <KeyboardShortcutsDialog
           open={shortcutsOpen}
           onClose={() => setShortcutsOpen(false)}

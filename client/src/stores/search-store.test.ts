@@ -29,6 +29,7 @@ const MOCK_RESULTS: searchApi.SearchResult[] = [
     modified: "2025-01-28T10:00:00Z",
     thumbnailUrl: "/api/pages/pg_1/thumbnail",
     matchType: "transcription",
+    score: 150,
   },
   {
     pageId: "pg_2",
@@ -38,6 +39,7 @@ const MOCK_RESULTS: searchApi.SearchResult[] = [
     modified: "2025-01-28T09:00:00Z",
     thumbnailUrl: "/api/pages/pg_2/thumbnail",
     matchType: "transcription",
+    score: 120,
   },
 ];
 
