@@ -21,6 +21,8 @@ interface NotebookPagesStore {
   goToPrevPage: () => void;
   addNewPage: () => Promise<pagesApi.PageMeta>;
   updatePagePosition: (pageId: string, canvasX: number, canvasY: number) => Promise<void>;
+  updatePageLinks: (pageId: string, links: string[]) => Promise<void>;
+  updatePageTags: (pageId: string, tags: string[]) => Promise<void>;
   updateSettings: (settings: NotebookSettings) => Promise<void>;
 }
 
@@ -108,6 +110,22 @@ export const useNotebookPagesStore = create<NotebookPagesStore>((set, get) => ({
 
   updatePagePosition: async (pageId, canvasX, canvasY) => {
     const updated = await pagesApi.updatePage(pageId, { canvasX, canvasY });
+    const { pages } = get();
+    set({
+      pages: pages.map((p) => (p.id === pageId ? updated : p)),
+    });
+  },
+
+  updatePageLinks: async (pageId, links) => {
+    const updated = await pagesApi.updatePage(pageId, { links });
+    const { pages } = get();
+    set({
+      pages: pages.map((p) => (p.id === pageId ? updated : p)),
+    });
+  },
+
+  updatePageTags: async (pageId, tags) => {
+    const updated = await pagesApi.updatePage(pageId, { tags });
     const { pages } = get();
     set({
       pages: pages.map((p) => (p.id === pageId ? updated : p)),

@@ -5,6 +5,7 @@ import { SinglePageView } from "./SinglePageView";
 import { ScrollPageListView } from "./ScrollPageListView";
 import { CanvasView } from "./CanvasView";
 import { TranscriptionPanel } from "./TranscriptionPanel";
+import { PageLinksPanel } from "./PageLinksPanel";
 import { useUndoRedoKeyboard } from "../../hooks/useUndoRedo";
 import { useOfflineSync } from "../../hooks/useOfflineSync";
 
@@ -23,6 +24,7 @@ export function WritingView() {
       {viewMode === "scroll" && <ScrollPageListView />}
       {viewMode === "canvas" && <CanvasView />}
       <TranscriptionPanel />
+      <PageLinksPanel />
     </div>
   );
 }

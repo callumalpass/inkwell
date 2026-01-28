@@ -15,6 +15,8 @@ export interface PageMeta {
   canvasY: number;
   createdAt: string;
   updatedAt: string;
+  links?: string[];
+  tags?: string[];
   transcription?: TranscriptionMeta;
 }
 
@@ -34,7 +36,13 @@ export function getPage(pageId: string) {
 
 export function updatePage(
   pageId: string,
-  updates: { canvasX?: number; canvasY?: number; pageNumber?: number },
+  updates: {
+    canvasX?: number;
+    canvasY?: number;
+    pageNumber?: number;
+    links?: string[];
+    tags?: string[];
+  },
 ) {
   return apiFetch<PageMeta>(`/pages/${pageId}`, {
     method: "PATCH",

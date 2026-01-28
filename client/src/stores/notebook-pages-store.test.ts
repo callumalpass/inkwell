@@ -213,3 +213,101 @@ describe("updateSettings", () => {
     ).rejects.toThrow("No notebook loaded");
   });
 });
+
+describe("updatePageLinks", () => {
+  it("updates links on a page via API and refreshes store", async () => {
+    const { updatePage } = await import("../api/pages");
+    const updatedPage = { ...threePages[0], links: ["p2", "p3"] };
+    vi.mocked(updatePage).mockResolvedValue(updatedPage);
+
+    useNotebookPagesStore.setState({ pages: [...threePages] });
+    await useNotebookPagesStore.getState().updatePageLinks("p1", ["p2", "p3"]);
+
+    expect(updatePage).toHaveBeenCalledWith("p1", { links: ["p2", "p3"] });
+    const page = useNotebookPagesStore.getState().pages.find((p) => p.id === "p1");
+    expect(page?.links).toEqual(["p2", "p3"]);
+  });
+
+  it("replaces existing links completely", async () => {
+    const { updatePage } = await import("../api/pages");
+    const pageWithLinks = { ...threePages[0], links: ["p2"] };
+    const updatedPage = { ...threePages[0], links: ["p3"] };
+    vi.mocked(updatePage).mockResolvedValue(updatedPage);
+
+    useNotebookPagesStore.setState({
+      pages: [pageWithLinks, threePages[1], threePages[2]],
+    });
+    await useNotebookPagesStore.getState().updatePageLinks("p1", ["p3"]);
+
+    expect(updatePage).toHaveBeenCalledWith("p1", { links: ["p3"] });
+    const page = useNotebookPagesStore.getState().pages.find((p) => p.id === "p1");
+    expect(page?.links).toEqual(["p3"]);
+  });
+
+  it("clears links with empty array", async () => {
+    const { updatePage } = await import("../api/pages");
+    const updatedPage = { ...threePages[0], links: [] };
+    vi.mocked(updatePage).mockResolvedValue(updatedPage);
+
+    useNotebookPagesStore.setState({ pages: [...threePages] });
+    await useNotebookPagesStore.getState().updatePageLinks("p1", []);
+
+    expect(updatePage).toHaveBeenCalledWith("p1", { links: [] });
+    const page = useNotebookPagesStore.getState().pages.find((p) => p.id === "p1");
+    expect(page?.links).toEqual([]);
+  });
+
+  it("does not modify other pages in the store", async () => {
+    const { updatePage } = await import("../api/pages");
+    const updatedPage = { ...threePages[0], links: ["p2"] };
+    vi.mocked(updatePage).mockResolvedValue(updatedPage);
+
+    useNotebookPagesStore.setState({ pages: [...threePages] });
+    await useNotebookPagesStore.getState().updatePageLinks("p1", ["p2"]);
+
+    const pages = useNotebookPagesStore.getState().pages;
+    expect(pages[1]).toEqual(threePages[1]);
+    expect(pages[2]).toEqual(threePages[2]);
+  });
+});
+
+describe("updatePageTags", () => {
+  it("updates tags on a page via API and refreshes store", async () => {
+    const { updatePage } = await import("../api/pages");
+    const updatedPage = { ...threePages[0], tags: ["meeting", "project-x"] };
+    vi.mocked(updatePage).mockResolvedValue(updatedPage);
+
+    useNotebookPagesStore.setState({ pages: [...threePages] });
+    await useNotebookPagesStore.getState().updatePageTags("p1", ["meeting", "project-x"]);
+
+    expect(updatePage).toHaveBeenCalledWith("p1", { tags: ["meeting", "project-x"] });
+    const page = useNotebookPagesStore.getState().pages.find((p) => p.id === "p1");
+    expect(page?.tags).toEqual(["meeting", "project-x"]);
+  });
+
+  it("clears tags with empty array", async () => {
+    const { updatePage } = await import("../api/pages");
+    const updatedPage = { ...threePages[0], tags: [] };
+    vi.mocked(updatePage).mockResolvedValue(updatedPage);
+
+    useNotebookPagesStore.setState({ pages: [...threePages] });
+    await useNotebookPagesStore.getState().updatePageTags("p1", []);
+
+    expect(updatePage).toHaveBeenCalledWith("p1", { tags: [] });
+    const page = useNotebookPagesStore.getState().pages.find((p) => p.id === "p1");
+    expect(page?.tags).toEqual([]);
+  });
+
+  it("does not modify other pages in the store", async () => {
+    const { updatePage } = await import("../api/pages");
+    const updatedPage = { ...threePages[0], tags: ["important"] };
+    vi.mocked(updatePage).mockResolvedValue(updatedPage);
+
+    useNotebookPagesStore.setState({ pages: [...threePages] });
+    await useNotebookPagesStore.getState().updatePageTags("p1", ["important"]);
+
+    const pages = useNotebookPagesStore.getState().pages;
+    expect(pages[1]).toEqual(threePages[1]);
+    expect(pages[2]).toEqual(threePages[2]);
+  });
+});

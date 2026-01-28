@@ -8,6 +8,7 @@ import { TranscriptionIndicator } from "./TranscriptionIndicator";
 import { OfflineIndicator } from "./OfflineIndicator";
 import { ExportDialog } from "../export/ExportDialog";
 import { useUndoRedo } from "../../hooks/useUndoRedo";
+import { useLinksPanelStore } from "../../stores/links-panel-store";
 import {
   COLOR_PRESETS,
   CANVAS_MIN_ZOOM,
@@ -77,6 +78,10 @@ export function Toolbar() {
   const currentPage = pages[currentPageIndex] ?? null;
   const currentPageId = currentPage?.id ?? "";
   const { undo, redo, canUndo, canRedo } = useUndoRedo(currentPageId);
+
+  const linksPanelOpen = useLinksPanelStore((s) => s.panelOpen);
+  const openLinksPanel = useLinksPanelStore((s) => s.openPanel);
+  const closeLinksPanel = useLinksPanelStore((s) => s.closePanel);
 
   const [expanded, setExpanded] = useState(false);
   const [isCompact, setIsCompact] = useState(false);
@@ -371,6 +376,23 @@ export function Toolbar() {
                   </>
                 )}
 
+                {/* Links button */}
+                {currentPage && (
+                  <>
+                    <button
+                      onClick={() =>
+                        linksPanelOpen ? closeLinksPanel() : openLinksPanel(currentPage.id)
+                      }
+                      className={`${BTN} ${linksPanelOpen ? BTN_ACTIVE : BTN_INACTIVE}`}
+                      aria-label="Page links"
+                      data-testid="toolbar-links-compact"
+                    >
+                      Links
+                    </button>
+                    <Divider />
+                  </>
+                )}
+
                 <div className="flex items-center gap-1">
                   <button
                     onClick={handleZoomOut}
@@ -579,6 +601,23 @@ export function Toolbar() {
                   data-testid="toolbar-export"
                 >
                   Export
+                </button>
+                <Divider />
+              </>
+            )}
+
+            {/* Links button */}
+            {currentPage && (
+              <>
+                <button
+                  onClick={() =>
+                    linksPanelOpen ? closeLinksPanel() : openLinksPanel(currentPage.id)
+                  }
+                  className={`${BTN} ${linksPanelOpen ? BTN_ACTIVE : BTN_INACTIVE}`}
+                  aria-label="Page links"
+                  data-testid="toolbar-links"
+                >
+                  Links
                 </button>
                 <Divider />
               </>
