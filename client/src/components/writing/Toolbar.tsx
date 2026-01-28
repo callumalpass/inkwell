@@ -1,3 +1,4 @@
+import { useState, useRef, useEffect } from "react";
 import { useDrawingStore, type Tool } from "../../stores/drawing-store";
 import { useViewStore, type ViewMode } from "../../stores/view-store";
 import { useNotebookPagesStore } from "../../stores/notebook-pages-store";
@@ -43,6 +44,9 @@ const BTN_ACTIVE = "bg-black text-white border-black";
 const BTN_INACTIVE = "text-gray-800 border-gray-300 bg-white";
 const BTN_DISABLED = "opacity-25";
 
+/** Width (px) below which the toolbar switches to compact mode. */
+const COMPACT_BREAKPOINT = 768;
+
 export function Toolbar() {
   const { tool, color, width, penStyle, setTool, setColor, setWidth, setPenStyle, debugLastPointCount } =
     useDrawingStore();
@@ -72,6 +76,22 @@ export function Toolbar() {
   const currentPage = pages[currentPageIndex] ?? null;
   const currentPageId = currentPage?.id ?? "";
   const { undo, redo, canUndo, canRedo } = useUndoRedo(currentPageId);
+
+  const [expanded, setExpanded] = useState(false);
+  const [isCompact, setIsCompact] = useState(false);
+  const toolbarRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const el = toolbarRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(([entry]) => {
+      const compact = entry.contentRect.width < COMPACT_BREAKPOINT;
+      setIsCompact(compact);
+      if (!compact) setExpanded(false);
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   const handlePageNav = (direction: "prev" | "next") => {
     if (direction === "prev") {
@@ -120,225 +140,478 @@ export function Toolbar() {
   const canZoomIn = activeTransform.scale < maxZoom;
   const canZoomOut = activeTransform.scale > minZoom;
 
+  const toggleExpanded = () => setExpanded((e) => !e);
+
   return (
-    <div className="border-b-2 border-gray-400 bg-white px-4 py-1.5">
-      {/* Row 1: Drawing tools */}
-      <div className="flex items-center gap-2">
-        {/* Tool selector */}
-        <div className="flex gap-1">
-          {(["pen", "eraser"] as Tool[]).map((t) => (
-            <button
-              key={t}
-              onClick={() => setTool(t)}
-              className={`${BTN} capitalize ${tool === t ? BTN_ACTIVE : BTN_INACTIVE}`}
-            >
-              {t}
-            </button>
-          ))}
-        </div>
+    <div
+      ref={toolbarRef}
+      className={`border-b-2 border-gray-400 bg-white ${isCompact ? "px-3" : "px-4"} py-1.5`}
+    >
+      {isCompact ? (
+        /* ── Compact layout ──────────────────────────────────────────── */
+        <>
+          {/* Primary row: essential tools always visible */}
+          <div className="flex items-center gap-1.5">
+            {/* Tool selector */}
+            <div className="flex gap-1">
+              {(["pen", "eraser"] as Tool[]).map((t) => (
+                <button
+                  key={t}
+                  onClick={() => setTool(t)}
+                  className={`${BTN} capitalize ${tool === t ? BTN_ACTIVE : BTN_INACTIVE}`}
+                >
+                  {t}
+                </button>
+              ))}
+            </div>
 
-        <Divider />
+            <Divider />
 
-        {/* Width selector */}
-        <div className="flex gap-1">
-          {WIDTHS.map((w) => (
+            {/* Current width+color swatch — tap to expand settings */}
             <button
-              key={w}
-              onClick={() => setWidth(w)}
-              className={`flex h-9 w-9 items-center justify-center rounded-md border ${
-                width === w
-                  ? "border-black bg-gray-100"
-                  : "border-gray-300 bg-white"
-              }`}
+              onClick={toggleExpanded}
+              className="flex h-9 w-9 items-center justify-center rounded-md border border-gray-300 bg-white"
+              aria-label="Pen settings"
             >
               <span
                 className="rounded-full"
-                style={{ width: w + 4, height: w + 4, backgroundColor: color }}
+                style={{ width: width + 4, height: width + 4, backgroundColor: color }}
               />
             </button>
-          ))}
-        </div>
 
-        {/* Color selector (visible when tool is pen) */}
-        {tool === "pen" && (
-          <>
-            <Divider />
+            <div className="flex-1" />
+
+            {/* Undo / Redo */}
             <div className="flex gap-1">
-              {COLOR_PRESETS.map((preset) => (
+              <button
+                onClick={undo}
+                disabled={!canUndo}
+                aria-label="Undo"
+                className={`${BTN} ${BTN_INACTIVE} ${!canUndo ? BTN_DISABLED : ""}`}
+              >
+                Undo
+              </button>
+              <button
+                onClick={redo}
+                disabled={!canRedo}
+                aria-label="Redo"
+                className={`${BTN} ${BTN_INACTIVE} ${!canRedo ? BTN_DISABLED : ""}`}
+              >
+                Redo
+              </button>
+            </div>
+
+            <Divider />
+
+            {/* Expand / collapse toggle */}
+            <button
+              onClick={toggleExpanded}
+              className={`${BTN} ${expanded ? BTN_ACTIVE : BTN_INACTIVE}`}
+              aria-label={expanded ? "Collapse toolbar" : "Expand toolbar"}
+              aria-expanded={expanded}
+            >
+              {expanded ? "▲" : "⋯"}
+            </button>
+
+            <OfflineIndicator />
+          </div>
+
+          {/* Expanded panel */}
+          {expanded && (
+            <div className="mt-1.5 space-y-1.5 border-t border-gray-200 pt-1.5">
+              {/* Width selector */}
+              <ToolbarRow label="Width">
+                {WIDTHS.map((w) => (
+                  <button
+                    key={w}
+                    onClick={() => setWidth(w)}
+                    className={`flex h-9 w-9 items-center justify-center rounded-md border ${
+                      width === w
+                        ? "border-black bg-gray-100"
+                        : "border-gray-300 bg-white"
+                    }`}
+                  >
+                    <span
+                      className="rounded-full"
+                      style={{ width: w + 4, height: w + 4, backgroundColor: color }}
+                    />
+                  </button>
+                ))}
+              </ToolbarRow>
+
+              {/* Color selector */}
+              {tool === "pen" && (
+                <ToolbarRow label="Color">
+                  {COLOR_PRESETS.map((preset) => (
+                    <button
+                      key={preset.color}
+                      onClick={() => setColor(preset.color)}
+                      aria-label={preset.label}
+                      className={`flex h-9 w-9 items-center justify-center rounded-md border-2 ${
+                        color === preset.color
+                          ? "border-black"
+                          : "border-gray-300"
+                      }`}
+                    >
+                      <span
+                        className="rounded-full"
+                        style={{
+                          width: 18,
+                          height: 18,
+                          backgroundColor: preset.color,
+                        }}
+                      />
+                    </button>
+                  ))}
+                </ToolbarRow>
+              )}
+
+              {/* Pen style selector */}
+              {tool === "pen" && (
+                <ToolbarRow label="Style">
+                  {(["pressure", "uniform", "ballpoint"] as PenStyle[]).map((ps) => (
+                    <button
+                      key={ps}
+                      onClick={() => setPenStyle(ps)}
+                      className={`${BTN} ${penStyle === ps ? BTN_ACTIVE : BTN_INACTIVE}`}
+                    >
+                      {PEN_STYLE_LABELS[ps]}
+                    </button>
+                  ))}
+                </ToolbarRow>
+              )}
+
+              {/* Grid type selector */}
+              <ToolbarRow label="Grid">
+                {(["none", "lined", "grid", "dotgrid"] as GridType[]).map((gt) => (
+                  <button
+                    key={gt}
+                    onClick={() => updateSettings({ gridType: gt })}
+                    className={`${BTN} ${gridType === gt ? BTN_ACTIVE : BTN_INACTIVE}`}
+                  >
+                    {GRID_TYPE_LABELS[gt]}
+                  </button>
+                ))}
+              </ToolbarRow>
+
+              {/* View mode */}
+              <ToolbarRow label="View">
+                {(["single", "scroll", "canvas"] as ViewMode[]).map((vm) => (
+                  <button
+                    key={vm}
+                    onClick={() => setViewMode(vm)}
+                    className={`${BTN} ${viewMode === vm ? BTN_ACTIVE : BTN_INACTIVE}`}
+                  >
+                    {VIEW_MODE_LABELS[vm]}
+                  </button>
+                ))}
+              </ToolbarRow>
+
+              {/* Page navigation, add page, zoom */}
+              <div className="flex flex-wrap items-center gap-1.5">
+                {viewMode === "single" && pages.length > 0 && (
+                  <>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => handlePageNav("prev")}
+                        disabled={currentPageIndex === 0}
+                        className={`${BTN} ${BTN_INACTIVE} ${currentPageIndex === 0 ? BTN_DISABLED : ""}`}
+                      >
+                        Prev
+                      </button>
+                      <span className="px-1 text-sm font-medium text-gray-800">
+                        {currentPageIndex + 1}/{pages.length}
+                      </span>
+                      <button
+                        onClick={() => handlePageNav("next")}
+                        disabled={currentPageIndex >= pages.length - 1}
+                        className={`${BTN} ${BTN_INACTIVE} ${currentPageIndex >= pages.length - 1 ? BTN_DISABLED : ""}`}
+                      >
+                        Next
+                      </button>
+                    </div>
+                    <Divider />
+                  </>
+                )}
+
                 <button
-                  key={preset.color}
-                  onClick={() => setColor(preset.color)}
-                  aria-label={preset.label}
-                  className={`flex h-9 w-9 items-center justify-center rounded-md border-2 ${
-                    color === preset.color
-                      ? "border-black"
-                      : "border-gray-300"
+                  onClick={handleAddPage}
+                  className={`${BTN} ${BTN_INACTIVE} font-semibold`}
+                >
+                  + Page
+                </button>
+
+                <Divider />
+
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={handleZoomOut}
+                    disabled={!canZoomOut}
+                    aria-label="Zoom out"
+                    className={`${BTN} ${BTN_INACTIVE} ${!canZoomOut ? BTN_DISABLED : ""}`}
+                  >
+                    −
+                  </button>
+                  <button
+                    onClick={handleZoomReset}
+                    aria-label="Reset zoom"
+                    className="min-w-[3.5rem] px-1 py-2 text-center text-sm font-medium text-gray-800"
+                  >
+                    {zoomPercent}%
+                  </button>
+                  <button
+                    onClick={handleZoomIn}
+                    disabled={!canZoomIn}
+                    aria-label="Zoom in"
+                    className={`${BTN} ${BTN_INACTIVE} ${!canZoomIn ? BTN_DISABLED : ""}`}
+                  >
+                    +
+                  </button>
+                </div>
+
+                <div className="flex-1" />
+
+                {viewMode === "single" && currentPage && (
+                  <TranscriptionIndicator pageId={currentPage.id} />
+                )}
+                {debugLastPointCount > 0 && (
+                  <span className="text-xs text-gray-600">{debugLastPointCount}pts</span>
+                )}
+              </div>
+            </div>
+          )}
+        </>
+      ) : (
+        /* ── Full-size layout ────────────────────────────────────────── */
+        <>
+          {/* Row 1: Drawing tools */}
+          <div className="flex items-center gap-2">
+            {/* Tool selector */}
+            <div className="flex gap-1">
+              {(["pen", "eraser"] as Tool[]).map((t) => (
+                <button
+                  key={t}
+                  onClick={() => setTool(t)}
+                  className={`${BTN} capitalize ${tool === t ? BTN_ACTIVE : BTN_INACTIVE}`}
+                >
+                  {t}
+                </button>
+              ))}
+            </div>
+
+            <Divider />
+
+            {/* Width selector */}
+            <div className="flex gap-1">
+              {WIDTHS.map((w) => (
+                <button
+                  key={w}
+                  onClick={() => setWidth(w)}
+                  className={`flex h-9 w-9 items-center justify-center rounded-md border ${
+                    width === w
+                      ? "border-black bg-gray-100"
+                      : "border-gray-300 bg-white"
                   }`}
                 >
                   <span
                     className="rounded-full"
-                    style={{
-                      width: 18,
-                      height: 18,
-                      backgroundColor: preset.color,
-                    }}
+                    style={{ width: w + 4, height: w + 4, backgroundColor: color }}
                   />
                 </button>
               ))}
             </div>
-          </>
-        )}
 
-        {/* Pen style selector (visible when tool is pen) */}
-        {tool === "pen" && (
-          <>
+            {/* Color selector (visible when tool is pen) */}
+            {tool === "pen" && (
+              <>
+                <Divider />
+                <div className="flex gap-1">
+                  {COLOR_PRESETS.map((preset) => (
+                    <button
+                      key={preset.color}
+                      onClick={() => setColor(preset.color)}
+                      aria-label={preset.label}
+                      className={`flex h-9 w-9 items-center justify-center rounded-md border-2 ${
+                        color === preset.color
+                          ? "border-black"
+                          : "border-gray-300"
+                      }`}
+                    >
+                      <span
+                        className="rounded-full"
+                        style={{
+                          width: 18,
+                          height: 18,
+                          backgroundColor: preset.color,
+                        }}
+                      />
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+
+            {/* Pen style selector (visible when tool is pen) */}
+            {tool === "pen" && (
+              <>
+                <Divider />
+                <div className="flex gap-1">
+                  {(["pressure", "uniform", "ballpoint"] as PenStyle[]).map((ps) => (
+                    <button
+                      key={ps}
+                      onClick={() => setPenStyle(ps)}
+                      className={`${BTN} ${penStyle === ps ? BTN_ACTIVE : BTN_INACTIVE}`}
+                    >
+                      {PEN_STYLE_LABELS[ps]}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+
             <Divider />
+
+            {/* Undo / Redo */}
             <div className="flex gap-1">
-              {(["pressure", "uniform", "ballpoint"] as PenStyle[]).map((ps) => (
+              <button
+                onClick={undo}
+                disabled={!canUndo}
+                aria-label="Undo"
+                className={`${BTN} ${BTN_INACTIVE} ${!canUndo ? BTN_DISABLED : ""}`}
+              >
+                Undo
+              </button>
+              <button
+                onClick={redo}
+                disabled={!canRedo}
+                aria-label="Redo"
+                className={`${BTN} ${BTN_INACTIVE} ${!canRedo ? BTN_DISABLED : ""}`}
+              >
+                Redo
+              </button>
+            </div>
+          </div>
+
+          {/* Row 2: Page & view controls */}
+          <div className="mt-1.5 flex items-center gap-2 border-t border-gray-200 pt-1.5">
+            {/* Page navigation (visible in single-page mode) */}
+            {viewMode === "single" && pages.length > 0 && (
+              <>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => handlePageNav("prev")}
+                    disabled={currentPageIndex === 0}
+                    className={`${BTN} ${BTN_INACTIVE} ${currentPageIndex === 0 ? BTN_DISABLED : ""}`}
+                  >
+                    Prev
+                  </button>
+                  <span className="px-1 text-sm font-medium text-gray-800">
+                    {currentPageIndex + 1}/{pages.length}
+                  </span>
+                  <button
+                    onClick={() => handlePageNav("next")}
+                    disabled={currentPageIndex >= pages.length - 1}
+                    className={`${BTN} ${BTN_INACTIVE} ${currentPageIndex >= pages.length - 1 ? BTN_DISABLED : ""}`}
+                  >
+                    Next
+                  </button>
+                </div>
+                <Divider />
+              </>
+            )}
+
+            {/* New page button */}
+            <button
+              onClick={handleAddPage}
+              className={`${BTN} ${BTN_INACTIVE} font-semibold`}
+            >
+              + Page
+            </button>
+
+            <Divider />
+
+            {/* Grid type selector */}
+            <div className="flex gap-1">
+              {(["none", "lined", "grid", "dotgrid"] as GridType[]).map((gt) => (
                 <button
-                  key={ps}
-                  onClick={() => setPenStyle(ps)}
-                  className={`${BTN} ${penStyle === ps ? BTN_ACTIVE : BTN_INACTIVE}`}
+                  key={gt}
+                  onClick={() => updateSettings({ gridType: gt })}
+                  className={`${BTN} ${gridType === gt ? BTN_ACTIVE : BTN_INACTIVE}`}
                 >
-                  {PEN_STYLE_LABELS[ps]}
+                  {GRID_TYPE_LABELS[gt]}
                 </button>
               ))}
             </div>
-          </>
-        )}
 
-        <Divider />
+            <Divider />
 
-        {/* Undo / Redo */}
-        <div className="flex gap-1">
-          <button
-            onClick={undo}
-            disabled={!canUndo}
-            aria-label="Undo"
-            className={`${BTN} ${BTN_INACTIVE} ${!canUndo ? BTN_DISABLED : ""}`}
-          >
-            Undo
-          </button>
-          <button
-            onClick={redo}
-            disabled={!canRedo}
-            aria-label="Redo"
-            className={`${BTN} ${BTN_INACTIVE} ${!canRedo ? BTN_DISABLED : ""}`}
-          >
-            Redo
-          </button>
-        </div>
-      </div>
-
-      {/* Row 2: Page & view controls */}
-      <div className="mt-1.5 flex items-center gap-2 border-t border-gray-200 pt-1.5">
-        {/* Page navigation (visible in single-page mode) */}
-        {viewMode === "single" && pages.length > 0 && (
-          <>
+            {/* Zoom controls */}
             <div className="flex items-center gap-1">
               <button
-                onClick={() => handlePageNav("prev")}
-                disabled={currentPageIndex === 0}
-                className={`${BTN} ${BTN_INACTIVE} ${currentPageIndex === 0 ? BTN_DISABLED : ""}`}
+                onClick={handleZoomOut}
+                disabled={!canZoomOut}
+                aria-label="Zoom out"
+                className={`${BTN} ${BTN_INACTIVE} ${!canZoomOut ? BTN_DISABLED : ""}`}
               >
-                Prev
+                −
               </button>
-              <span className="px-1 text-sm font-medium text-gray-800">
-                {currentPageIndex + 1}/{pages.length}
-              </span>
               <button
-                onClick={() => handlePageNav("next")}
-                disabled={currentPageIndex >= pages.length - 1}
-                className={`${BTN} ${BTN_INACTIVE} ${currentPageIndex >= pages.length - 1 ? BTN_DISABLED : ""}`}
+                onClick={handleZoomReset}
+                aria-label="Reset zoom"
+                className="min-w-[3.5rem] px-1 py-2 text-center text-sm font-medium text-gray-800"
               >
-                Next
+                {zoomPercent}%
+              </button>
+              <button
+                onClick={handleZoomIn}
+                disabled={!canZoomIn}
+                aria-label="Zoom in"
+                className={`${BTN} ${BTN_INACTIVE} ${!canZoomIn ? BTN_DISABLED : ""}`}
+              >
+                +
               </button>
             </div>
-            <Divider />
-          </>
-        )}
 
-        {/* New page button */}
-        <button
-          onClick={handleAddPage}
-          className={`${BTN} ${BTN_INACTIVE} font-semibold`}
-        >
-          + Page
-        </button>
+            <div className="flex-1" />
 
-        <Divider />
+            {/* Transcription indicator (visible in single-page mode) */}
+            {viewMode === "single" && currentPage && (
+              <TranscriptionIndicator pageId={currentPage.id} />
+            )}
 
-        {/* Grid type selector */}
-        <div className="flex gap-1">
-          {(["none", "lined", "grid", "dotgrid"] as GridType[]).map((gt) => (
-            <button
-              key={gt}
-              onClick={() => updateSettings({ gridType: gt })}
-              className={`${BTN} ${gridType === gt ? BTN_ACTIVE : BTN_INACTIVE}`}
-            >
-              {GRID_TYPE_LABELS[gt]}
-            </button>
-          ))}
-        </div>
+            {/* View mode toggle */}
+            <div className="flex gap-1">
+              {(["single", "scroll", "canvas"] as ViewMode[]).map((vm) => (
+                <button
+                  key={vm}
+                  onClick={() => setViewMode(vm)}
+                  className={`${BTN} ${viewMode === vm ? BTN_ACTIVE : BTN_INACTIVE}`}
+                >
+                  {VIEW_MODE_LABELS[vm]}
+                </button>
+              ))}
+            </div>
 
-        <Divider />
-
-        {/* Zoom controls */}
-        <div className="flex items-center gap-1">
-          <button
-            onClick={handleZoomOut}
-            disabled={!canZoomOut}
-            aria-label="Zoom out"
-            className={`${BTN} ${BTN_INACTIVE} ${!canZoomOut ? BTN_DISABLED : ""}`}
-          >
-            −
-          </button>
-          <button
-            onClick={handleZoomReset}
-            aria-label="Reset zoom"
-            className="min-w-[3.5rem] px-1 py-2 text-center text-sm font-medium text-gray-800"
-          >
-            {zoomPercent}%
-          </button>
-          <button
-            onClick={handleZoomIn}
-            disabled={!canZoomIn}
-            aria-label="Zoom in"
-            className={`${BTN} ${BTN_INACTIVE} ${!canZoomIn ? BTN_DISABLED : ""}`}
-          >
-            +
-          </button>
-        </div>
-
-        <div className="flex-1" />
-
-        {/* Transcription indicator (visible in single-page mode) */}
-        {viewMode === "single" && currentPage && (
-          <TranscriptionIndicator pageId={currentPage.id} />
-        )}
-
-        {/* View mode toggle */}
-        <div className="flex gap-1">
-          {(["single", "scroll", "canvas"] as ViewMode[]).map((vm) => (
-            <button
-              key={vm}
-              onClick={() => setViewMode(vm)}
-              className={`${BTN} ${viewMode === vm ? BTN_ACTIVE : BTN_INACTIVE}`}
-            >
-              {VIEW_MODE_LABELS[vm]}
-            </button>
-          ))}
-        </div>
-
-        <OfflineIndicator />
-        {debugLastPointCount > 0 && (
-          <span className="text-xs text-gray-600">{debugLastPointCount}pts</span>
-        )}
-      </div>
+            <OfflineIndicator />
+            {debugLastPointCount > 0 && (
+              <span className="text-xs text-gray-600">{debugLastPointCount}pts</span>
+            )}
+          </div>
+        </>
+      )}
     </div>
   );
 }
 
 function Divider() {
   return <div className="h-6 w-px bg-gray-400" />;
+}
+
+function ToolbarRow({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex items-center gap-1.5">
+      <span className="w-12 shrink-0 text-xs font-medium text-gray-500">{label}</span>
+      <div className="flex flex-wrap gap-1">{children}</div>
+    </div>
+  );
 }
