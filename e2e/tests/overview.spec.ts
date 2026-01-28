@@ -176,7 +176,8 @@ test.describe("Overview View", () => {
       await page.getByRole("button", { name: "Overview" }).click();
       await expect(page.getByTestId("overview-view")).toBeVisible();
 
-      const exportButton = page.getByRole("button", { name: "Export" });
+      // Use the overview-view scoped export button to avoid toolbar Export button
+      const exportButton = page.getByTestId("overview-view").getByRole("button", { name: "Export" });
       await expect(exportButton).toBeDisabled();
     });
 
@@ -187,7 +188,7 @@ test.describe("Overview View", () => {
       await page.getByRole("button", { name: "Overview" }).click();
       await expect(page.getByTestId("overview-view")).toBeVisible();
 
-      const moveButton = page.getByRole("button", { name: "Move" });
+      const moveButton = page.getByTestId("overview-view").getByRole("button", { name: "Move", exact: true });
       await expect(moveButton).toBeDisabled();
     });
 
@@ -215,20 +216,20 @@ test.describe("Overview View", () => {
       // Select all pages
       await page.getByRole("button", { name: "Select All" }).click();
 
-      // Click Add Tags
-      await page.getByRole("button", { name: "Add Tags" }).click();
+      // Click Add Tags in overview view
+      await page.getByTestId("overview-view").getByRole("button", { name: "Add Tags" }).click();
 
-      // Dialog should appear
-      await expect(page.getByText("Add Tags", { exact: false })).toBeVisible();
+      // Dialog should appear - use heading to target the dialog title specifically
+      await expect(page.getByRole("heading", { name: "Add Tags" })).toBeVisible();
 
       // Enter tags
       const tagInput = page.locator('input[placeholder="meeting, project-x"]');
       await tagInput.fill("test-tag, bulk-added");
       await page.getByRole("button", { name: "Apply" }).click();
 
-      // Tags should appear on the page cards
-      await expect(page.getByText("test-tag")).toBeVisible();
-      await expect(page.getByText("bulk-added")).toBeVisible();
+      // Tags should appear on the page cards (use first() since there are 2 pages with same tags)
+      await expect(page.getByText("test-tag").first()).toBeVisible();
+      await expect(page.getByText("bulk-added").first()).toBeVisible();
     });
 
     test("can remove tags from selected pages", async ({ page }) => {
@@ -251,11 +252,11 @@ test.describe("Overview View", () => {
       // Select the page
       await page.locator('input[type="checkbox"]').first().click();
 
-      // Click Remove Tags
-      await page.getByRole("button", { name: "Remove Tags" }).click();
+      // Click Remove Tags in overview view
+      await page.getByTestId("overview-view").getByRole("button", { name: "Remove Tags" }).click();
 
-      // Dialog should appear
-      await expect(page.getByText("Remove Tags")).toBeVisible();
+      // Dialog should appear - use heading to target the dialog title specifically
+      await expect(page.getByRole("heading", { name: "Remove Tags" })).toBeVisible();
 
       // Enter tag to remove
       const tagInput = page.locator('input[placeholder="meeting, project-x"]');
@@ -278,8 +279,8 @@ test.describe("Overview View", () => {
       await page.locator('input[type="checkbox"]').first().click();
 
       // Open tag dialog
-      await page.getByRole("button", { name: "Add Tags" }).click();
-      await expect(page.getByText("Add Tags", { exact: false })).toBeVisible();
+      await page.getByTestId("overview-view").getByRole("button", { name: "Add Tags" }).click();
+      await expect(page.getByRole("heading", { name: "Add Tags" })).toBeVisible();
 
       // Cancel
       await page.getByRole("button", { name: "Cancel" }).click();
@@ -321,11 +322,11 @@ test.describe("Overview View - Move pages", () => {
     // Select page
     await page.locator('input[type="checkbox"]').first().click();
 
-    // Click Move button
-    await page.getByRole("button", { name: "Move" }).click();
+    // Click Move button in overview view
+    await page.getByTestId("overview-view").getByRole("button", { name: "Move", exact: true }).click();
 
     // Dialog should open
-    await expect(page.getByText("Move pages")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Move pages" })).toBeVisible();
     await expect(page.getByText("Target notebook")).toBeVisible();
   });
 
@@ -339,13 +340,13 @@ test.describe("Overview View - Move pages", () => {
     // Select page
     await page.locator('input[type="checkbox"]').first().click();
 
-    // Click Move button
-    await page.getByRole("button", { name: "Move" }).click();
+    // Click Move button in overview view
+    await page.getByTestId("overview-view").getByRole("button", { name: "Move", exact: true }).click();
 
-    // Target notebook dropdown should have the target notebook
+    // Target notebook dropdown should have the target notebook as an option
     const select = page.locator("select");
-    await select.click();
-    await expect(page.locator(`option:has-text("${targetNotebookTitle}")`)).toBeVisible();
+    // Check that the option exists in the select (options may not be "visible" in DOM terms)
+    await expect(select.locator(`option:has-text("${targetNotebookTitle}")`)).toBeAttached();
   });
 
   test("can move page to another notebook", async ({ page }) => {
@@ -361,15 +362,15 @@ test.describe("Overview View - Move pages", () => {
     // Select page
     await page.locator('input[type="checkbox"]').first().click();
 
-    // Click Move button
-    await page.getByRole("button", { name: "Move" }).click();
+    // Click Move button in overview view
+    await page.getByTestId("overview-view").getByRole("button", { name: "Move", exact: true }).click();
 
     // Select target notebook
     const select = page.locator("select");
     await select.selectOption({ label: targetNotebookTitle });
 
-    // Click Move button in dialog
-    await page.getByRole("button", { name: "Move", exact: true }).last().click();
+    // Click Move button in dialog (the one in the fixed modal)
+    await page.locator(".fixed").getByRole("button", { name: "Move", exact: true }).click();
 
     // Page should be removed from source notebook
     await expect(page.locator('img[alt^="Page"]')).toHaveCount(0);
@@ -395,11 +396,11 @@ test.describe("Overview View - Move pages", () => {
     // Select page
     await page.locator('input[type="checkbox"]').first().click();
 
-    // Click Move button
-    await page.getByRole("button", { name: "Move" }).click();
+    // Click Move button in overview view
+    await page.getByTestId("overview-view").getByRole("button", { name: "Move", exact: true }).click();
 
     // Move button in dialog should be disabled (no notebook selected)
-    const moveDialogButton = page.locator(".fixed").getByRole("button", { name: "Move" });
+    const moveDialogButton = page.locator(".fixed").getByRole("button", { name: "Move", exact: true });
     await expect(moveDialogButton).toBeDisabled();
   });
 
@@ -413,15 +414,15 @@ test.describe("Overview View - Move pages", () => {
     // Select page
     await page.locator('input[type="checkbox"]').first().click();
 
-    // Click Move button
-    await page.getByRole("button", { name: "Move" }).click();
-    await expect(page.getByText("Move pages")).toBeVisible();
+    // Click Move button in overview view
+    await page.getByTestId("overview-view").getByRole("button", { name: "Move", exact: true }).click();
+    await expect(page.getByRole("heading", { name: "Move pages" })).toBeVisible();
 
     // Cancel
     await page.getByRole("button", { name: "Cancel" }).click();
 
     // Dialog should close
-    await expect(page.getByText("Move pages")).not.toBeVisible();
+    await expect(page.getByRole("heading", { name: "Move pages" })).not.toBeVisible();
 
     // Page should still be there
     await expect(page.locator('img[alt^="Page"]')).toHaveCount(1);
@@ -608,11 +609,11 @@ test.describe("Overview View - Export dialog", () => {
     // Select page
     await page.locator('input[type="checkbox"]').first().click();
 
-    // Click Export
-    await page.getByRole("button", { name: "Export" }).click();
+    // Click Export in overview view
+    await page.getByTestId("overview-view").getByRole("button", { name: "Export" }).click();
 
     // Dialog should appear
-    await expect(page.getByText("Export 1 pages")).toBeVisible();
+    await expect(page.getByRole("heading", { name: /Export \d+ pages?/ })).toBeVisible();
     await expect(page.getByText("Format")).toBeVisible();
   });
 
@@ -626,8 +627,8 @@ test.describe("Overview View - Export dialog", () => {
     // Select page
     await page.locator('input[type="checkbox"]').first().click();
 
-    // Click Export
-    await page.getByRole("button", { name: "Export" }).click();
+    // Click Export in overview view
+    await page.getByTestId("overview-view").getByRole("button", { name: "Export" }).click();
 
     // Should show PDF/PNG format buttons
     await expect(page.getByRole("button", { name: "PDF" })).toBeVisible();
@@ -650,8 +651,8 @@ test.describe("Overview View - Export dialog", () => {
     // Select page
     await page.locator('input[type="checkbox"]').first().click();
 
-    // Click Export
-    await page.getByRole("button", { name: "Export" }).click();
+    // Click Export in overview view
+    await page.getByTestId("overview-view").getByRole("button", { name: "Export" }).click();
 
     // Click PNG
     await page.getByRole("button", { name: "PNG" }).click();
@@ -674,15 +675,15 @@ test.describe("Overview View - Export dialog", () => {
     // Select page
     await page.locator('input[type="checkbox"]').first().click();
 
-    // Click Export
-    await page.getByRole("button", { name: "Export" }).click();
-    await expect(page.getByText("Export 1 pages")).toBeVisible();
+    // Click Export in overview view
+    await page.getByTestId("overview-view").getByRole("button", { name: "Export" }).click();
+    await expect(page.getByRole("heading", { name: /Export \d+ pages?/ })).toBeVisible();
 
     // Cancel
     await page.getByRole("button", { name: "Cancel" }).click();
 
     // Dialog should close
-    await expect(page.getByText("Export 1 pages")).not.toBeVisible();
+    await expect(page.getByRole("heading", { name: /Export \d+ pages?/ })).not.toBeVisible();
   });
 
   test("export dialog updates count based on selection", async ({ page }) => {
@@ -697,10 +698,10 @@ test.describe("Overview View - Export dialog", () => {
     // Select all pages
     await page.getByRole("button", { name: "Select All" }).click();
 
-    // Click Export
-    await page.getByRole("button", { name: "Export" }).click();
+    // Click Export in overview view
+    await page.getByTestId("overview-view").getByRole("button", { name: "Export" }).click();
 
     // Should show 3 pages
-    await expect(page.getByText("Export 3 pages")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Export 3 pages" })).toBeVisible();
   });
 });

@@ -61,7 +61,7 @@ describe("PUT /api/settings", () => {
         defaultColor: "#ff0000",
         defaultStrokeWidth: 5,
         defaultGridType: "lined",
-        defaultViewMode: "scroll",
+        defaultViewMode: "overview",
         autoTranscribe: true,
       };
 
@@ -76,7 +76,7 @@ describe("PUT /api/settings", () => {
       expect(body.defaultColor).toBe("#ff0000");
       expect(body.defaultStrokeWidth).toBe(5);
       expect(body.defaultGridType).toBe("lined");
-      expect(body.defaultViewMode).toBe("scroll");
+      expect(body.defaultViewMode).toBe("overview");
       expect(body.autoTranscribe).toBe(true);
     });
 
