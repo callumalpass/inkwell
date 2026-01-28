@@ -71,6 +71,11 @@ export function useStrokeCapture(pageId: string) {
 
     return () => {
       el.removeEventListener(eventName, handleRawUpdate as EventListener);
+      // Cancel any pending RAF to prevent callbacks after unmount
+      if (rafId.current) {
+        cancelAnimationFrame(rafId.current);
+        rafId.current = 0;
+      }
     };
   }, [handleRawUpdate]);
 

@@ -12,6 +12,11 @@ export async function readJson<T>(filePath: string): Promise<T | null> {
     return JSON.parse(data) as T;
   } catch (err: any) {
     if (err.code === "ENOENT") return null;
+    if (err instanceof SyntaxError) {
+      // Corrupted JSON — log and treat as missing rather than crashing
+      console.error(`Corrupted JSON in ${filePath}: ${err.message}`);
+      return null;
+    }
     throw err;
   }
 }

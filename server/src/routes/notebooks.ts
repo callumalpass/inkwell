@@ -25,7 +25,16 @@ export function notebookRoutes(app: FastifyInstance) {
     return notebook;
   });
 
-  app.post<{ Body: { title: string } }>("/api/notebooks", async (req, reply) => {
+  app.post<{ Body: { title: string } }>("/api/notebooks", {
+    schema: {
+      body: {
+        type: "object",
+        properties: {
+          title: { type: "string", maxLength: 200 },
+        },
+      },
+    },
+  }, async (req, reply) => {
     const now = new Date().toISOString();
     const meta: NotebookMeta = {
       id: `nb_${nanoid(12)}`,
@@ -39,6 +48,17 @@ export function notebookRoutes(app: FastifyInstance) {
 
   app.patch<{ Params: { id: string }; Body: { title?: string } }>(
     "/api/notebooks/:id",
+    {
+      schema: {
+        body: {
+          type: "object",
+          properties: {
+            title: { type: "string", maxLength: 200 },
+          },
+          additionalProperties: false,
+        },
+      },
+    },
     async (req, reply) => {
       const updated = await notebookStore.updateNotebook(req.params.id, req.body);
       if (!updated) return reply.code(404).send({ error: "Notebook not found" });

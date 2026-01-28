@@ -2,6 +2,7 @@ import type { FastifyInstance } from "fastify";
 import { nanoid } from "nanoid";
 import { notebookStore, pageStore } from "../storage/index.js";
 import type { PageMeta } from "../types/index.js";
+import { clearIdleTimer } from "./strokes.js";
 
 // Canvas layout constants for auto-positioning
 const CANVAS_PAGE_WIDTH = 400;
@@ -66,6 +67,19 @@ export function pageRoutes(app: FastifyInstance) {
     Body: { canvasX?: number; canvasY?: number; pageNumber?: number };
   }>(
     "/api/pages/:pageId",
+    {
+      schema: {
+        body: {
+          type: "object",
+          properties: {
+            canvasX: { type: "number" },
+            canvasY: { type: "number" },
+            pageNumber: { type: "integer", minimum: 1 },
+          },
+          additionalProperties: false,
+        },
+      },
+    },
     async (req, reply) => {
       const { canvasX, canvasY, pageNumber } = req.body;
       const updates: Partial<Pick<PageMeta, "canvasX" | "canvasY" | "pageNumber" | "transcription">> = {};
@@ -84,6 +98,7 @@ export function pageRoutes(app: FastifyInstance) {
     async (req, reply) => {
       const deleted = await pageStore.deletePage(req.params.pageId);
       if (!deleted) return reply.code(404).send({ error: "Page not found" });
+      clearIdleTimer(req.params.pageId);
       return reply.code(204).send();
     },
   );

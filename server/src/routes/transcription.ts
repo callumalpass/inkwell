@@ -11,7 +11,17 @@ export function transcriptionRoutes(app: FastifyInstance) {
   app.post<{
     Params: { pageId: string };
     Body: { force?: boolean };
-  }>("/api/pages/:pageId/transcribe", async (req, reply) => {
+  }>("/api/pages/:pageId/transcribe", {
+    schema: {
+      body: {
+        type: "object",
+        properties: {
+          force: { type: "boolean" },
+        },
+        additionalProperties: false,
+      },
+    },
+  }, async (req, reply) => {
     const page = await pageStore.getPage(req.params.pageId);
     if (!page) return reply.code(404).send({ error: "Page not found" });
 

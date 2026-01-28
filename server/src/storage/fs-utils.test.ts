@@ -2,6 +2,7 @@ import { mkdtemp, rm, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { existsSync } from "node:fs";
+import { vi } from "vitest";
 import { ensureDir, readJson, writeJson, withLock } from "./fs-utils.js";
 
 let testDir: string;
@@ -40,11 +41,17 @@ describe("readJson", () => {
     expect(result).toBeNull();
   });
 
-  it("throws on invalid JSON", async () => {
+  it("returns null for corrupted JSON and logs an error", async () => {
     const file = join(testDir, "bad.json");
     const { writeFile } = await import("node:fs/promises");
     await writeFile(file, "not json", "utf-8");
-    await expect(readJson(file)).rejects.toThrow();
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const result = await readJson(file);
+    expect(result).toBeNull();
+    expect(spy).toHaveBeenCalledWith(
+      expect.stringContaining("Corrupted JSON"),
+    );
+    spy.mockRestore();
   });
 });
 

@@ -44,9 +44,11 @@ export async function createPage(meta: PageMeta): Promise<void> {
   await writeJson(paths.pageMeta(meta.notebookId, meta.id), meta);
   await writeJson(paths.strokes(meta.notebookId, meta.id), []);
 
-  const index = await readPageIndex();
-  index[meta.id] = meta.notebookId;
-  await writePageIndex(index);
+  await withLock(paths.data(), async () => {
+    const index = await readPageIndex();
+    index[meta.id] = meta.notebookId;
+    await writePageIndex(index);
+  });
 }
 
 export async function updatePage(
@@ -66,12 +68,14 @@ export async function updatePage(
 }
 
 export async function deletePage(pageId: string): Promise<boolean> {
-  const index = await readPageIndex();
-  const notebookId = index[pageId];
-  if (!notebookId) return false;
+  return withLock(paths.data(), async () => {
+    const index = await readPageIndex();
+    const notebookId = index[pageId];
+    if (!notebookId) return false;
 
-  await rm(paths.page(notebookId, pageId), { recursive: true, force: true });
-  delete index[pageId];
-  await writePageIndex(index);
-  return true;
+    await rm(paths.page(notebookId, pageId), { recursive: true, force: true });
+    delete index[pageId];
+    await writePageIndex(index);
+    return true;
+  });
 }

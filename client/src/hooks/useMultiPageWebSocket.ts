@@ -23,10 +23,13 @@ export function useMultiPageWebSocket(pageIds: string[]) {
     }
 
     // Open connections for new pages
+    const retryCount = new Map<string, number>();
+
     for (const pid of pageIds) {
       if (wsMap.has(pid)) continue;
 
       shouldReconnect.set(pid, true);
+      retryCount.set(pid, 0);
 
       function connect(pageId: string) {
         const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
@@ -34,6 +37,11 @@ export function useMultiPageWebSocket(pageIds: string[]) {
           `${protocol}//${window.location.host}/ws/page/${pageId}`,
         );
         wsMap.set(pageId, ws);
+
+        ws.onopen = () => {
+          // Reset retry count on successful connection
+          retryCount.set(pageId, 0);
+        };
 
         ws.onmessage = (event) => {
           try {
@@ -63,7 +71,11 @@ export function useMultiPageWebSocket(pageIds: string[]) {
         ws.onclose = () => {
           wsMap.delete(pageId);
           if (shouldReconnect.get(pageId)) {
-            setTimeout(() => connect(pageId), 2000);
+            const attempt = retryCount.get(pageId) ?? 0;
+            // Exponential backoff: 1s, 2s, 4s, 8s, capped at 30s
+            const delay = Math.min(1000 * Math.pow(2, attempt), 30000);
+            retryCount.set(pageId, attempt + 1);
+            setTimeout(() => connect(pageId), delay);
           }
         };
 

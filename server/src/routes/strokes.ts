@@ -9,6 +9,15 @@ import { enqueueTranscription } from "../services/transcription-queue.js";
 // Track idle timers per page for auto-transcription
 const idleTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
+/** Clear the auto-transcribe idle timer for a page (e.g. on page deletion). */
+export function clearIdleTimer(pageId: string): void {
+  const timer = idleTimers.get(pageId);
+  if (timer) {
+    clearTimeout(timer);
+    idleTimers.delete(pageId);
+  }
+}
+
 function scheduleAutoTranscribe(pageId: string): void {
   if (!config.transcription.autoTranscribe || !config.gemini.apiKey) return;
 
@@ -50,6 +59,45 @@ export function strokeRoutes(app: FastifyInstance) {
 
   app.post<{ Params: { pageId: string }; Body: { strokes: Stroke[] } }>(
     "/api/pages/:pageId/strokes",
+    {
+      schema: {
+        body: {
+          type: "object",
+          required: ["strokes"],
+          properties: {
+            strokes: {
+              type: "array",
+              items: {
+                type: "object",
+                required: ["id", "points", "color", "width", "createdAt"],
+                properties: {
+                  id: { type: "string" },
+                  points: {
+                    type: "array",
+                    items: {
+                      type: "object",
+                      required: ["x", "y", "pressure"],
+                      properties: {
+                        x: { type: "number" },
+                        y: { type: "number" },
+                        pressure: { type: "number" },
+                      },
+                      additionalProperties: false,
+                    },
+                  },
+                  color: { type: "string", maxLength: 50 },
+                  width: { type: "number", minimum: 0.1, maximum: 100 },
+                  penStyle: { type: "string", enum: ["pressure", "uniform", "ballpoint"] },
+                  createdAt: { type: "string" },
+                },
+                additionalProperties: false,
+              },
+            },
+          },
+          additionalProperties: false,
+        },
+      },
+    },
     async (req, reply) => {
       const result = await strokeStore.appendStrokes(
         req.params.pageId,
