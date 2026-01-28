@@ -133,8 +133,15 @@ export function WritingView() {
     if (e.key === "e" && !e.metaKey && !e.ctrlKey && !e.altKey) {
       e.preventDefault();
       setTool("eraser");
+      return;
     }
-  }, [handleCreatePage, setViewMode, fitAll, viewMode, setTool]);
+
+    // H for highlighter tool
+    if (e.key === "h" && !e.metaKey && !e.ctrlKey && !e.altKey) {
+      e.preventDefault();
+      setTool("highlighter");
+    }
+  }, [handleCreatePage, setViewMode, fitAll, viewMode, setTool, setPageJumpOpen]);
 
   useEffect(() => {
     document.addEventListener("keydown", handleKeyDown);

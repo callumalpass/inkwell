@@ -8,12 +8,15 @@ export interface StrokePoint {
   pressure: number;
 }
 
+export type StrokeTool = "pen" | "highlighter";
+
 export interface StrokeData {
   id: string;
   points: StrokePoint[];
   color: string;
   width: number;
   penStyle?: PenStyle;
+  tool?: StrokeTool;
 }
 
 type Point2D = [number, number];

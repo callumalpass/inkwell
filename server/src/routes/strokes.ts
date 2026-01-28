@@ -98,6 +98,7 @@ export function strokeRoutes(app: FastifyInstance) {
                   color: { type: "string", maxLength: 50 },
                   width: { type: "number", minimum: 0.1, maximum: 100 },
                   penStyle: { type: "string", enum: ["pressure", "uniform", "ballpoint"] },
+                  tool: { type: "string", enum: ["pen", "highlighter"] },
                   createdAt: { type: "string" },
                 },
                 additionalProperties: false,

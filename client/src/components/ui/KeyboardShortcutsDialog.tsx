@@ -40,6 +40,7 @@ const SHORTCUT_GROUPS: ShortcutGroup[] = [
     title: "Tools",
     shortcuts: [
       { keys: ["P"], description: "Pen tool" },
+      { keys: ["H"], description: "Highlighter tool" },
       { keys: ["E"], description: "Eraser tool" },
     ],
   },

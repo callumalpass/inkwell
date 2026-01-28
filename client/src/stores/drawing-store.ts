@@ -5,7 +5,7 @@ import type { PenStyle } from "../lib/pen-styles";
 import { generateStrokeId } from "../lib/id";
 import { DEFAULT_STROKE_COLOR, DEFAULT_STROKE_WIDTH } from "../lib/constants";
 
-export type Tool = "pen" | "eraser";
+export type Tool = "pen" | "highlighter" | "eraser";
 
 interface ActiveStroke {
   id: string;
@@ -77,7 +77,7 @@ export const useDrawingStore = create<DrawingStore>((set, get) => ({
   },
 
   endStroke: () => {
-    const { activeStroke, color, width, penStyle, pendingStrokesByPage } = get();
+    const { activeStroke, tool, color, width, penStyle, pendingStrokesByPage } = get();
     if (!activeStroke || activeStroke.points.length < 2) {
       set({ activeStroke: null });
       return;
@@ -89,6 +89,8 @@ export const useDrawingStore = create<DrawingStore>((set, get) => ({
       color,
       width,
       penStyle,
+      // Only store tool for highlighter - pen is the default
+      ...(tool === "highlighter" ? { tool: "highlighter" as const } : {}),
       createdAt: new Date().toISOString(),
     };
 

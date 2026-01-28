@@ -4,6 +4,7 @@ import { usePageStore } from "../../stores/page-store";
 import { useViewStore } from "../../stores/view-store";
 import { useWebSocket } from "../../hooks/useWebSocket";
 import { usePinchZoom } from "../../hooks/usePinchZoom";
+import { useUndoRedoTouch } from "../../hooks/useUndoRedoTouch";
 import { PageSurface } from "./PageSurface";
 import type { GridType } from "./PageBackground";
 import {
@@ -50,6 +51,9 @@ export function SinglePageView() {
     [isZoomLocked, resetZoom],
   );
   usePinchZoom(containerRef, getTransform, setTransform, pinchZoomOptions);
+
+  // Touch gestures for undo/redo (2-finger tap = undo, 3-finger tap = redo)
+  useUndoRedoTouch(containerRef, currentPage?.id ?? "");
 
   // Reset zoom when switching pages
   useEffect(() => {

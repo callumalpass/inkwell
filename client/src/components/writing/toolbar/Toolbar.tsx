@@ -24,7 +24,8 @@ import { PageActionButtons } from "./PageActionButtons";
 const COMPACT_BREAKPOINT = 768;
 
 export function Toolbar() {
-  const isPen = useDrawingStore((s) => s.tool === "pen");
+  const tool = useDrawingStore((s) => s.tool);
+  const isDrawingTool = tool === "pen" || tool === "highlighter";
   const debugLastPointCount = useDrawingStore((s) => s.debugLastPointCount);
   const viewMode = useViewStore((s) => s.viewMode);
   const currentPage = useNotebookPagesStore(
@@ -57,7 +58,7 @@ export function Toolbar() {
     >
       {isCompact ? (
         <CompactLayout
-          isPen={isPen}
+          isDrawingTool={isDrawingTool}
           expanded={expanded}
           toggleExpanded={() => setExpanded((e) => !e)}
           currentPageId={currentPageId}
@@ -69,7 +70,7 @@ export function Toolbar() {
         />
       ) : (
         <FullLayout
-          isPen={isPen}
+          isDrawingTool={isDrawingTool}
           currentPageId={currentPageId}
           currentPage={currentPage}
           notebookId={notebookId}
@@ -85,7 +86,7 @@ export function Toolbar() {
 /* ── Compact layout ──────────────────────────────────────────── */
 
 interface CompactLayoutProps {
-  isPen: boolean;
+  isDrawingTool: boolean;
   expanded: boolean;
   toggleExpanded: () => void;
   currentPageId: string;
@@ -97,7 +98,7 @@ interface CompactLayoutProps {
 }
 
 function CompactLayout({
-  isPen,
+  isDrawingTool,
   expanded,
   toggleExpanded,
   currentPageId,
@@ -158,8 +159,8 @@ function CompactLayout({
       {expanded && (
         <div className="mt-1.5 space-y-1.5 border-t border-gray-200 pt-1.5">
           <WidthPicker showLabel />
-          {isPen && <ColorPicker showLabel />}
-          {isPen && <PenStylePicker showLabel />}
+          {isDrawingTool && <ColorPicker showLabel />}
+          {isDrawingTool && <PenStylePicker showLabel />}
           <GridTypePicker showLabel />
           <LineSpacingPicker showLabel />
           <ViewModePicker showLabel />
@@ -196,7 +197,7 @@ function CompactLayout({
 /* ── Full-size layout ────────────────────────────────────────── */
 
 interface FullLayoutProps {
-  isPen: boolean;
+  isDrawingTool: boolean;
   currentPageId: string;
   currentPage: { id: string } | null;
   notebookId: string | undefined;
@@ -206,7 +207,7 @@ interface FullLayoutProps {
 }
 
 function FullLayout({
-  isPen,
+  isDrawingTool,
   currentPageId,
   currentPage,
   notebookId,
@@ -230,21 +231,21 @@ function FullLayout({
 
         <WidthPicker />
 
-        {isPen && (
+        {isDrawingTool && (
           <>
             <Divider />
             <ColorPicker />
           </>
         )}
 
-        {isPen && (
+        {isDrawingTool && (
           <>
             <Divider />
             <PenStylePicker />
           </>
         )}
 
-        {isPen && (
+        {isDrawingTool && (
           <>
             <Divider />
             <StrokePreview />

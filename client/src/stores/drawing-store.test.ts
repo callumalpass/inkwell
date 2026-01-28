@@ -23,6 +23,11 @@ describe("tool selection", () => {
     useDrawingStore.getState().setTool("eraser");
     expect(useDrawingStore.getState().tool).toBe("eraser");
   });
+
+  it("switches to highlighter", () => {
+    useDrawingStore.getState().setTool("highlighter");
+    expect(useDrawingStore.getState().tool).toBe("highlighter");
+  });
 });
 
 describe("stroke lifecycle", () => {
@@ -74,6 +79,28 @@ describe("stroke lifecycle", () => {
     const state = useDrawingStore.getState();
     expect(state.activeStroke).toBeNull();
     expect(state.pendingStrokesByPage["page1"]).toBeUndefined();
+  });
+
+  it("saves highlighter tool in stroke when drawing with highlighter", () => {
+    useDrawingStore.getState().setTool("highlighter");
+    const { startStroke, addPoint, endStroke } = useDrawingStore.getState();
+    startStroke("page1", point(0, 0));
+    addPoint(point(10, 10));
+    endStroke();
+
+    const state = useDrawingStore.getState();
+    expect(state.pendingStrokesByPage["page1"][0].tool).toBe("highlighter");
+  });
+
+  it("does not save tool property for pen strokes", () => {
+    useDrawingStore.getState().setTool("pen");
+    const { startStroke, addPoint, endStroke } = useDrawingStore.getState();
+    startStroke("page1", point(0, 0));
+    addPoint(point(10, 10));
+    endStroke();
+
+    const state = useDrawingStore.getState();
+    expect(state.pendingStrokesByPage["page1"][0].tool).toBeUndefined();
   });
 });
 

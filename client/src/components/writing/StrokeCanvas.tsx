@@ -27,11 +27,15 @@ function computePath(stroke: StrokeData): string | null {
 
 const StrokePath = memo(function StrokePath({ stroke }: { stroke: StrokeData }) {
   const useFilled = stroke.penStyle === "pressure" || !stroke.penStyle;
+  const isHighlighter = stroke.tool === "highlighter";
   const d = computePath(stroke);
   if (!d) return null;
 
+  // Highlighter strokes are semi-transparent
+  const opacity = isHighlighter ? 0.4 : 1;
+
   if (useFilled) {
-    return <path d={d} fill={stroke.color} />;
+    return <path d={d} fill={stroke.color} opacity={opacity} />;
   }
 
   return (
@@ -42,6 +46,7 @@ const StrokePath = memo(function StrokePath({ stroke }: { stroke: StrokeData }) 
       strokeWidth={stroke.width}
       strokeLinecap="round"
       strokeLinejoin="round"
+      opacity={opacity}
     />
   );
 });

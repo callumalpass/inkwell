@@ -10,5 +10,6 @@ export interface Stroke {
   color: string;
   width: number;
   penStyle?: "pressure" | "uniform" | "ballpoint";
+  tool?: "pen" | "highlighter";
   createdAt: string;
 }

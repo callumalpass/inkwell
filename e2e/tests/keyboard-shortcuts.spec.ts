@@ -358,3 +358,129 @@ test.describe("Keyboard Shortcuts - Focus Management", () => {
     await expect(page.locator(".bg-white.shadow-sm svg path")).toHaveCount(0, { timeout: 5000 });
   });
 });
+
+test.describe("Keyboard Shortcuts - Tool Selection", () => {
+  let notebookId: string;
+  let notebookTitle: string;
+
+  test.beforeEach(async () => {
+    const nb = await createNotebook(uniqueTitle("E2E ToolShortcuts"));
+    notebookId = nb.id;
+    notebookTitle = nb.title;
+    await addPage(notebookId);
+  });
+
+  test.afterEach(async () => {
+    await deleteNotebook(notebookId);
+  });
+
+  test("pressing P switches to pen tool", async ({ page }) => {
+    await openNotebookSingleMode(page, notebookTitle);
+
+    // First switch to eraser
+    await page.getByRole("button", { name: "eraser" }).click();
+
+    // Cursor should be crosshair for eraser
+    const cursor = await page.locator(".touch-none").first().evaluate(
+      (el) => getComputedStyle(el).cursor,
+    );
+    expect(cursor).toBe("crosshair");
+
+    // Press P to switch to pen
+    await page.keyboard.press("p");
+
+    // Cursor should be default (pen mode)
+    const penCursor = await page.locator(".touch-none").first().evaluate(
+      (el) => getComputedStyle(el).cursor,
+    );
+    expect(penCursor).toBe("default");
+  });
+
+  test("pressing E switches to eraser tool", async ({ page }) => {
+    await openNotebookSingleMode(page, notebookTitle);
+
+    // Start in pen mode (default)
+    const cursor = await page.locator(".touch-none").first().evaluate(
+      (el) => getComputedStyle(el).cursor,
+    );
+    expect(cursor).toBe("default");
+
+    // Press E to switch to eraser
+    await page.keyboard.press("e");
+
+    // Cursor should be crosshair for eraser
+    const eraserCursor = await page.locator(".touch-none").first().evaluate(
+      (el) => getComputedStyle(el).cursor,
+    );
+    expect(eraserCursor).toBe("crosshair");
+  });
+
+  test("pressing H switches to highlighter tool", async ({ page }) => {
+    await openNotebookSingleMode(page, notebookTitle);
+
+    // First switch to eraser to see the tool change effect
+    await page.getByRole("button", { name: "eraser" }).click();
+
+    // Press H to switch to highlighter
+    await page.keyboard.press("h");
+
+    // Cursor should be default (highlighter is a drawing tool like pen)
+    const highlighterCursor = await page.locator(".touch-none").first().evaluate(
+      (el) => getComputedStyle(el).cursor,
+    );
+    expect(highlighterCursor).toBe("default");
+
+    // Highlighter button should be active (has different visual state)
+    // Note: We verify by drawing and checking the stroke has highlighter tool
+    await drawStroke(page, ".touch-none");
+    await expect(page.locator(".bg-white.shadow-sm svg path")).toBeVisible({ timeout: 5000 });
+
+    // Wait for batch save
+    await page.waitForTimeout(3000);
+
+    // Verify the stroke was saved with highlighter tool via API
+    const url = page.url();
+    const pageIdMatch = url.match(/page\/(pg_[^/]+)/);
+    const pageId = pageIdMatch?.[1];
+    expect(pageId).toBeTruthy();
+
+    const res = await fetch(`http://localhost:3001/api/pages/${pageId}/strokes`);
+    const strokes = (await res.json()) as { tool: string }[];
+    expect(strokes.length).toBeGreaterThan(0);
+    expect(strokes[0].tool).toBe("highlighter");
+  });
+
+  test("keyboard shortcuts dialog shows H for highlighter", async ({ page }) => {
+    await openNotebookSingleMode(page, notebookTitle);
+
+    // Open keyboard shortcuts dialog with ?
+    await page.keyboard.press("?");
+    await expect(page.getByTestId("shortcuts-dialog").first()).toBeVisible({ timeout: 5000 });
+
+    // Should show H key for highlighter
+    await expect(page.getByText("Highlighter tool").first()).toBeVisible();
+  });
+
+  test("tool shortcuts do not trigger in input fields", async ({ page }) => {
+    await openNotebookSingleMode(page, notebookTitle);
+
+    // First switch to eraser so we can detect if shortcut incorrectly triggers
+    await page.getByRole("button", { name: "eraser" }).click();
+
+    // Open search dialog which has an input
+    await page.keyboard.press("Control+k");
+    await expect(page.getByTestId("search-dialog")).toBeVisible({ timeout: 5000 });
+
+    // Type 'p' in the search input
+    await page.getByTestId("search-input").fill("p");
+
+    // Close search
+    await page.keyboard.press("Escape");
+
+    // Should still be in eraser mode (cursor is crosshair)
+    const cursor = await page.locator(".touch-none").first().evaluate(
+      (el) => getComputedStyle(el).cursor,
+    );
+    expect(cursor).toBe("crosshair");
+  });
+});

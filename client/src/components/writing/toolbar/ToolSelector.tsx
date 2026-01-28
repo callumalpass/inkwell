@@ -1,7 +1,7 @@
 import { useDrawingStore, type Tool } from "../../../stores/drawing-store";
 import { ToolbarButton } from "./ToolbarPrimitives";
 
-const TOOLS: Tool[] = ["pen", "eraser"];
+const TOOLS: Tool[] = ["pen", "highlighter", "eraser"];
 
 export function ToolSelector() {
   const tool = useDrawingStore((s) => s.tool);

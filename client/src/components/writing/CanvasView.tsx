@@ -5,6 +5,7 @@ import { useDrawingStore } from "../../stores/drawing-store";
 import { useUndoRedoStore } from "../../stores/undo-redo-store";
 import { useMultiPageWebSocket } from "../../hooks/useMultiPageWebSocket";
 import { usePinchZoom } from "../../hooks/usePinchZoom";
+import { useUndoRedoTouch } from "../../hooks/useUndoRedoTouch";
 import { useViewStore } from "../../stores/view-store";
 import { postStrokes } from "../../api/strokes";
 import { enqueueStrokes } from "../../lib/offline-queue";
@@ -24,6 +25,8 @@ const PAGE_RENDER_HEIGHT = PAGE_RENDER_WIDTH * (PAGE_HEIGHT / PAGE_WIDTH);
 
 export function CanvasView() {
   const pages = useNotebookPagesStore((s) => s.pages);
+  const currentPageIndex = useNotebookPagesStore((s) => s.currentPageIndex);
+  const currentPageId = pages[currentPageIndex]?.id ?? "";
   const gridType = useNotebookPagesStore((s) => (s.settings.gridType ?? "none") as GridType);
   const lineSpacing = useNotebookPagesStore(
     (s) => s.settings.backgroundLineSpacing ?? DEFAULT_LINE_SPACING,
@@ -57,6 +60,10 @@ export function CanvasView() {
     [isZoomLocked, resetCanvasZoom],
   );
   usePinchZoom(containerRef, getCanvasTransform, setCanvasTransform, pinchZoomOptions);
+
+  // Touch gestures for undo/redo (2-finger tap = undo, 3-finger tap = redo)
+  // Works on the current page (tracked by notebook store)
+  useUndoRedoTouch(containerRef, currentPageId);
 
   // Track container size for minimap and Fit All functionality
   useEffect(() => {
@@ -270,7 +277,7 @@ export function CanvasView() {
       }
 
       const tool = useDrawingStore.getState().tool;
-      if (tool === "pen" || tool === "eraser") {
+      if (tool === "pen" || tool === "highlighter" || tool === "eraser") {
         if (e.button !== 1) return; // let event reach DrawingLayer
       } else {
         if (e.button !== 0) return;
@@ -425,7 +432,7 @@ export function CanvasView() {
                 width: PAGE_RENDER_WIDTH,
                 height: PAGE_RENDER_HEIGHT,
                 touchAction: "none",
-                cursor: (activeTool === "pen" || activeTool === "eraser")
+                cursor: (activeTool === "pen" || activeTool === "highlighter" || activeTool === "eraser")
                   ? undefined
                   : isDragging ? "grabbing" : "grab",
                 zIndex: isDragging ? 10 : 0,
