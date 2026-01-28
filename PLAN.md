@@ -995,7 +995,7 @@ doc.path(pathData).fill(stroke.color);
 
 ### Phase 5: Refinement
 
-- [ ] Offline support (service worker)
+- [x] Offline support (service worker)
 - [x] Undo/redo with history
 - [x] Multiple pen/color presets
 - [x] Background templates (lined, grid, etc.)

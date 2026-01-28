@@ -1,10 +1,11 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi, afterEach } from "vitest";
 import "fake-indexeddb/auto";
 import {
   enqueueStrokes,
   peekAllPending,
   removePendingEntry,
   pendingCount,
+  purgeStaleEntries,
 } from "./offline-queue";
 import type { Stroke } from "../api/strokes";
 
@@ -21,13 +22,22 @@ function makeStroke(id: string): Stroke {
   };
 }
 
+function deleteDB(name: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.deleteDatabase(name);
+    req.onsuccess = () => resolve();
+    req.onerror = () => reject(req.error);
+    req.onblocked = () => resolve();
+  });
+}
+
 describe("offline-queue", () => {
   beforeEach(async () => {
-    // Clear the database between tests
-    const dbs = await indexedDB.databases();
-    for (const db of dbs) {
-      if (db.name) indexedDB.deleteDatabase(db.name);
-    }
+    await deleteDB("inkwell-offline");
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   it("starts with zero pending entries", async () => {
@@ -111,5 +121,78 @@ describe("offline-queue", () => {
 
     expect(await pendingCount()).toBe(0);
     expect(await peekAllPending()).toEqual([]);
+  });
+
+  it("assigns auto-incrementing IDs", async () => {
+    await enqueueStrokes("pg_a", [makeStroke("st_1")]);
+    await enqueueStrokes("pg_b", [makeStroke("st_2")]);
+
+    const entries = await peekAllPending();
+    expect(entries[0].id).toBeDefined();
+    expect(entries[1].id).toBeDefined();
+    expect(entries[1].id).toBeGreaterThan(entries[0].id!);
+  });
+
+  it("stores createdAt timestamp from Date.now()", async () => {
+    const now = 1_700_000_000_000;
+    vi.spyOn(Date, "now").mockReturnValue(now);
+
+    await enqueueStrokes("pg_a", [makeStroke("st_1")]);
+
+    const entries = await peekAllPending();
+    expect(entries[0].createdAt).toBe(now);
+  });
+
+  describe("purgeStaleEntries", () => {
+    it("purges entries older than the threshold", async () => {
+      const now = 1_700_000_000_000;
+      vi.spyOn(Date, "now").mockReturnValue(now - 20_000);
+
+      await enqueueStrokes("pg_a", [makeStroke("st_old")]);
+      await enqueueStrokes("pg_b", [makeStroke("st_old2")]);
+
+      expect(await peekAllPending()).toHaveLength(2);
+
+      // Now Date.now() returns a time 20s later; purge entries older than 5s
+      vi.spyOn(Date, "now").mockReturnValue(now);
+      const purged = await purgeStaleEntries(5_000);
+      expect(purged).toBe(2);
+      expect(await pendingCount()).toBe(0);
+    });
+
+    it("keeps entries within the threshold", async () => {
+      await enqueueStrokes("pg_a", [makeStroke("st_1")]);
+      await enqueueStrokes("pg_b", [makeStroke("st_2")]);
+
+      // Use a very large maxAge so nothing is stale
+      const purged = await purgeStaleEntries(1_000_000_000);
+      expect(purged).toBe(0);
+      expect(await pendingCount()).toBe(2);
+    });
+
+    it("returns zero when queue is empty", async () => {
+      const purged = await purgeStaleEntries(1_000_000_000);
+      expect(purged).toBe(0);
+    });
+
+    it("selectively purges only stale entries", async () => {
+      const now = 1_700_000_000_000;
+
+      // Enqueue "old" entry at t=0
+      vi.spyOn(Date, "now").mockReturnValue(now - 20_000);
+      await enqueueStrokes("pg_old", [makeStroke("st_old")]);
+
+      // Enqueue "new" entry at t=20s
+      vi.spyOn(Date, "now").mockReturnValue(now);
+      await enqueueStrokes("pg_new", [makeStroke("st_new")]);
+
+      // Purge entries older than 10s (only pg_old should be purged)
+      const purged = await purgeStaleEntries(10_000);
+      expect(purged).toBe(1);
+
+      const remaining = await peekAllPending();
+      expect(remaining).toHaveLength(1);
+      expect(remaining[0].pageId).toBe("pg_new");
+    });
   });
 });

@@ -4,7 +4,10 @@ const DB_NAME = "inkwell-offline";
 const DB_VERSION = 1;
 const STORE_NAME = "pending-strokes";
 
-interface PendingEntry {
+/** Max age for stale entries (24 hours). */
+const STALE_ENTRY_AGE_MS = 24 * 60 * 60 * 1000;
+
+export interface PendingEntry {
   /** Auto-incremented key */
   id?: number;
   pageId: string;
@@ -30,12 +33,18 @@ function openDB(): Promise<IDBDatabase> {
   });
 }
 
-/** Enqueue strokes for later sync. */
+/** Enqueue strokes for later sync. Falls back gracefully on quota errors. */
 export async function enqueueStrokes(
   pageId: string,
   strokes: Stroke[],
 ): Promise<void> {
-  const db = await openDB();
+  let db: IDBDatabase;
+  try {
+    db = await openDB();
+  } catch (err) {
+    console.error("Failed to open offline DB:", err);
+    return;
+  }
   return new Promise((resolve, reject) => {
     const tx = db.transaction(STORE_NAME, "readwrite");
     const store = tx.objectStore(STORE_NAME);
@@ -46,7 +55,14 @@ export async function enqueueStrokes(
     };
     tx.onerror = () => {
       db.close();
-      reject(tx.error);
+      const error = tx.error;
+      // QuotaExceededError — storage is full; log but don't crash
+      if (error?.name === "QuotaExceededError") {
+        console.warn("Offline queue storage quota exceeded; stroke not queued");
+        resolve();
+        return;
+      }
+      reject(error);
     };
   });
 }
@@ -101,6 +117,43 @@ export async function pendingCount(): Promise<number> {
     req.onerror = () => {
       db.close();
       reject(req.error);
+    };
+  });
+}
+
+/**
+ * Remove entries older than the stale threshold.
+ * Returns the number of entries purged.
+ */
+export async function purgeStaleEntries(
+  maxAgeMs: number = STALE_ENTRY_AGE_MS,
+): Promise<number> {
+  const db = await openDB();
+  const cutoff = Date.now() - maxAgeMs;
+
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_NAME, "readwrite");
+    const store = tx.objectStore(STORE_NAME);
+    const req = store.openCursor();
+    let purged = 0;
+
+    req.onsuccess = () => {
+      const cursor = req.result;
+      if (!cursor) return; // transaction will complete
+      const entry = cursor.value as PendingEntry;
+      if (entry.createdAt < cutoff) {
+        cursor.delete();
+        purged++;
+      }
+      cursor.continue();
+    };
+    req.onerror = () => {
+      db.close();
+      reject(req.error);
+    };
+    tx.oncomplete = () => {
+      db.close();
+      resolve(purged);
     };
   });
 }

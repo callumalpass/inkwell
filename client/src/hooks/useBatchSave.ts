@@ -5,6 +5,27 @@ import { useUndoRedoStore } from "../stores/undo-redo-store";
 import { postStrokes } from "../api/strokes";
 import { enqueueStrokes } from "../lib/offline-queue";
 import { BATCH_SAVE_INTERVAL_MS } from "../lib/constants";
+import type { Stroke } from "../api/strokes";
+
+async function saveStrokes(pid: string, strokes: Stroke[]) {
+  const pageStore = usePageStore.getState();
+  const undoStore = useUndoRedoStore.getState();
+
+  try {
+    await postStrokes(pid, strokes);
+  } catch {
+    // Network failure — persist to IndexedDB for later sync
+    await enqueueStrokes(pid, strokes).catch((err) =>
+      console.error(`Failed to enqueue strokes offline for ${pid}:`, err),
+    );
+  }
+
+  // Always add to page store and record undo regardless of sync success
+  pageStore.addSavedStrokes(pid, strokes);
+  for (const stroke of strokes) {
+    undoStore.record({ type: "add-stroke", pageId: pid, stroke });
+  }
+}
 
 export function useBatchSave(pageId?: string) {
   const intervalRef = useRef<ReturnType<typeof setInterval>>();
@@ -12,32 +33,11 @@ export function useBatchSave(pageId?: string) {
   useEffect(() => {
     intervalRef.current = setInterval(async () => {
       const store = useDrawingStore.getState();
-      const pageStore = usePageStore.getState();
 
       if (pageId) {
         const pending = store.flushPendingForPage(pageId);
         if (pending.length === 0) return;
-
-        try {
-          await postStrokes(pageId, pending);
-          pageStore.addSavedStrokes(pageId, pending);
-          // Record undo commands for each newly saved stroke
-          const undoStore = useUndoRedoStore.getState();
-          for (const stroke of pending) {
-            undoStore.record({ type: "add-stroke", pageId, stroke });
-          }
-        } catch {
-          // Network failure — persist to IndexedDB for later sync
-          await enqueueStrokes(pageId, pending).catch((err) =>
-            console.error("Failed to enqueue strokes offline:", err),
-          );
-          // Still add to page store so the user sees their strokes
-          pageStore.addSavedStrokes(pageId, pending);
-          const undoStore = useUndoRedoStore.getState();
-          for (const stroke of pending) {
-            undoStore.record({ type: "add-stroke", pageId, stroke });
-          }
-        }
+        await saveStrokes(pageId, pending);
       } else {
         const allPending = store.flushAllPending();
         const pageIds = Object.keys(allPending);
@@ -47,24 +47,7 @@ export function useBatchSave(pageId?: string) {
           pageIds.map(async (pid) => {
             const pending = allPending[pid];
             if (!pending || pending.length === 0) return;
-
-            try {
-              await postStrokes(pid, pending);
-              pageStore.addSavedStrokes(pid, pending);
-              const undoStore = useUndoRedoStore.getState();
-              for (const stroke of pending) {
-                undoStore.record({ type: "add-stroke", pageId: pid, stroke });
-              }
-            } catch {
-              await enqueueStrokes(pid, pending).catch((err) =>
-                console.error(`Failed to enqueue strokes offline for ${pid}:`, err),
-              );
-              pageStore.addSavedStrokes(pid, pending);
-              const undoStore = useUndoRedoStore.getState();
-              for (const stroke of pending) {
-                undoStore.record({ type: "add-stroke", pageId: pid, stroke });
-              }
-            }
+            await saveStrokes(pid, pending);
           }),
         );
       }
