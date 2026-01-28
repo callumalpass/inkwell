@@ -166,8 +166,9 @@ export function pageRoutes(app: FastifyInstance) {
           ),
         );
         return { moved };
-      } catch (err: any) {
-        return reply.code(400).send({ error: err.message || "Move failed" });
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : "Move failed";
+        return reply.code(400).send({ error: message });
       }
     },
   );

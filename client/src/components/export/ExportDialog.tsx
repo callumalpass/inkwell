@@ -101,8 +101,8 @@ export function ExportDialog({
         await exportNotebookPdf(notebookId!, notebookTitle || notebookId!, opts);
       }
       onClose();
-    } catch (err: any) {
-      setError(err.message || "Export failed");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Export failed");
     } finally {
       setExporting(false);
     }

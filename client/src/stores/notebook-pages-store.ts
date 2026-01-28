@@ -98,8 +98,9 @@ export const useNotebookPagesStore = create<NotebookPagesStore>((set, get) => ({
           },
         }));
       }
-    } catch (err: any) {
-      set({ error: err.message, loading: false });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to load notebook";
+      set({ error: message, loading: false });
     }
   },
 

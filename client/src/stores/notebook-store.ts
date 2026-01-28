@@ -20,8 +20,9 @@ export const useNotebookStore = create<NotebookStore>((set, get) => ({
     try {
       const notebooks = await notebooksApi.listNotebooks();
       set({ notebooks, loading: false });
-    } catch (err: any) {
-      set({ error: err.message, loading: false });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to fetch notebooks";
+      set({ error: message, loading: false });
     }
   },
 

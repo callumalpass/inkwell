@@ -59,8 +59,8 @@ export function PageTagsPanel() {
     try {
       await updatePageTags(panelPageId, [...tags, trimmed]);
       setNewTag("");
-    } catch (err: any) {
-      setError(err.message || "Failed to add tag");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to add tag");
     } finally {
       setSaving(false);
     }
@@ -74,8 +74,8 @@ export function PageTagsPanel() {
         panelPageId,
         tags.filter((t) => t !== tag),
       );
-    } catch (err: any) {
-      setError(err.message || "Failed to remove tag");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to remove tag");
     } finally {
       setSaving(false);
     }

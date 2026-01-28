@@ -39,8 +39,9 @@ export const useSearchStore = create<SearchStore>((set) => ({
         loading: false,
         searched: true,
       });
-    } catch (err: any) {
-      set({ error: err.message, loading: false, searched: true });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Search failed";
+      set({ error: message, loading: false, searched: true });
     }
   },
 
