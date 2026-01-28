@@ -17,7 +17,7 @@ interface DrawingLayerProps {
 }
 
 export function DrawingLayer({ pageId }: DrawingLayerProps) {
-  const { onPointerDown, onPointerMove, onPointerUp, captureRef } = useStrokeCapture(pageId);
+  const { onPointerDown, onPointerMove, onPointerUp, onPointerCancel, captureRef } = useStrokeCapture(pageId);
   const tool = useDrawingStore((s) => s.tool);
   const viewMode = useViewStore((s) => s.viewMode);
   const savedStrokes = usePageStore((s) => s.strokesByPage[pageId] ?? EMPTY);
@@ -70,6 +70,18 @@ export function DrawingLayer({ pageId }: DrawingLayerProps) {
     [tool, onPointerUp],
   );
 
+  const handlePointerCancel = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      if (!isPenOrMouse(e)) return;
+      if (tool === "eraser") {
+        lastEraseRef.current = null;
+      } else {
+        onPointerCancel(e);
+      }
+    },
+    [tool, onPointerCancel],
+  );
+
   function eraseAt(e: React.PointerEvent<HTMLDivElement>) {
     const rect = e.currentTarget.getBoundingClientRect();
     const x = ((e.clientX - rect.left) / rect.width) * PAGE_WIDTH;
@@ -99,6 +111,7 @@ export function DrawingLayer({ pageId }: DrawingLayerProps) {
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
+      onPointerCancel={handlePointerCancel}
     />
   );
 }

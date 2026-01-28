@@ -60,6 +60,25 @@ export function useStrokeCapture(pageId: string) {
     [scheduleFlush],
   );
 
+  // Finalize an in-progress stroke: flush buffered points then end it.
+  // Used by onPointerUp, onPointerCancel, and unmount cleanup.
+  const finalizeStroke = useCallback(() => {
+    if (!isDrawing.current) return;
+    isDrawing.current = false;
+    cachedRect.current = null;
+    if (rafId.current) {
+      cancelAnimationFrame(rafId.current);
+      rafId.current = 0;
+    }
+    const points = pointBuffer.current;
+    pointBuffer.current = [];
+    const store = useDrawingStore.getState();
+    if (points.length > 0) {
+      store.addPoints(points);
+    }
+    store.endStroke();
+  }, []);
+
   // Attach native pointerrawupdate listener (falls back to pointermove)
   useEffect(() => {
     const el = elementRef.current;
@@ -71,13 +90,11 @@ export function useStrokeCapture(pageId: string) {
 
     return () => {
       el.removeEventListener(eventName, handleRawUpdate as EventListener);
-      // Cancel any pending RAF to prevent callbacks after unmount
-      if (rafId.current) {
-        cancelAnimationFrame(rafId.current);
-        rafId.current = 0;
-      }
+      // If a stroke is in progress when the element is torn down (e.g. the
+      // page scrolled out of view mid-stroke), finalize it so it isn't lost.
+      finalizeStroke();
     };
-  }, [handleRawUpdate]);
+  }, [handleRawUpdate, finalizeStroke]);
 
   const onPointerDown = useCallback(
     (e: React.PointerEvent<HTMLElement>) => {
@@ -102,22 +119,16 @@ export function useStrokeCapture(pageId: string) {
 
   const onPointerUp = useCallback(
     (_e: React.PointerEvent<HTMLElement>) => {
-      if (!isDrawing.current) return;
-      isDrawing.current = false;
-      cachedRect.current = null;
-      if (rafId.current) {
-        cancelAnimationFrame(rafId.current);
-        rafId.current = 0;
-      }
-      const points = pointBuffer.current;
-      pointBuffer.current = [];
-      const store = useDrawingStore.getState();
-      if (points.length > 0) {
-        store.addPoints(points);
-      }
-      store.endStroke();
+      finalizeStroke();
     },
-    [],
+    [finalizeStroke],
+  );
+
+  const onPointerCancel = useCallback(
+    (_e: React.PointerEvent<HTMLElement>) => {
+      finalizeStroke();
+    },
+    [finalizeStroke],
   );
 
   // Ref callback to attach to the drawing element
@@ -128,5 +139,5 @@ export function useStrokeCapture(pageId: string) {
     [],
   );
 
-  return { onPointerDown, onPointerMove, onPointerUp, captureRef };
+  return { onPointerDown, onPointerMove, onPointerUp, onPointerCancel, captureRef };
 }
