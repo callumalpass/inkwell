@@ -1,7 +1,7 @@
 import { readdir, rm } from "node:fs/promises";
-import type { NotebookMeta } from "../types/index.js";
+import type { NotebookMeta, PageIndex } from "../types/index.js";
 import { paths } from "./paths.js";
-import { ensureDir, readJson, writeJson } from "./fs-utils.js";
+import { ensureDir, readJson, writeJson, withLock } from "./fs-utils.js";
 
 export async function listNotebooks(): Promise<NotebookMeta[]> {
   const dir = paths.notebooks();
@@ -42,6 +42,29 @@ export async function updateNotebook(
 export async function deleteNotebook(id: string): Promise<boolean> {
   const meta = await getNotebook(id);
   if (!meta) return false;
+
+  // Collect page IDs before deleting the notebook directory
+  const pagesDir = paths.pages(id);
+  let pageIds: string[] = [];
+  try {
+    const entries = await readdir(pagesDir, { withFileTypes: true });
+    pageIds = entries.filter((e) => e.isDirectory()).map((e) => e.name);
+  } catch {
+    // Pages dir may not exist
+  }
+
   await rm(paths.notebook(id), { recursive: true, force: true });
+
+  // Clean up page-index entries for all pages in this notebook
+  if (pageIds.length > 0) {
+    await withLock(paths.data(), async () => {
+      const index = (await readJson<PageIndex>(paths.pageIndex())) || {};
+      for (const pageId of pageIds) {
+        delete index[pageId];
+      }
+      await writeJson(paths.pageIndex(), index);
+    });
+  }
+
   return true;
 }

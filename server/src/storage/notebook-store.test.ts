@@ -9,7 +9,8 @@ import {
   updateNotebook,
   deleteNotebook,
 } from "./notebook-store.js";
-import type { NotebookMeta } from "../types/index.js";
+import { createPage, getPage } from "./page-store.js";
+import type { NotebookMeta, PageMeta } from "../types/index.js";
 
 let originalDataDir: string;
 let testDir: string;
@@ -107,5 +108,33 @@ describe("deleteNotebook", () => {
   it("returns false for a non-existent notebook", async () => {
     const result = await deleteNotebook("nb_ghost");
     expect(result).toBe(false);
+  });
+
+  it("cleans up page-index entries when notebook is deleted", async () => {
+    const meta = makeMeta({ id: "nb_cleanup1" });
+    await createNotebook(meta);
+
+    const now = new Date().toISOString();
+    const pageMeta: PageMeta = {
+      id: "pg_cleanup1",
+      notebookId: "nb_cleanup1",
+      pageNumber: 1,
+      canvasX: 0,
+      canvasY: 0,
+      createdAt: now,
+      updatedAt: now,
+    };
+    await createPage(pageMeta);
+
+    // Page should be findable before deletion
+    const pageBefore = await getPage("pg_cleanup1");
+    expect(pageBefore).not.toBeNull();
+
+    // Delete the notebook
+    await deleteNotebook("nb_cleanup1");
+
+    // Page-index should no longer reference the deleted page
+    const pageAfter = await getPage("pg_cleanup1");
+    expect(pageAfter).toBeNull();
   });
 });
