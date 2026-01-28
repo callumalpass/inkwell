@@ -4,7 +4,7 @@ export interface AppSettings {
   defaultStrokeWidth?: number;
   defaultGridType?: "none" | "lined" | "grid" | "dotgrid";
   defaultBackgroundLineSpacing?: number;
-  defaultViewMode?: "single" | "scroll" | "canvas";
+  defaultViewMode?: "single" | "canvas" | "overview";
   autoTranscribe?: boolean;
 }
 

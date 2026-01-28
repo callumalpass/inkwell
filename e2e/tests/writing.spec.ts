@@ -288,15 +288,15 @@ test.describe("Writing - Background templates", () => {
   });
 });
 
-test.describe("Writing - Scroll view", () => {
+test.describe("Writing - Overview view", () => {
   let notebookId: string;
   let notebookTitle: string;
 
   test.beforeEach(async () => {
-    const nb = await createNotebook(uniqueTitle("E2E Scroll"));
+    const nb = await createNotebook(uniqueTitle("E2E Overview"));
     notebookId = nb.id;
     notebookTitle = nb.title;
-    // Create 2 pages so scroll view has content
+    // Create 2 pages so overview has content
     await addPage(notebookId);
     await addPage(notebookId);
   });
@@ -305,63 +305,18 @@ test.describe("Writing - Scroll view", () => {
     await deleteNotebook(notebookId);
   });
 
-  test("switch to scroll mode and verify scroll container appears", async ({ page }) => {
+  test("switch to overview mode and verify grid appears", async ({ page }) => {
     await openNotebook(page, notebookTitle);
 
-    // Switch to Scroll view
-    await page.getByRole("button", { name: "Scroll" }).click();
+    // Switch to Overview view
+    await page.getByRole("button", { name: "Overview" }).click();
 
-    // Verify the scroll container is visible (overflow-y-auto bg-gray-100)
-    await expect(page.locator(".overflow-y-auto.bg-gray-100")).toBeVisible({ timeout: 5000 });
+    // Verify the overview container is visible
+    await expect(page.getByTestId("overview-view")).toBeVisible({ timeout: 5000 });
 
-    // Verify page wrappers are rendered (each page has a w-full wrapper div)
-    // ScrollPageListView renders a div for each page regardless of visibility
-    const pageWrappers = page.locator(".overflow-y-auto.bg-gray-100 .w-full");
-    await expect(pageWrappers.first()).toBeVisible({ timeout: 5000 });
-    const count = await pageWrappers.count();
-    expect(count).toBeGreaterThanOrEqual(2);
-  });
-
-  test("draw a stroke in scroll mode and verify SVG path appears", async ({ page }) => {
-    await openNotebook(page, notebookTitle);
-
-    // Switch to Scroll view
-    await page.getByRole("button", { name: "Scroll" }).click();
-
-    // Wait for the scroll container and a page surface to render
-    await expect(page.locator(".overflow-y-auto.bg-gray-100")).toBeVisible({ timeout: 5000 });
-    // In scroll mode the drawing layer uses touch-pan-y instead of touch-none
-    await expect(page.locator(".touch-pan-y").first()).toBeVisible({ timeout: 5000 });
-
-    // Draw a stroke on the first visible drawing layer
-    await drawStroke(page, ".touch-pan-y");
-
-    // SVG path element should appear (stroke rendered)
-    await expect(page.locator(".bg-white.shadow-sm svg path")).toBeVisible({ timeout: 5000 });
-
-    // Wait for batch save to persist
-    await page.waitForTimeout(3000);
-
-    // Reload and verify stroke persists in scroll mode
-    await page.reload();
-    await page.waitForURL(/\/notebook\/nb_.*\/page\//);
-    await page.getByRole("button", { name: "Scroll" }).click();
-    await expect(page.locator(".bg-white.shadow-sm svg path")).toBeVisible({ timeout: 10000 });
-  });
-
-  test("drawing layer allows touch scrolling via touch-pan-y", async ({ page }) => {
-    await openNotebook(page, notebookTitle);
-
-    // Switch to Scroll view
-    await page.getByRole("button", { name: "Scroll" }).click();
-    await expect(page.locator(".overflow-y-auto.bg-gray-100")).toBeVisible({ timeout: 5000 });
-    await expect(page.locator(".touch-pan-y").first()).toBeVisible({ timeout: 5000 });
-
-    // Verify the drawing layer has touch-action: pan-y (not none)
-    const touchAction = await page.locator(".touch-pan-y").first().evaluate(
-      (el) => getComputedStyle(el).touchAction,
-    );
-    expect(touchAction).toBe("pan-y");
+    // Should render page thumbnails
+    const thumbnails = page.locator("[data-testid=\"overview-view\"] img");
+    await expect(thumbnails.first()).toBeVisible({ timeout: 5000 });
   });
 });
 

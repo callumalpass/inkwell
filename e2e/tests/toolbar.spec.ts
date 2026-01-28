@@ -249,12 +249,12 @@ test.describe("Toolbar - Multi-page navigation", () => {
     await expect(page.getByText(/4\/4/)).toBeVisible({ timeout: 5000 });
   });
 
-  test("page nav buttons are hidden in scroll and canvas views", async ({ page }) => {
+  test("page nav buttons are hidden in overview and canvas views", async ({ page }) => {
     await openNotebook(page, notebookTitle);
 
-    // Switch to scroll mode
-    await page.getByRole("button", { name: "Scroll" }).click();
-    await expect(page.locator(".overflow-y-auto.bg-gray-100")).toBeVisible({ timeout: 5000 });
+    // Switch to overview mode
+    await page.getByRole("button", { name: "Overview" }).click();
+    await expect(page.getByTestId("overview-view")).toBeVisible({ timeout: 5000 });
 
     // Prev/Next buttons should not be visible
     await expect(page.getByRole("button", { name: "Prev" })).not.toBeVisible();

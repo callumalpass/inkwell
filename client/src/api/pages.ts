@@ -53,3 +53,10 @@ export function updatePage(
 export function deletePage(pageId: string) {
   return apiFetch<void>(`/pages/${pageId}`, { method: "DELETE" });
 }
+
+export function movePages(pageIds: string[], targetNotebookId: string) {
+  return apiFetch<void>("/pages/move", {
+    method: "POST",
+    body: JSON.stringify({ pageIds, targetNotebookId }),
+  });
+}

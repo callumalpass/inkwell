@@ -9,6 +9,7 @@ import {
   createPage,
   updatePage,
   deletePage,
+  movePages,
 } from "./page-store.js";
 import { createNotebook } from "./notebook-store.js";
 import { readJson } from "./fs-utils.js";
@@ -415,5 +416,165 @@ describe("deletePage", () => {
     const otherPage = await getPage("pg_dp6b");
     expect(otherPage).not.toBeNull();
     expect(otherPage!.id).toBe("pg_dp6b");
+  });
+});
+
+describe("movePages", () => {
+  it("moves a single page to another notebook", async () => {
+    await createNotebook(makeNotebook({ id: "nb_mp1_src" }));
+    await createNotebook(makeNotebook({ id: "nb_mp1_dst" }));
+
+    await createPage(makePage({ id: "pg_mp1", notebookId: "nb_mp1_src", pageNumber: 1 }));
+
+    const moved = await movePages(["pg_mp1"], "nb_mp1_dst");
+    expect(moved).toHaveLength(1);
+    expect(moved[0].id).toBe("pg_mp1");
+    expect(moved[0].notebookId).toBe("nb_mp1_dst");
+    expect(moved[0].pageNumber).toBe(1);
+  });
+
+  it("updates the page-index for moved pages", async () => {
+    await createNotebook(makeNotebook({ id: "nb_mp2_src" }));
+    await createNotebook(makeNotebook({ id: "nb_mp2_dst" }));
+
+    await createPage(makePage({ id: "pg_mp2", notebookId: "nb_mp2_src" }));
+
+    await movePages(["pg_mp2"], "nb_mp2_dst");
+
+    const notebookId = await getNotebookIdForPage("pg_mp2");
+    expect(notebookId).toBe("nb_mp2_dst");
+  });
+
+  it("removes pages from source notebook", async () => {
+    await createNotebook(makeNotebook({ id: "nb_mp3_src" }));
+    await createNotebook(makeNotebook({ id: "nb_mp3_dst" }));
+
+    await createPage(makePage({ id: "pg_mp3", notebookId: "nb_mp3_src" }));
+
+    await movePages(["pg_mp3"], "nb_mp3_dst");
+
+    const sourcePgs = await listPages("nb_mp3_src");
+    expect(sourcePgs).toHaveLength(0);
+  });
+
+  it("adds pages to target notebook", async () => {
+    await createNotebook(makeNotebook({ id: "nb_mp4_src" }));
+    await createNotebook(makeNotebook({ id: "nb_mp4_dst" }));
+
+    await createPage(makePage({ id: "pg_mp4", notebookId: "nb_mp4_src" }));
+
+    await movePages(["pg_mp4"], "nb_mp4_dst");
+
+    const destPgs = await listPages("nb_mp4_dst");
+    expect(destPgs).toHaveLength(1);
+    expect(destPgs[0].id).toBe("pg_mp4");
+  });
+
+  it("assigns sequential page numbers to moved pages", async () => {
+    await createNotebook(makeNotebook({ id: "nb_mp5_src" }));
+    await createNotebook(makeNotebook({ id: "nb_mp5_dst" }));
+
+    // Create existing page in destination
+    await createPage(makePage({ id: "pg_mp5_existing", notebookId: "nb_mp5_dst", pageNumber: 1 }));
+
+    // Create pages to move
+    await createPage(makePage({ id: "pg_mp5_a", notebookId: "nb_mp5_src", pageNumber: 1 }));
+    await createPage(makePage({ id: "pg_mp5_b", notebookId: "nb_mp5_src", pageNumber: 2 }));
+
+    const moved = await movePages(["pg_mp5_a", "pg_mp5_b"], "nb_mp5_dst");
+    expect(moved).toHaveLength(2);
+    expect(moved[0].pageNumber).toBe(2);
+    expect(moved[1].pageNumber).toBe(3);
+  });
+
+  it("moves multiple pages atomically", async () => {
+    await createNotebook(makeNotebook({ id: "nb_mp6_src" }));
+    await createNotebook(makeNotebook({ id: "nb_mp6_dst" }));
+
+    await createPage(makePage({ id: "pg_mp6_a", notebookId: "nb_mp6_src", pageNumber: 1 }));
+    await createPage(makePage({ id: "pg_mp6_b", notebookId: "nb_mp6_src", pageNumber: 2 }));
+    await createPage(makePage({ id: "pg_mp6_c", notebookId: "nb_mp6_src", pageNumber: 3 }));
+
+    const moved = await movePages(["pg_mp6_a", "pg_mp6_c"], "nb_mp6_dst");
+    expect(moved).toHaveLength(2);
+
+    const sourcePgs = await listPages("nb_mp6_src");
+    expect(sourcePgs).toHaveLength(1);
+    expect(sourcePgs[0].id).toBe("pg_mp6_b");
+
+    const destPgs = await listPages("nb_mp6_dst");
+    expect(destPgs).toHaveLength(2);
+  });
+
+  it("throws an error for non-existent page", async () => {
+    await createNotebook(makeNotebook({ id: "nb_mp7_dst" }));
+
+    await expect(movePages(["pg_nonexistent"], "nb_mp7_dst")).rejects.toThrow(
+      "Page not found: pg_nonexistent",
+    );
+  });
+
+  it("throws an error when page is already in target notebook", async () => {
+    await createNotebook(makeNotebook({ id: "nb_mp8" }));
+    await createPage(makePage({ id: "pg_mp8", notebookId: "nb_mp8" }));
+
+    await expect(movePages(["pg_mp8"], "nb_mp8")).rejects.toThrow(
+      "Page already in target notebook: pg_mp8",
+    );
+  });
+
+  it("returns empty array when no page IDs provided", async () => {
+    await createNotebook(makeNotebook({ id: "nb_mp9_dst" }));
+
+    const moved = await movePages([], "nb_mp9_dst");
+    expect(moved).toEqual([]);
+  });
+
+  it("preserves page content and metadata except notebookId and pageNumber", async () => {
+    await createNotebook(makeNotebook({ id: "nb_mp10_src" }));
+    await createNotebook(makeNotebook({ id: "nb_mp10_dst" }));
+
+    const originalPage = makePage({
+      id: "pg_mp10",
+      notebookId: "nb_mp10_src",
+      pageNumber: 5,
+      canvasX: 100,
+      canvasY: 200,
+      links: ["pg_linked"],
+      tags: ["important", "review"],
+    });
+    await createPage(originalPage);
+
+    const moved = await movePages(["pg_mp10"], "nb_mp10_dst");
+    expect(moved[0].canvasX).toBe(100);
+    expect(moved[0].canvasY).toBe(200);
+    expect(moved[0].links).toEqual(["pg_linked"]);
+    expect(moved[0].tags).toEqual(["important", "review"]);
+    expect(moved[0].notebookId).toBe("nb_mp10_dst");
+    expect(moved[0].pageNumber).toBe(1);
+  });
+
+  it("updates the updatedAt timestamp", async () => {
+    await createNotebook(makeNotebook({ id: "nb_mp11_src" }));
+    await createNotebook(makeNotebook({ id: "nb_mp11_dst" }));
+
+    const oldDate = "2020-01-01T00:00:00.000Z";
+    await createPage(makePage({ id: "pg_mp11", notebookId: "nb_mp11_src", updatedAt: oldDate }));
+
+    const moved = await movePages(["pg_mp11"], "nb_mp11_dst");
+    expect(moved[0].updatedAt).not.toBe(oldDate);
+  });
+
+  it("makes pages retrievable from new location via getPage", async () => {
+    await createNotebook(makeNotebook({ id: "nb_mp12_src" }));
+    await createNotebook(makeNotebook({ id: "nb_mp12_dst" }));
+
+    await createPage(makePage({ id: "pg_mp12", notebookId: "nb_mp12_src" }));
+
+    await movePages(["pg_mp12"], "nb_mp12_dst");
+
+    const page = await getPage("pg_mp12");
+    expect(page).not.toBeNull();
+    expect(page!.notebookId).toBe("nb_mp12_dst");
   });
 });

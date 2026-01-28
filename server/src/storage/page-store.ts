@@ -1,4 +1,4 @@
-import { readdir, rm } from "node:fs/promises";
+import { readdir, rename, rm } from "node:fs/promises";
 import type { PageMeta, PageIndex } from "../types/index.js";
 import { paths } from "./paths.js";
 import { ensureDir, readJson, writeJson, withLock } from "./fs-utils.js";
@@ -77,5 +77,55 @@ export async function deletePage(pageId: string): Promise<boolean> {
     delete index[pageId];
     await writePageIndex(index);
     return true;
+  });
+}
+
+export async function movePages(
+  pageIds: string[],
+  targetNotebookId: string,
+): Promise<PageMeta[]> {
+  if (pageIds.length === 0) return [];
+  return withLock(paths.data(), async () => {
+    const index = await readPageIndex();
+    const targetPages = await listPages(targetNotebookId);
+    let nextPageNumber = targetPages.length + 1;
+    const moved: PageMeta[] = [];
+
+    await ensureDir(paths.pages(targetNotebookId));
+
+    for (const pageId of pageIds) {
+      const sourceNotebookId = index[pageId];
+      if (!sourceNotebookId) {
+        throw new Error(`Page not found: ${pageId}`);
+      }
+      if (sourceNotebookId === targetNotebookId) {
+        throw new Error(`Page already in target notebook: ${pageId}`);
+      }
+
+      const meta = await readJson<PageMeta>(paths.pageMeta(sourceNotebookId, pageId));
+      if (!meta) {
+        throw new Error(`Page metadata missing: ${pageId}`);
+      }
+
+      await rename(
+        paths.page(sourceNotebookId, pageId),
+        paths.page(targetNotebookId, pageId),
+      );
+
+      const updated: PageMeta = {
+        ...meta,
+        notebookId: targetNotebookId,
+        pageNumber: nextPageNumber,
+        updatedAt: new Date().toISOString(),
+      };
+      nextPageNumber += 1;
+      await writeJson(paths.pageMeta(targetNotebookId, pageId), updated);
+
+      index[pageId] = targetNotebookId;
+      moved.push(updated);
+    }
+
+    await writePageIndex(index);
+    return moved;
   });
 }

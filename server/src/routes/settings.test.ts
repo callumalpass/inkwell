@@ -283,7 +283,7 @@ describe("PUT /api/settings", () => {
   });
 
   describe("defaultViewMode validation", () => {
-    it.each(["single", "scroll", "canvas"])(
+    it.each(["single", "canvas", "overview"])(
       "accepts valid view mode: %s",
       async (viewMode) => {
         const res = await app.inject({

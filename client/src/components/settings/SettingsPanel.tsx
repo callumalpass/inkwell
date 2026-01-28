@@ -30,11 +30,11 @@ const GRID_TYPE_LABELS: Record<string, string> = {
   dotgrid: "Dots",
 };
 
-const VIEW_MODES = ["single", "scroll", "canvas"] as const;
+const VIEW_MODES = ["single", "canvas", "overview"] as const;
 const VIEW_MODE_LABELS: Record<string, string> = {
   single: "Single",
-  scroll: "Scroll",
   canvas: "Canvas",
+  overview: "Overview",
 };
 
 const LINE_SPACING_LABELS: Record<number, string> = {

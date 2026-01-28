@@ -217,8 +217,8 @@ describe("SettingsPanel - View Mode", () => {
   it("shows view mode buttons", () => {
     render(<SettingsPanel open={true} onClose={() => {}} />);
     expect(screen.getByText("Single")).toBeInTheDocument();
-    expect(screen.getByText("Scroll")).toBeInTheDocument();
     expect(screen.getByText("Canvas")).toBeInTheDocument();
+    expect(screen.getByText("Overview")).toBeInTheDocument();
   });
 
   it("updates view mode when button is clicked", async () => {

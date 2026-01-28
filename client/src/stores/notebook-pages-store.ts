@@ -4,7 +4,7 @@ import * as notebooksApi from "../api/notebooks";
 import type { NotebookSettings } from "../api/notebooks";
 import { useSettingsStore } from "./settings-store";
 import { useDrawingStore } from "./drawing-store";
-import { useViewStore } from "./view-store";
+import { useViewStore, type ViewMode } from "./view-store";
 import {
   DEFAULT_STROKE_COLOR,
   DEFAULT_STROKE_WIDTH,
@@ -27,6 +27,9 @@ interface NotebookPagesStore {
   updatePagePosition: (pageId: string, canvasX: number, canvasY: number) => Promise<void>;
   updatePageLinks: (pageId: string, links: string[]) => Promise<void>;
   updatePageTags: (pageId: string, tags: string[]) => Promise<void>;
+  reorderPages: (orderedIds: string[]) => Promise<void>;
+  removePages: (pageIds: string[]) => Promise<void>;
+  movePages: (pageIds: string[], targetNotebookId: string) => Promise<void>;
   updateSettings: (settings: NotebookSettings) => Promise<void>;
 }
 
@@ -61,7 +64,7 @@ export const useNotebookPagesStore = create<NotebookPagesStore>((set, get) => ({
       const effectiveWidth =
         notebookSettings.defaultStrokeWidth ?? global.defaultStrokeWidth ?? DEFAULT_STROKE_WIDTH;
       const effectivePenStyle = global.defaultPenStyle ?? "pressure";
-      const effectiveViewMode = global.defaultViewMode ?? "single";
+      const effectiveViewMode = normalizeViewMode(global.defaultViewMode);
       const effectiveGridType = notebookSettings.gridType ?? global.defaultGridType;
       const effectiveLineSpacing =
         notebookSettings.backgroundLineSpacing ??
@@ -153,6 +156,65 @@ export const useNotebookPagesStore = create<NotebookPagesStore>((set, get) => ({
     });
   },
 
+  reorderPages: async (orderedIds) => {
+    const { pages, currentPageIndex } = get();
+    if (orderedIds.length === 0) return;
+    const pageMap = new Map(pages.map((p) => [p.id, p] as const));
+    const orderedPages = orderedIds
+      .map((id) => pageMap.get(id))
+      .filter((p): p is pagesApi.PageMeta => !!p);
+    const missing = pages.filter((p) => !orderedIds.includes(p.id));
+    const nextPages = [...orderedPages, ...missing].map((p, idx) => ({
+      ...p,
+      pageNumber: idx + 1,
+    }));
+
+    const currentId = pages[currentPageIndex]?.id;
+    const nextIndex = currentId
+      ? nextPages.findIndex((p) => p.id === currentId)
+      : 0;
+    set({
+      pages: nextPages,
+      currentPageIndex: nextIndex >= 0 ? nextIndex : 0,
+    });
+
+    const updates = nextPages.filter((p) => p.pageNumber !== pageMap.get(p.id)?.pageNumber);
+    if (updates.length === 0) return;
+    await Promise.all(
+      updates.map((p) => pagesApi.updatePage(p.id, { pageNumber: p.pageNumber })),
+    );
+  },
+
+  removePages: async (pageIds) => {
+    if (pageIds.length === 0) return;
+    const { pages, currentPageIndex } = get();
+    await Promise.all(pageIds.map((id) => pagesApi.deletePage(id)));
+    const remaining = pages.filter((p) => !pageIds.includes(p.id));
+    const currentId = pages[currentPageIndex]?.id;
+    const nextIndex = currentId
+      ? remaining.findIndex((p) => p.id === currentId)
+      : 0;
+    set({
+      pages: remaining,
+      currentPageIndex: nextIndex >= 0 ? nextIndex : 0,
+    });
+  },
+
+  movePages: async (pageIds, targetNotebookId) => {
+    if (pageIds.length === 0) return;
+    await pagesApi.movePages(pageIds, targetNotebookId);
+    const { pages, currentPageIndex } = get();
+    const remaining = pages.filter((p) => !pageIds.includes(p.id));
+    const currentId = pages[currentPageIndex]?.id;
+    const nextIndex = currentId
+      ? remaining.findIndex((p) => p.id === currentId)
+      : 0;
+    set({
+      pages: remaining,
+      currentPageIndex: nextIndex >= 0 ? nextIndex : 0,
+    });
+  },
+
   updateSettings: async (newSettings) => {
     const { notebookId, settings } = get();
     if (!notebookId) throw new Error("No notebook loaded");
@@ -161,3 +223,9 @@ export const useNotebookPagesStore = create<NotebookPagesStore>((set, get) => ({
     set({ settings: merged });
   },
 }));
+
+function normalizeViewMode(mode?: string): ViewMode {
+  if (mode === "canvas" || mode === "overview" || mode === "single") return mode;
+  if (mode === "scroll") return "overview";
+  return "single";
+}

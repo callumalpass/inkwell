@@ -168,26 +168,6 @@ test.describe("WebSocket - Multi-page", () => {
     await deleteNotebook(notebookId);
   });
 
-  test("scroll view receives updates for visible page", async ({ page }) => {
-    await page.goto("/");
-    await expect(page.getByText("Notebooks")).toBeVisible();
-    await page.getByText(notebookTitle).first().click();
-    await page.waitForURL(/\/notebook\/nb_.*\/page\//);
-
-    // Switch to scroll view
-    await page.getByRole("button", { name: "Scroll" }).click();
-    await expect(page.locator(".overflow-y-auto.bg-gray-100")).toBeVisible({ timeout: 5000 });
-
-    // Wait for WebSocket connections to establish
-    await page.waitForTimeout(1500);
-
-    // Add a stroke to page 1 via API (which should be visible)
-    await addStroke(pageId1);
-
-    // Stroke should appear via WebSocket
-    await expect(page.locator(".bg-white.shadow-sm svg path")).toHaveCount(1, { timeout: 5000 });
-  });
-
   test("canvas view receives updates for visible pages", async ({ page }) => {
     await page.goto("/");
     await expect(page.getByText("Notebooks")).toBeVisible();

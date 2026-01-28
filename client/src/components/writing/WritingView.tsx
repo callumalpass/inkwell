@@ -2,8 +2,8 @@ import { useViewStore } from "../../stores/view-store";
 import { useNotebookPagesStore } from "../../stores/notebook-pages-store";
 import { Toolbar } from "./toolbar";
 import { SinglePageView } from "./SinglePageView";
-import { ScrollPageListView } from "./ScrollPageListView";
 import { CanvasView } from "./CanvasView";
+import { OverviewView } from "./OverviewView";
 import { TranscriptionPanel } from "./TranscriptionPanel";
 import { PageLinksPanel } from "./PageLinksPanel";
 import { PageTagsPanel } from "./PageTagsPanel";
@@ -22,8 +22,8 @@ export function WritingView() {
     <div className="flex h-screen flex-col">
       <Toolbar />
       {viewMode === "single" && <SinglePageView />}
-      {viewMode === "scroll" && <ScrollPageListView />}
       {viewMode === "canvas" && <CanvasView />}
+      {viewMode === "overview" && <OverviewView />}
       <TranscriptionPanel />
       <PageLinksPanel />
       <PageTagsPanel />

@@ -201,32 +201,4 @@ test.describe("Canvas view – view mode transitions", () => {
     ).toBeVisible({ timeout: 10000 });
   });
 
-  test("stroke drawn in scroll mode persists into canvas mode", async ({
-    page,
-  }) => {
-    await openNotebook(page, notebookTitle);
-    await page.getByRole("button", { name: "Scroll" }).click();
-    await expect(page.locator(".touch-pan-y").first()).toBeVisible({
-      timeout: 5000,
-    });
-
-    await drawStroke(page, ".touch-pan-y");
-    await expect(
-      page.locator(".bg-white.shadow-sm svg path").first(),
-    ).toBeVisible({ timeout: 5000 });
-
-    // Wait for batch save
-    await page.waitForTimeout(3000);
-
-    // Switch to canvas mode
-    await page.getByRole("button", { name: "Canvas" }).click();
-    await expect(
-      page.locator(".relative.flex-1.overflow-hidden.bg-gray-200"),
-    ).toBeVisible({ timeout: 5000 });
-
-    // Stroke should still be visible
-    await expect(
-      page.locator(".bg-white.shadow-sm svg path").first(),
-    ).toBeVisible({ timeout: 10000 });
-  });
 });

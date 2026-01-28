@@ -127,4 +127,48 @@ export function pageRoutes(app: FastifyInstance) {
       return reply.code(204).send();
     },
   );
+
+  app.post<{
+    Body: { pageIds: string[]; targetNotebookId: string };
+  }>(
+    "/api/pages/move",
+    {
+      schema: {
+        body: {
+          type: "object",
+          properties: {
+            pageIds: {
+              type: "array",
+              items: { type: "string", pattern: "^pg_[a-zA-Z0-9_-]+$" },
+              minItems: 1,
+            },
+            targetNotebookId: {
+              type: "string",
+              pattern: "^nb_[a-zA-Z0-9_-]+$",
+            },
+          },
+          required: ["pageIds", "targetNotebookId"],
+          additionalProperties: false,
+        },
+      },
+    },
+    async (req, reply) => {
+      const { pageIds, targetNotebookId } = req.body;
+      const notebook = await notebookStore.getNotebook(targetNotebookId);
+      if (!notebook) return reply.code(404).send({ error: "Target notebook not found" });
+      try {
+        const moved = await pageStore.movePages(pageIds, targetNotebookId);
+        await Promise.all(
+          moved.map((page) =>
+            regenerateFrontmatter(page.id).catch(() => {
+              // Best-effort: frontmatter regeneration failure is non-fatal
+            }),
+          ),
+        );
+        return { moved };
+      } catch (err: any) {
+        return reply.code(400).send({ error: err.message || "Move failed" });
+      }
+    },
+  );
 }

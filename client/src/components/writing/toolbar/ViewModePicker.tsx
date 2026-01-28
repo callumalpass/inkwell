@@ -1,12 +1,12 @@
 import { useViewStore, type ViewMode } from "../../../stores/view-store";
 import { ToolbarButton, ToolbarRow } from "./ToolbarPrimitives";
 
-const VIEW_MODES: ViewMode[] = ["single", "scroll", "canvas"];
+const VIEW_MODES: ViewMode[] = ["single", "canvas", "overview"];
 
 const VIEW_MODE_LABELS: Record<ViewMode, string> = {
   single: "Single",
-  scroll: "Scroll",
   canvas: "Canvas",
+  overview: "Overview",
 };
 
 export function ViewModePicker({ showLabel }: { showLabel?: boolean }) {

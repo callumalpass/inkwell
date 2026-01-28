@@ -36,7 +36,7 @@ export function settingsRoutes(app: FastifyInstance) {
             },
             defaultViewMode: {
               type: "string",
-              enum: ["single", "scroll", "canvas"],
+              enum: ["single", "canvas", "overview"],
             },
             autoTranscribe: {
               type: "boolean",

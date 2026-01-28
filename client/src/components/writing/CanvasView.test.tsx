@@ -71,7 +71,6 @@ beforeEach(() => {
     viewMode: "canvas",
     canvasTransform: { x: 0, y: 0, scale: 1 },
     singlePageTransform: { x: 0, y: 0, scale: 1 },
-    scrollViewTransform: { x: 0, y: 0, scale: 1 },
   });
   useDrawingStore.setState({
     tool: "pen",
