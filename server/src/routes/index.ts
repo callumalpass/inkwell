@@ -4,6 +4,8 @@ import { pageRoutes } from "./pages.js";
 import { strokeRoutes } from "./strokes.js";
 import { thumbnailRoutes } from "./thumbnails.js";
 import { transcriptionRoutes } from "./transcription.js";
+import { exportRoutes } from "./export.js";
+import { searchRoutes } from "./search.js";
 
 export function registerRoutes(app: FastifyInstance) {
   notebookRoutes(app);
@@ -11,4 +13,6 @@ export function registerRoutes(app: FastifyInstance) {
   strokeRoutes(app);
   thumbnailRoutes(app);
   transcriptionRoutes(app);
+  exportRoutes(app);
+  searchRoutes(app);
 }

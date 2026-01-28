@@ -104,6 +104,144 @@ describe("PATCH /api/notebooks/:id", () => {
   });
 });
 
+describe("PATCH /api/notebooks/:id (settings)", () => {
+  it("sets notebook settings", async () => {
+    const create = await app.inject({
+      method: "POST",
+      url: "/api/notebooks",
+      payload: { title: "Settings Test" },
+    });
+    const { id } = create.json();
+
+    const res = await app.inject({
+      method: "PATCH",
+      url: `/api/notebooks/${id}`,
+      payload: {
+        settings: {
+          defaultTool: "highlighter",
+          defaultColor: "#0000ff",
+          defaultStrokeWidth: 5,
+          gridType: "lined",
+        },
+      },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json().settings).toEqual({
+      defaultTool: "highlighter",
+      defaultColor: "#0000ff",
+      defaultStrokeWidth: 5,
+      gridType: "lined",
+    });
+  });
+
+  it("persists settings across reads", async () => {
+    const create = await app.inject({
+      method: "POST",
+      url: "/api/notebooks",
+      payload: { title: "Persist Test" },
+    });
+    const { id } = create.json();
+
+    await app.inject({
+      method: "PATCH",
+      url: `/api/notebooks/${id}`,
+      payload: { settings: { defaultTool: "pen", gridType: "grid" } },
+    });
+
+    const read = await app.inject({
+      method: "GET",
+      url: `/api/notebooks/${id}`,
+    });
+    expect(read.json().settings.defaultTool).toBe("pen");
+    expect(read.json().settings.gridType).toBe("grid");
+  });
+
+  it("updates title and settings together", async () => {
+    const create = await app.inject({
+      method: "POST",
+      url: "/api/notebooks",
+      payload: { title: "Both Test" },
+    });
+    const { id } = create.json();
+
+    const res = await app.inject({
+      method: "PATCH",
+      url: `/api/notebooks/${id}`,
+      payload: {
+        title: "New Title",
+        settings: { defaultColor: "#ff0000" },
+      },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json().title).toBe("New Title");
+    expect(res.json().settings.defaultColor).toBe("#ff0000");
+  });
+
+  it("rejects invalid tool type", async () => {
+    const create = await app.inject({
+      method: "POST",
+      url: "/api/notebooks",
+      payload: { title: "Invalid" },
+    });
+    const { id } = create.json();
+
+    const res = await app.inject({
+      method: "PATCH",
+      url: `/api/notebooks/${id}`,
+      payload: { settings: { defaultTool: "laser" } },
+    });
+    expect(res.statusCode).toBe(400);
+  });
+
+  it("rejects invalid color format", async () => {
+    const create = await app.inject({
+      method: "POST",
+      url: "/api/notebooks",
+      payload: { title: "Invalid Color" },
+    });
+    const { id } = create.json();
+
+    const res = await app.inject({
+      method: "PATCH",
+      url: `/api/notebooks/${id}`,
+      payload: { settings: { defaultColor: "red" } },
+    });
+    expect(res.statusCode).toBe(400);
+  });
+
+  it("rejects invalid grid type", async () => {
+    const create = await app.inject({
+      method: "POST",
+      url: "/api/notebooks",
+      payload: { title: "Invalid Grid" },
+    });
+    const { id } = create.json();
+
+    const res = await app.inject({
+      method: "PATCH",
+      url: `/api/notebooks/${id}`,
+      payload: { settings: { gridType: "hexagonal" } },
+    });
+    expect(res.statusCode).toBe(400);
+  });
+
+  it("rejects stroke width out of range", async () => {
+    const create = await app.inject({
+      method: "POST",
+      url: "/api/notebooks",
+      payload: { title: "Invalid Width" },
+    });
+    const { id } = create.json();
+
+    const res = await app.inject({
+      method: "PATCH",
+      url: `/api/notebooks/${id}`,
+      payload: { settings: { defaultStrokeWidth: 0 } },
+    });
+    expect(res.statusCode).toBe(400);
+  });
+});
+
 describe("DELETE /api/notebooks/:id", () => {
   it("deletes a notebook and returns 204", async () => {
     const create = await app.inject({

@@ -984,12 +984,12 @@ doc.path(pathData).fill(stroke.color);
 
 ### Phase 4: Export & Polish
 
-- [ ] PDF export (single page and notebook)
-- [ ] PNG export
-- [ ] Search functionality
-- [ ] Page linking
-- [ ] Tags
-- [ ] Settings UI
+- [x] PDF export (single page and notebook)
+- [x] PNG export
+- [x] Search functionality
+- [x] Page linking
+- [x] Tags
+- [x] Settings (notebook settings API)
 
 **Milestone**: Feature complete.
 

@@ -1,7 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { nanoid } from "nanoid";
 import { notebookStore, pageStore } from "../storage/index.js";
-import type { NotebookMeta } from "../types/index.js";
+import type { NotebookMeta, NotebookSettings } from "../types/index.js";
 
 export function notebookRoutes(app: FastifyInstance) {
   app.get("/api/notebooks", async () => {
@@ -46,7 +46,10 @@ export function notebookRoutes(app: FastifyInstance) {
     return reply.code(201).send(meta);
   });
 
-  app.patch<{ Params: { id: string }; Body: { title?: string } }>(
+  app.patch<{
+    Params: { id: string };
+    Body: { title?: string; settings?: NotebookSettings };
+  }>(
     "/api/notebooks/:id",
     {
       schema: {
@@ -54,13 +57,40 @@ export function notebookRoutes(app: FastifyInstance) {
           type: "object",
           properties: {
             title: { type: "string", maxLength: 200 },
+            settings: {
+              type: "object",
+              properties: {
+                defaultTool: {
+                  type: "string",
+                  enum: ["pen", "highlighter", "eraser"],
+                },
+                defaultColor: {
+                  type: "string",
+                  pattern: "^#[0-9a-fA-F]{6}$",
+                },
+                defaultStrokeWidth: {
+                  type: "number",
+                  minimum: 1,
+                  maximum: 50,
+                },
+                gridType: {
+                  type: "string",
+                  enum: ["none", "lined", "grid", "dotgrid"],
+                },
+              },
+              additionalProperties: false,
+            },
           },
           additionalProperties: false,
         },
       },
     },
     async (req, reply) => {
-      const updated = await notebookStore.updateNotebook(req.params.id, req.body);
+      const updates: Partial<Pick<NotebookMeta, "title" | "settings">> = {};
+      if (req.body.title !== undefined) updates.title = req.body.title;
+      if (req.body.settings !== undefined) updates.settings = req.body.settings;
+
+      const updated = await notebookStore.updateNotebook(req.params.id, updates);
       if (!updated) return reply.code(404).send({ error: "Notebook not found" });
       return updated;
     },

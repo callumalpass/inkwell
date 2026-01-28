@@ -155,6 +155,171 @@ describe("PATCH /api/pages/:pageId", () => {
   });
 });
 
+describe("PATCH /api/pages/:pageId (links)", () => {
+  it("sets links on a page", async () => {
+    const nb = await createNotebook();
+    const { body: page1 } = await createPage(nb.id);
+    const { body: page2 } = await createPage(nb.id);
+
+    const res = await app.inject({
+      method: "PATCH",
+      url: `/api/pages/${page1.id}`,
+      payload: { links: [page2.id] },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json().links).toEqual([page2.id]);
+  });
+
+  it("replaces links entirely", async () => {
+    const nb = await createNotebook();
+    const { body: page1 } = await createPage(nb.id);
+    const { body: page2 } = await createPage(nb.id);
+    const { body: page3 } = await createPage(nb.id);
+
+    await app.inject({
+      method: "PATCH",
+      url: `/api/pages/${page1.id}`,
+      payload: { links: [page2.id] },
+    });
+
+    const res = await app.inject({
+      method: "PATCH",
+      url: `/api/pages/${page1.id}`,
+      payload: { links: [page3.id] },
+    });
+    expect(res.json().links).toEqual([page3.id]);
+  });
+
+  it("clears links with empty array", async () => {
+    const nb = await createNotebook();
+    const { body: page1 } = await createPage(nb.id);
+    const { body: page2 } = await createPage(nb.id);
+
+    await app.inject({
+      method: "PATCH",
+      url: `/api/pages/${page1.id}`,
+      payload: { links: [page2.id] },
+    });
+
+    const res = await app.inject({
+      method: "PATCH",
+      url: `/api/pages/${page1.id}`,
+      payload: { links: [] },
+    });
+    expect(res.json().links).toEqual([]);
+  });
+
+  it("rejects invalid link IDs", async () => {
+    const nb = await createNotebook();
+    const { body: page } = await createPage(nb.id);
+
+    const res = await app.inject({
+      method: "PATCH",
+      url: `/api/pages/${page.id}`,
+      payload: { links: ["../etc/passwd"] },
+    });
+    expect(res.statusCode).toBe(400);
+  });
+});
+
+describe("PATCH /api/pages/:pageId (tags)", () => {
+  it("sets tags on a page", async () => {
+    const nb = await createNotebook();
+    const { body: page } = await createPage(nb.id);
+
+    const res = await app.inject({
+      method: "PATCH",
+      url: `/api/pages/${page.id}`,
+      payload: { tags: ["meeting", "project-x"] },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json().tags).toEqual(["meeting", "project-x"]);
+  });
+
+  it("replaces tags entirely", async () => {
+    const nb = await createNotebook();
+    const { body: page } = await createPage(nb.id);
+
+    await app.inject({
+      method: "PATCH",
+      url: `/api/pages/${page.id}`,
+      payload: { tags: ["old-tag"] },
+    });
+
+    const res = await app.inject({
+      method: "PATCH",
+      url: `/api/pages/${page.id}`,
+      payload: { tags: ["new-tag"] },
+    });
+    expect(res.json().tags).toEqual(["new-tag"]);
+  });
+
+  it("clears tags with empty array", async () => {
+    const nb = await createNotebook();
+    const { body: page } = await createPage(nb.id);
+
+    await app.inject({
+      method: "PATCH",
+      url: `/api/pages/${page.id}`,
+      payload: { tags: ["something"] },
+    });
+
+    const res = await app.inject({
+      method: "PATCH",
+      url: `/api/pages/${page.id}`,
+      payload: { tags: [] },
+    });
+    expect(res.json().tags).toEqual([]);
+  });
+
+  it("rejects empty string tags", async () => {
+    const nb = await createNotebook();
+    const { body: page } = await createPage(nb.id);
+
+    const res = await app.inject({
+      method: "PATCH",
+      url: `/api/pages/${page.id}`,
+      payload: { tags: [""] },
+    });
+    expect(res.statusCode).toBe(400);
+  });
+
+  it("persists tags across reads", async () => {
+    const nb = await createNotebook();
+    const { body: page } = await createPage(nb.id);
+
+    await app.inject({
+      method: "PATCH",
+      url: `/api/pages/${page.id}`,
+      payload: { tags: ["important", "todo"] },
+    });
+
+    const read = await app.inject({
+      method: "GET",
+      url: `/api/pages/${page.id}`,
+    });
+    expect(read.json().tags).toEqual(["important", "todo"]);
+  });
+
+  it("can set links and tags together", async () => {
+    const nb = await createNotebook();
+    const { body: page1 } = await createPage(nb.id);
+    const { body: page2 } = await createPage(nb.id);
+
+    const res = await app.inject({
+      method: "PATCH",
+      url: `/api/pages/${page1.id}`,
+      payload: {
+        links: [page2.id],
+        tags: ["related"],
+      },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json().links).toEqual([page2.id]);
+    expect(res.json().tags).toEqual(["related"]);
+  });
+});
+
 describe("DELETE /api/pages/:pageId", () => {
   it("deletes a page and returns 204", async () => {
     const nb = await createNotebook();

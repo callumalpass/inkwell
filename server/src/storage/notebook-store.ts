@@ -30,7 +30,7 @@ export async function createNotebook(meta: NotebookMeta): Promise<void> {
 
 export async function updateNotebook(
   id: string,
-  updates: Partial<Pick<NotebookMeta, "title">>,
+  updates: Partial<Pick<NotebookMeta, "title" | "settings">>,
 ): Promise<NotebookMeta | null> {
   const meta = await getNotebook(id);
   if (!meta) return null;

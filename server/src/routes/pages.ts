@@ -64,7 +64,13 @@ export function pageRoutes(app: FastifyInstance) {
 
   app.patch<{
     Params: { pageId: string };
-    Body: { canvasX?: number; canvasY?: number; pageNumber?: number };
+    Body: {
+      canvasX?: number;
+      canvasY?: number;
+      pageNumber?: number;
+      links?: string[];
+      tags?: string[];
+    };
   }>(
     "/api/pages/:pageId",
     {
@@ -75,17 +81,27 @@ export function pageRoutes(app: FastifyInstance) {
             canvasX: { type: "number" },
             canvasY: { type: "number" },
             pageNumber: { type: "integer", minimum: 1 },
+            links: {
+              type: "array",
+              items: { type: "string", pattern: "^[a-zA-Z0-9_-]+$" },
+            },
+            tags: {
+              type: "array",
+              items: { type: "string", minLength: 1, maxLength: 100 },
+            },
           },
           additionalProperties: false,
         },
       },
     },
     async (req, reply) => {
-      const { canvasX, canvasY, pageNumber } = req.body;
-      const updates: Partial<Pick<PageMeta, "canvasX" | "canvasY" | "pageNumber" | "transcription">> = {};
+      const { canvasX, canvasY, pageNumber, links, tags } = req.body;
+      const updates: Partial<Pick<PageMeta, "canvasX" | "canvasY" | "pageNumber" | "links" | "tags" | "transcription">> = {};
       if (canvasX !== undefined) updates.canvasX = canvasX;
       if (canvasY !== undefined) updates.canvasY = canvasY;
       if (pageNumber !== undefined) updates.pageNumber = pageNumber;
+      if (links !== undefined) updates.links = links;
+      if (tags !== undefined) updates.tags = tags;
 
       const updated = await pageStore.updatePage(req.params.pageId, updates);
       if (!updated) return reply.code(404).send({ error: "Page not found" });

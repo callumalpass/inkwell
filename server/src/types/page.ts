@@ -14,6 +14,8 @@ export interface PageMeta {
   canvasY: number;
   createdAt: string;
   updatedAt: string;
+  links?: string[];
+  tags?: string[];
   transcription?: TranscriptionMeta;
 }
 
