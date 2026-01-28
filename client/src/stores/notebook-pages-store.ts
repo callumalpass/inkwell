@@ -5,7 +5,11 @@ import type { NotebookSettings } from "../api/notebooks";
 import { useSettingsStore } from "./settings-store";
 import { useDrawingStore } from "./drawing-store";
 import { useViewStore } from "./view-store";
-import { DEFAULT_STROKE_COLOR, DEFAULT_STROKE_WIDTH } from "../lib/constants";
+import {
+  DEFAULT_STROKE_COLOR,
+  DEFAULT_STROKE_WIDTH,
+  DEFAULT_LINE_SPACING,
+} from "../lib/constants";
 
 interface NotebookPagesStore {
   notebookId: string | null;
@@ -59,6 +63,10 @@ export const useNotebookPagesStore = create<NotebookPagesStore>((set, get) => ({
       const effectivePenStyle = global.defaultPenStyle ?? "pressure";
       const effectiveViewMode = global.defaultViewMode ?? "single";
       const effectiveGridType = notebookSettings.gridType ?? global.defaultGridType;
+      const effectiveLineSpacing =
+        notebookSettings.backgroundLineSpacing ??
+        global.defaultBackgroundLineSpacing ??
+        DEFAULT_LINE_SPACING;
 
       const drawing = useDrawingStore.getState();
       drawing.setColor(effectiveColor);
@@ -68,10 +76,23 @@ export const useNotebookPagesStore = create<NotebookPagesStore>((set, get) => ({
 
       useViewStore.getState().setViewMode(effectiveViewMode);
 
-      // Apply effective grid type back into notebook-level settings display
-      if (effectiveGridType && !notebookSettings.gridType) {
+      // Apply effective background settings back into notebook-level settings display
+      if (
+        (effectiveGridType && !notebookSettings.gridType) ||
+        (!notebookSettings.backgroundLineSpacing &&
+          effectiveLineSpacing !== DEFAULT_LINE_SPACING)
+      ) {
         set((s) => ({
-          settings: { ...s.settings, gridType: effectiveGridType },
+          settings: {
+            ...s.settings,
+            ...(effectiveGridType && !notebookSettings.gridType
+              ? { gridType: effectiveGridType }
+              : {}),
+            ...(!notebookSettings.backgroundLineSpacing &&
+            effectiveLineSpacing !== DEFAULT_LINE_SPACING
+              ? { backgroundLineSpacing: effectiveLineSpacing }
+              : {}),
+          },
         }));
       }
     } catch (err: any) {

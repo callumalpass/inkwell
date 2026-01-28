@@ -3,6 +3,8 @@ export const PAGE_HEIGHT = 1872;
 
 export const DEFAULT_STROKE_COLOR = "#000000";
 export const DEFAULT_STROKE_WIDTH = 3;
+export const DEFAULT_LINE_SPACING = 48;
+export const LINE_SPACING_OPTIONS = [32, 40, 48, 56, 64] as const;
 
 /** Color presets for e-ink display (limited palette). */
 export const COLOR_PRESETS = [

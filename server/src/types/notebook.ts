@@ -3,6 +3,7 @@ export interface NotebookSettings {
   defaultColor?: string;
   defaultStrokeWidth?: number;
   gridType?: "none" | "lined" | "grid" | "dotgrid";
+  backgroundLineSpacing?: number;
 }
 
 export interface NotebookMeta {

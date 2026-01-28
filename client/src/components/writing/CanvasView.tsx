@@ -15,6 +15,7 @@ import {
   PAGE_HEIGHT,
   CANVAS_MIN_ZOOM,
   CANVAS_MAX_ZOOM,
+  DEFAULT_LINE_SPACING,
 } from "../../lib/constants";
 
 const PAGE_RENDER_WIDTH = 400;
@@ -23,9 +24,13 @@ const PAGE_RENDER_HEIGHT = PAGE_RENDER_WIDTH * (PAGE_HEIGHT / PAGE_WIDTH);
 export function CanvasView() {
   const pages = useNotebookPagesStore((s) => s.pages);
   const gridType = useNotebookPagesStore((s) => (s.settings.gridType ?? "none") as GridType);
+  const lineSpacing = useNotebookPagesStore(
+    (s) => s.settings.backgroundLineSpacing ?? DEFAULT_LINE_SPACING,
+  );
   const updatePagePosition = useNotebookPagesStore((s) => s.updatePagePosition);
   const canvasTransform = useViewStore((s) => s.canvasTransform);
   const setCanvasTransform = useViewStore((s) => s.setCanvasTransform);
+  const isZoomLocked = useViewStore((s) => s.isZoomLocked);
   const loadPageStrokes = usePageStore((s) => s.loadPageStrokes);
   const activeTool = useDrawingStore((s) => s.tool);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -40,8 +45,13 @@ export function CanvasView() {
     [setCanvasTransform],
   );
   const pinchZoomOptions = useMemo(
-    () => ({ minScale: CANVAS_MIN_ZOOM, maxScale: CANVAS_MAX_ZOOM, onDoubleTap: resetCanvasZoom }),
-    [resetCanvasZoom],
+    () => ({
+      minScale: CANVAS_MIN_ZOOM,
+      maxScale: CANVAS_MAX_ZOOM,
+      onDoubleTap: resetCanvasZoom,
+      enabled: !isZoomLocked,
+    }),
+    [isZoomLocked, resetCanvasZoom],
   );
   usePinchZoom(containerRef, getCanvasTransform, setCanvasTransform, pinchZoomOptions);
 
@@ -407,7 +417,11 @@ export function CanvasView() {
               }
             >
               {visiblePageIds.has(pos.id) ? (
-                <PageSurface pageId={pos.id} gridType={gridType} />
+                <PageSurface
+                  pageId={pos.id}
+                  gridType={gridType}
+                  lineSpacing={lineSpacing}
+                />
               ) : (
                 <div className="h-full w-full bg-gray-50" />
               )}

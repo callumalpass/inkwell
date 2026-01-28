@@ -14,9 +14,14 @@ const EMPTY: Stroke[] = [];
 interface PageSurfaceProps {
   pageId: string;
   gridType?: GridType;
+  lineSpacing?: number;
 }
 
-export function PageSurface({ pageId, gridType = "none" }: PageSurfaceProps) {
+export function PageSurface({
+  pageId,
+  gridType = "none",
+  lineSpacing,
+}: PageSurfaceProps) {
   const savedStrokes = usePageStore((s) => s.strokesByPage[pageId] ?? EMPTY);
   const pendingStrokes = useDrawingStore(
     (s) => s.pendingStrokesByPage[pageId] ?? EMPTY,
@@ -32,7 +37,7 @@ export function PageSurface({ pageId, gridType = "none" }: PageSurfaceProps) {
       className="relative bg-white shadow-sm"
       style={{ aspectRatio: `${PAGE_WIDTH} / ${PAGE_HEIGHT}` }}
     >
-      <PageBackground gridType={gridType} />
+      <PageBackground gridType={gridType} lineSpacing={lineSpacing} />
       <StrokeCanvas strokes={committedStrokes} />
       <ActiveStrokeOverlay pageId={pageId} />
       <DrawingLayer pageId={pageId} />

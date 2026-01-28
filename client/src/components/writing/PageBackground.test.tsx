@@ -100,4 +100,12 @@ describe("PageBackground", () => {
     expect(patternIds[1]).toBe("grid-pattern");
     expect(patternIds[2]).toBe("dotgrid-pattern");
   });
+
+  it("uses custom line spacing when provided", () => {
+    const { container } = render(
+      <PageBackground gridType="lined" lineSpacing={40} />,
+    );
+    const pattern = container.querySelector("pattern#lined-pattern");
+    expect(pattern?.getAttribute("height")).toBe("40");
+  });
 });

@@ -1,6 +1,6 @@
 import { useSettingsStore } from "../../stores/settings-store";
 import type { AppSettings } from "../../api/settings";
-import { COLOR_PRESETS } from "../../lib/constants";
+import { COLOR_PRESETS, LINE_SPACING_OPTIONS } from "../../lib/constants";
 import { MarkdownConfigPanel } from "./MarkdownConfigPanel";
 
 interface SettingsPanelProps {
@@ -35,6 +35,14 @@ const VIEW_MODE_LABELS: Record<string, string> = {
   single: "Single",
   scroll: "Scroll",
   canvas: "Canvas",
+};
+
+const LINE_SPACING_LABELS: Record<number, string> = {
+  32: "Tight",
+  40: "Small",
+  48: "Normal",
+  56: "Large",
+  64: "Extra",
 };
 
 export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
@@ -138,6 +146,21 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
                   className={`${BTN} ${settings.defaultGridType === gt ? BTN_ACTIVE : BTN_INACTIVE}`}
                 >
                   {GRID_TYPE_LABELS[gt]}
+                </button>
+              ))}
+            </div>
+          </SettingsRow>
+
+          {/* Line Spacing */}
+          <SettingsRow label="Line Spacing">
+            <div className="flex flex-wrap gap-1">
+              {LINE_SPACING_OPTIONS.map((spacing) => (
+                <button
+                  key={spacing}
+                  onClick={() => set("defaultBackgroundLineSpacing", spacing)}
+                  className={`${BTN} ${settings.defaultBackgroundLineSpacing === spacing ? BTN_ACTIVE : BTN_INACTIVE}`}
+                >
+                  {LINE_SPACING_LABELS[spacing] ?? spacing}
                 </button>
               ))}
             </div>

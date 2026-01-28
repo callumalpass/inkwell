@@ -3,6 +3,7 @@ export interface AppSettings {
   defaultColor?: string;
   defaultStrokeWidth?: number;
   defaultGridType?: "none" | "lined" | "grid" | "dotgrid";
+  defaultBackgroundLineSpacing?: number;
   defaultViewMode?: "single" | "scroll" | "canvas";
   autoTranscribe?: boolean;
 }

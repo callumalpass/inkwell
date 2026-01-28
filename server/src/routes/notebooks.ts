@@ -77,6 +77,10 @@ export function notebookRoutes(app: FastifyInstance) {
                   type: "string",
                   enum: ["none", "lined", "grid", "dotgrid"],
                 },
+                backgroundLineSpacing: {
+                  type: "number",
+                  enum: [32, 40, 48, 56, 64],
+                },
               },
               additionalProperties: false,
             },

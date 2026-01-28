@@ -1,10 +1,8 @@
 import { memo } from "react";
-import { PAGE_WIDTH, PAGE_HEIGHT } from "../../lib/constants";
+import { PAGE_WIDTH, PAGE_HEIGHT, DEFAULT_LINE_SPACING } from "../../lib/constants";
 
 export type GridType = "none" | "lined" | "grid" | "dotgrid";
 
-/** Spacing between lines/dots in page coordinates. */
-const LINE_SPACING = 48;
 /** Top margin before first line (for lined/grid). */
 const TOP_MARGIN = 96;
 /** Left margin for ruled lines. */
@@ -18,10 +16,12 @@ const DOT_RADIUS = 2.5;
 
 interface PageBackgroundProps {
   gridType: GridType;
+  lineSpacing?: number;
 }
 
 export const PageBackground = memo(function PageBackground({
   gridType,
+  lineSpacing = DEFAULT_LINE_SPACING,
 }: PageBackgroundProps) {
   if (gridType === "none") return null;
 
@@ -31,9 +31,9 @@ export const PageBackground = memo(function PageBackground({
       className="absolute inset-0 h-full w-full"
       style={{ pointerEvents: "none" }}
     >
-      {gridType === "lined" && <LinedPattern />}
-      {gridType === "grid" && <GridPattern />}
-      {gridType === "dotgrid" && <DotGridPattern />}
+      {gridType === "lined" && <LinedPattern lineSpacing={lineSpacing} />}
+      {gridType === "grid" && <GridPattern lineSpacing={lineSpacing} />}
+      {gridType === "dotgrid" && <DotGridPattern lineSpacing={lineSpacing} />}
     </svg>
   );
 });
@@ -42,21 +42,21 @@ export const PageBackground = memo(function PageBackground({
  * Lined paper: horizontal rules with a red left margin.
  * Uses an SVG <pattern> for the repeating horizontal lines.
  */
-function LinedPattern() {
+function LinedPattern({ lineSpacing }: { lineSpacing: number }) {
   return (
     <>
       <defs>
         <pattern
           id="lined-pattern"
           width={PAGE_WIDTH}
-          height={LINE_SPACING}
+          height={lineSpacing}
           patternUnits="userSpaceOnUse"
         >
           <line
             x1={0}
-            y1={LINE_SPACING}
+            y1={lineSpacing}
             x2={PAGE_WIDTH}
-            y2={LINE_SPACING}
+            y2={lineSpacing}
             stroke={GRID_COLOR}
             strokeWidth={1.5}
           />
@@ -64,9 +64,9 @@ function LinedPattern() {
       </defs>
       <rect
         x={0}
-        y={TOP_MARGIN - LINE_SPACING}
+        y={TOP_MARGIN - lineSpacing}
         width={PAGE_WIDTH}
-        height={PAGE_HEIGHT - TOP_MARGIN + LINE_SPACING}
+        height={PAGE_HEIGHT - TOP_MARGIN + lineSpacing}
         fill="url(#lined-pattern)"
       />
       {/* Ruled margin line */}
@@ -86,29 +86,29 @@ function LinedPattern() {
  * Grid paper: horizontal and vertical lines.
  * Uses an SVG <pattern> for the repeating grid cells.
  */
-function GridPattern() {
+function GridPattern({ lineSpacing }: { lineSpacing: number }) {
   return (
     <>
       <defs>
         <pattern
           id="grid-pattern"
-          width={LINE_SPACING}
-          height={LINE_SPACING}
+          width={lineSpacing}
+          height={lineSpacing}
           patternUnits="userSpaceOnUse"
         >
           <line
             x1={0}
-            y1={LINE_SPACING}
-            x2={LINE_SPACING}
-            y2={LINE_SPACING}
+            y1={lineSpacing}
+            x2={lineSpacing}
+            y2={lineSpacing}
             stroke={GRID_COLOR}
             strokeWidth={1}
           />
           <line
-            x1={LINE_SPACING}
+            x1={lineSpacing}
             y1={0}
-            x2={LINE_SPACING}
-            y2={LINE_SPACING}
+            x2={lineSpacing}
+            y2={lineSpacing}
             stroke={GRID_COLOR}
             strokeWidth={1}
           />
@@ -129,24 +129,24 @@ function GridPattern() {
  * Dot grid paper: dots at regular intervals.
  * Uses an SVG <pattern> for the repeating dot cells.
  */
-function DotGridPattern() {
+function DotGridPattern({ lineSpacing }: { lineSpacing: number }) {
   return (
     <>
       <defs>
         <pattern
           id="dotgrid-pattern"
-          width={LINE_SPACING}
-          height={LINE_SPACING}
+          width={lineSpacing}
+          height={lineSpacing}
           patternUnits="userSpaceOnUse"
         >
-          <circle cx={LINE_SPACING} cy={LINE_SPACING} r={DOT_RADIUS} fill={GRID_COLOR} />
+          <circle cx={lineSpacing} cy={lineSpacing} r={DOT_RADIUS} fill={GRID_COLOR} />
         </pattern>
       </defs>
       <rect
         x={0}
-        y={TOP_MARGIN - LINE_SPACING}
+        y={TOP_MARGIN - lineSpacing}
         width={PAGE_WIDTH}
-        height={PAGE_HEIGHT - TOP_MARGIN + LINE_SPACING}
+        height={PAGE_HEIGHT - TOP_MARGIN + lineSpacing}
         fill="url(#dotgrid-pattern)"
       />
     </>

@@ -194,6 +194,22 @@ describe("SettingsPanel - Grid Type", () => {
   });
 });
 
+describe("SettingsPanel - Line Spacing", () => {
+  it("updates line spacing when button is clicked", async () => {
+    const user = userEvent.setup();
+    const { saveSettings } = await import("../../api/settings");
+    vi.mocked(saveSettings).mockImplementation((s) =>
+      Promise.resolve(s as any),
+    );
+
+    render(<SettingsPanel open={true} onClose={() => {}} />);
+    await user.click(screen.getByText("Large"));
+
+    const state = useSettingsStore.getState();
+    expect(state.settings.defaultBackgroundLineSpacing).toBe(56);
+  });
+});
+
 describe("SettingsPanel - View Mode", () => {
   it("shows view mode buttons", () => {
     render(<SettingsPanel open={true} onClose={() => {}} />);

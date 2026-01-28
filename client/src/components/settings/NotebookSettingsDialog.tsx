@@ -1,6 +1,6 @@
 import { useNotebookPagesStore } from "../../stores/notebook-pages-store";
 import type { NotebookSettings } from "../../api/notebooks";
-import { COLOR_PRESETS } from "../../lib/constants";
+import { COLOR_PRESETS, LINE_SPACING_OPTIONS } from "../../lib/constants";
 
 interface NotebookSettingsDialogProps {
   open: boolean;
@@ -27,6 +27,14 @@ const GRID_TYPE_LABELS: Record<string, string> = {
   lined: "Lined",
   grid: "Grid",
   dotgrid: "Dots",
+};
+
+const LINE_SPACING_LABELS: Record<number, string> = {
+  32: "Tight",
+  40: "Small",
+  48: "Normal",
+  56: "Large",
+  64: "Extra",
 };
 
 export function NotebookSettingsDialog({
@@ -145,6 +153,22 @@ export function NotebookSettingsDialog({
                   data-testid={`nb-setting-grid-${gt}`}
                 >
                   {GRID_TYPE_LABELS[gt]}
+                </button>
+              ))}
+            </div>
+          </SettingsRow>
+
+          {/* Line Spacing */}
+          <SettingsRow label="Line Spacing">
+            <div className="flex flex-wrap gap-1">
+              {LINE_SPACING_OPTIONS.map((spacing) => (
+                <button
+                  key={spacing}
+                  onClick={() => set("backgroundLineSpacing", spacing)}
+                  className={`${BTN} ${settings.backgroundLineSpacing === spacing ? BTN_ACTIVE : BTN_INACTIVE}`}
+                  data-testid={`nb-setting-line-spacing-${spacing}`}
+                >
+                  {LINE_SPACING_LABELS[spacing] ?? spacing}
                 </button>
               ))}
             </div>

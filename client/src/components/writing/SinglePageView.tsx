@@ -6,15 +6,23 @@ import { useWebSocket } from "../../hooks/useWebSocket";
 import { usePinchZoom } from "../../hooks/usePinchZoom";
 import { PageSurface } from "./PageSurface";
 import type { GridType } from "./PageBackground";
-import { VIEW_MIN_ZOOM, VIEW_MAX_ZOOM } from "../../lib/constants";
+import {
+  VIEW_MIN_ZOOM,
+  VIEW_MAX_ZOOM,
+  DEFAULT_LINE_SPACING,
+} from "../../lib/constants";
 
 export function SinglePageView() {
   const pages = useNotebookPagesStore((s) => s.pages);
   const currentPageIndex = useNotebookPagesStore((s) => s.currentPageIndex);
   const gridType = useNotebookPagesStore((s) => (s.settings.gridType ?? "none") as GridType);
+  const lineSpacing = useNotebookPagesStore(
+    (s) => s.settings.backgroundLineSpacing ?? DEFAULT_LINE_SPACING,
+  );
   const loadPageStrokes = usePageStore((s) => s.loadPageStrokes);
   const transform = useViewStore((s) => s.singlePageTransform);
   const setTransform = useViewStore((s) => s.setSinglePageTransform);
+  const isZoomLocked = useViewStore((s) => s.isZoomLocked);
 
   const currentPage = pages[currentPageIndex];
 
@@ -33,8 +41,13 @@ export function SinglePageView() {
   );
   const resetZoom = useCallback(() => setTransform({ x: 0, y: 0, scale: 1 }), [setTransform]);
   const pinchZoomOptions = useMemo(
-    () => ({ minScale: VIEW_MIN_ZOOM, maxScale: VIEW_MAX_ZOOM, onDoubleTap: resetZoom }),
-    [resetZoom],
+    () => ({
+      minScale: VIEW_MIN_ZOOM,
+      maxScale: VIEW_MAX_ZOOM,
+      onDoubleTap: resetZoom,
+      enabled: !isZoomLocked,
+    }),
+    [isZoomLocked, resetZoom],
   );
   usePinchZoom(containerRef, getTransform, setTransform, pinchZoomOptions);
 
@@ -58,7 +71,11 @@ export function SinglePageView() {
         }}
       >
         <div className="h-full" style={{ aspectRatio: "1404 / 1872" }}>
-          <PageSurface pageId={currentPage.id} gridType={gridType} />
+          <PageSurface
+            pageId={currentPage.id}
+            gridType={gridType}
+            lineSpacing={lineSpacing}
+          />
         </div>
       </div>
     </div>

@@ -16,6 +16,7 @@ import { ZoomControls } from "./ZoomControls";
 import { PageNavControls } from "./PageNavControls";
 import { ViewModePicker } from "./ViewModePicker";
 import { GridTypePicker } from "./GridTypePicker";
+import { LineSpacingPicker } from "./LineSpacingPicker";
 import { PageActionButtons } from "./PageActionButtons";
 
 /** Width (px) below which the toolbar switches to compact mode. */
@@ -158,6 +159,7 @@ function CompactLayout({
           {isPen && <ColorPicker showLabel />}
           {isPen && <PenStylePicker showLabel />}
           <GridTypePicker showLabel />
+          <LineSpacingPicker showLabel />
           <ViewModePicker showLabel />
 
           {/* Notebook Settings row */}
@@ -264,6 +266,7 @@ function FullLayout({
         />
 
         <GridTypePicker />
+        <LineSpacingPicker />
 
         <Divider />
 

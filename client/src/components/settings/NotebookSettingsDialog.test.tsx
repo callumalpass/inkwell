@@ -140,6 +140,19 @@ describe("NotebookSettingsDialog", () => {
     });
   });
 
+  it("updates backgroundLineSpacing when spacing button is clicked", async () => {
+    const user = userEvent.setup();
+    const { updateNotebook } = await import("../../api/notebooks");
+    vi.mocked(updateNotebook).mockResolvedValue({} as any);
+
+    render(<NotebookSettingsDialog open={true} onClose={() => {}} />);
+    await user.click(screen.getByTestId("nb-setting-line-spacing-56"));
+
+    expect(updateNotebook).toHaveBeenCalledWith("nb_test", {
+      settings: { backgroundLineSpacing: 56 },
+    });
+  });
+
   it("highlights active settings", () => {
     useNotebookPagesStore.setState({
       notebookId: "nb_test",

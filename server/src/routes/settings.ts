@@ -30,6 +30,10 @@ export function settingsRoutes(app: FastifyInstance) {
               type: "string",
               enum: ["none", "lined", "grid", "dotgrid"],
             },
+            defaultBackgroundLineSpacing: {
+              type: "number",
+              enum: [32, 40, 48, 56, 64],
+            },
             defaultViewMode: {
               type: "string",
               enum: ["single", "scroll", "canvas"],
