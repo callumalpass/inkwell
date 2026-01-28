@@ -135,7 +135,7 @@ export function SearchView({ open, onClose }: SearchViewProps) {
             type="text"
             value={query}
             onChange={(e) => handleInputChange(e.target.value)}
-            placeholder="Search transcriptions..."
+            placeholder="Search notes, tags, notebooks..."
             className="flex-1 bg-transparent text-sm text-gray-900 outline-none placeholder:text-gray-400"
             data-testid="search-input"
           />
@@ -212,7 +212,7 @@ export function SearchView({ open, onClose }: SearchViewProps) {
 
           {!loading && !error && !searched && (
             <p className="py-8 text-center text-sm text-gray-400" data-testid="search-hint">
-              Search across all your transcribed notes
+              Search across notes, tags, and notebook names
             </p>
           )}
         </div>

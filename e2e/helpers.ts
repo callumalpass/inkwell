@@ -60,6 +60,14 @@ export async function writeTranscription(pageId: string, content: string) {
   });
 }
 
+export async function setPageTags(pageId: string, tags: string[]) {
+  await fetch(`${API}/api/pages/${pageId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ tags }),
+  });
+}
+
 export async function addStroke(pageId: string) {
   await fetch(`${API}/api/pages/${pageId}/strokes`, {
     method: "POST",

@@ -7,6 +7,8 @@ export interface SearchResult {
   excerpt: string;
   modified: string;
   thumbnailUrl: string;
+  tags?: string[];
+  matchType: "transcription" | "tag" | "notebook";
 }
 
 export interface SearchResponse {

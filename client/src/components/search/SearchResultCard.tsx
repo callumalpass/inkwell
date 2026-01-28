@@ -36,6 +36,18 @@ function HighlightedExcerpt({ text, query }: { text: string; query: string }) {
   );
 }
 
+const MATCH_TYPE_STYLES = {
+  transcription: "bg-blue-100 text-blue-700",
+  tag: "bg-green-100 text-green-700",
+  notebook: "bg-purple-100 text-purple-700",
+} as const;
+
+const MATCH_TYPE_LABELS = {
+  transcription: "Content",
+  tag: "Tag",
+  notebook: "Notebook",
+} as const;
+
 export function SearchResultCard({
   result,
   query,
@@ -72,9 +84,17 @@ export function SearchResultCard({
         {/* Content */}
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-2">
-            <span className="text-xs font-medium text-gray-500">
-              {result.notebookName}
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-medium text-gray-500">
+                {result.notebookName}
+              </span>
+              <span
+                className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${MATCH_TYPE_STYLES[result.matchType]}`}
+                data-testid="match-type-badge"
+              >
+                {MATCH_TYPE_LABELS[result.matchType]}
+              </span>
+            </div>
             <span className="shrink-0 text-xs text-gray-400">
               {new Date(result.modified).toLocaleDateString()}
             </span>
@@ -85,6 +105,27 @@ export function SearchResultCard({
           >
             <HighlightedExcerpt text={result.excerpt} query={query} />
           </p>
+          {result.tags && result.tags.length > 0 && (
+            <div className="mt-2 flex flex-wrap gap-1" data-testid="result-tags">
+              {result.tags.slice(0, 5).map((tag) => (
+                <span
+                  key={tag}
+                  className={`rounded px-1.5 py-0.5 text-[10px] ${
+                    tag.toLowerCase().includes(query.toLowerCase())
+                      ? "bg-yellow-100 text-yellow-800 font-medium"
+                      : "bg-gray-100 text-gray-600"
+                  }`}
+                >
+                  #{tag}
+                </span>
+              ))}
+              {result.tags.length > 5 && (
+                <span className="text-[10px] text-gray-400">
+                  +{result.tags.length - 5} more
+                </span>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>

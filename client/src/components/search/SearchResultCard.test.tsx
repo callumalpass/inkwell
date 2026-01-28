@@ -10,6 +10,7 @@ const MOCK_RESULT: SearchResult = {
   excerpt: "...meeting about project launch date...",
   modified: "2025-01-28T10:00:00Z",
   thumbnailUrl: "/api/pages/pg_1/thumbnail",
+  matchType: "transcription",
 };
 
 describe("SearchResultCard", () => {

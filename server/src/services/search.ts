@@ -10,6 +10,8 @@ export interface SearchResult {
   excerpt: string;
   modified: string;
   thumbnailUrl: string;
+  tags?: string[];
+  matchType: "transcription" | "tag" | "notebook";
 }
 
 export interface SearchResponse {
@@ -42,8 +44,25 @@ function extractExcerpt(content: string, query: string): string {
 }
 
 /**
- * Search transcriptions across all notebooks (or a specific notebook).
- * Uses simple case-insensitive substring matching on transcription.md files.
+ * Check if any tag matches the query (case-insensitive).
+ */
+function matchesTag(tags: string[] | undefined, lowerQuery: string): string | null {
+  if (!tags) return null;
+  for (const tag of tags) {
+    if (tag.toLowerCase().includes(lowerQuery)) {
+      return tag;
+    }
+  }
+  return null;
+}
+
+/**
+ * Search across all notebooks (or a specific notebook).
+ * Matches on:
+ * - Transcription content (full-text search)
+ * - Page tags
+ * - Notebook name
+ * Uses simple case-insensitive substring matching.
  */
 export async function searchTranscriptions(
   query: string,
@@ -51,6 +70,7 @@ export async function searchTranscriptions(
 ): Promise<SearchResponse> {
   const limit = options.limit ?? 20;
   const results: SearchResult[] = [];
+  const seenPages = new Set<string>(); // Prevent duplicates if page matches multiple criteria
 
   const notebooksDir = paths.notebooks();
   let notebookEntries: string[];
@@ -76,6 +96,8 @@ export async function searchTranscriptions(
     );
     if (!notebookMeta) continue;
 
+    const notebookNameMatches = notebookMeta.title.toLowerCase().includes(lowerQuery);
+
     const pagesDir = paths.pages(notebookId);
     let pageEntries: string[];
     try {
@@ -88,27 +110,58 @@ export async function searchTranscriptions(
     }
 
     for (const pageId of pageEntries) {
-      const transcriptionPath = paths.transcription(notebookId, pageId);
-      let content: string;
-      try {
-        content = await readFile(transcriptionPath, "utf-8");
-      } catch {
-        continue;
-      }
-
-      if (!content.toLowerCase().includes(lowerQuery)) continue;
+      if (seenPages.has(pageId)) continue;
 
       const pageMeta = await readJson<PageMeta>(
         paths.pageMeta(notebookId, pageId),
       );
 
+      // Check for tag match
+      const matchedTag = matchesTag(pageMeta?.tags, lowerQuery);
+
+      // Try to read transcription content
+      const transcriptionPath = paths.transcription(notebookId, pageId);
+      let content: string | null = null;
+      try {
+        content = await readFile(transcriptionPath, "utf-8");
+      } catch {
+        // No transcription file - that's ok, we can still match on tags or notebook name
+      }
+
+      const transcriptionMatches = content?.toLowerCase().includes(lowerQuery) ?? false;
+
+      // Determine if this page should be included and why
+      let matchType: "transcription" | "tag" | "notebook" | null = null;
+      let excerpt = "";
+
+      if (transcriptionMatches && content) {
+        matchType = "transcription";
+        excerpt = extractExcerpt(content, query);
+      } else if (matchedTag) {
+        matchType = "tag";
+        excerpt = `Tagged with "${matchedTag}"`;
+      } else if (notebookNameMatches) {
+        matchType = "notebook";
+        excerpt = content
+          ? content.slice(0, EXCERPT_CONTEXT_CHARS * 2).replace(/\n+/g, " ").trim()
+          : `Page in "${notebookMeta.title}"`;
+        if (content && content.length > EXCERPT_CONTEXT_CHARS * 2) {
+          excerpt += "...";
+        }
+      }
+
+      if (!matchType) continue;
+
+      seenPages.add(pageId);
       results.push({
         pageId,
         notebookId,
         notebookName: notebookMeta.title,
-        excerpt: extractExcerpt(content, query),
+        excerpt,
         modified: pageMeta?.updatedAt ?? notebookMeta.updatedAt,
         thumbnailUrl: `/api/pages/${pageId}/thumbnail`,
+        tags: pageMeta?.tags,
+        matchType,
       });
     }
   }

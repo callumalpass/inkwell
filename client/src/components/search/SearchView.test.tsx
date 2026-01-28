@@ -34,6 +34,7 @@ const MOCK_RESULTS: searchApi.SearchResult[] = [
     excerpt: "...meeting about project launch...",
     modified: "2025-01-28T10:00:00Z",
     thumbnailUrl: "/api/pages/pg_1/thumbnail",
+    matchType: "transcription",
   },
   {
     pageId: "pg_2",
@@ -42,6 +43,7 @@ const MOCK_RESULTS: searchApi.SearchResult[] = [
     excerpt: "...project timeline review...",
     modified: "2025-01-27T09:00:00Z",
     thumbnailUrl: "/api/pages/pg_2/thumbnail",
+    matchType: "transcription",
   },
 ];
 
