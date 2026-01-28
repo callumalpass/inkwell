@@ -1,4 +1,13 @@
-import type { Stroke } from "../api/strokes";
+import type { StrokeData, StrokePoint } from "./stroke-renderer";
+
+/**
+ * Minimum interface required for spatial indexing.
+ * Both StrokeData and Stroke satisfy this.
+ */
+interface IndexableStroke {
+  id: string;
+  points: StrokePoint[];
+}
 
 /**
  * Grid-based spatial index for fast stroke hit-testing.
@@ -20,18 +29,18 @@ function cellKeyStr(col: number, row: number): string {
   return `${col},${row}`;
 }
 
-export class StrokeSpatialIndex {
+export class StrokeSpatialIndex<T extends IndexableStroke = StrokeData> {
   private cellSize: number;
   private grid: Map<string, Set<string>> = new Map();
-  private strokeMap: Map<string, Stroke> = new Map();
+  private strokeMap: Map<string, T> = new Map();
 
   constructor(cellSize: number = DEFAULT_CELL_SIZE) {
     this.cellSize = cellSize;
   }
 
   /** Build (or rebuild) the index from a full stroke array. */
-  static fromStrokes(strokes: Stroke[], cellSize?: number): StrokeSpatialIndex {
-    const index = new StrokeSpatialIndex(cellSize);
+  static fromStrokes<S extends IndexableStroke>(strokes: S[], cellSize?: number): StrokeSpatialIndex<S> {
+    const index = new StrokeSpatialIndex<S>(cellSize);
     for (const stroke of strokes) {
       index.addStroke(stroke);
     }
@@ -39,7 +48,7 @@ export class StrokeSpatialIndex {
   }
 
   /** Add a single stroke to the index. */
-  addStroke(stroke: Stroke): void {
+  addStroke(stroke: T): void {
     if (stroke.points.length === 0) return;
 
     this.strokeMap.set(stroke.id, stroke);
@@ -88,7 +97,7 @@ export class StrokeSpatialIndex {
    * Find the first stroke within `threshold` pixels of point (x, y).
    * Returns the stroke or null if nothing is close enough.
    */
-  queryPoint(x: number, y: number, threshold: number): Stroke | null {
+  queryPoint(x: number, y: number, threshold: number): T | null {
     const thresholdSq = threshold * threshold;
 
     // Check all cells that the threshold circle could overlap

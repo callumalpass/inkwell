@@ -9,6 +9,8 @@ import { pathCache } from "../../lib/path-cache";
 
 interface StrokeCanvasProps {
   strokes: StrokeData[];
+  /** Stroke ID to highlight (e.g., for eraser preview) */
+  highlightedStrokeId?: string | null;
 }
 
 function computePath(stroke: StrokeData): string | null {
@@ -25,7 +27,12 @@ function computePath(stroke: StrokeData): string | null {
   return d;
 }
 
-const StrokePath = memo(function StrokePath({ stroke }: { stroke: StrokeData }) {
+interface StrokePathProps {
+  stroke: StrokeData;
+  isHighlighted?: boolean;
+}
+
+const StrokePath = memo(function StrokePath({ stroke, isHighlighted }: StrokePathProps) {
   const useFilled = stroke.penStyle === "pressure" || !stroke.penStyle;
   const isHighlighter = stroke.tool === "highlighter";
   const d = computePath(stroke);
@@ -33,16 +40,18 @@ const StrokePath = memo(function StrokePath({ stroke }: { stroke: StrokeData }) 
 
   // Highlighter strokes are semi-transparent
   const opacity = isHighlighter ? 0.4 : 1;
+  // Use red color for eraser preview highlight
+  const color = isHighlighted ? "#ef4444" : stroke.color;
 
   if (useFilled) {
-    return <path d={d} fill={stroke.color} opacity={opacity} />;
+    return <path d={d} fill={color} opacity={opacity} />;
   }
 
   return (
     <path
       d={d}
       fill="none"
-      stroke={stroke.color}
+      stroke={color}
       strokeWidth={stroke.width}
       strokeLinecap="round"
       strokeLinejoin="round"
@@ -53,6 +62,7 @@ const StrokePath = memo(function StrokePath({ stroke }: { stroke: StrokeData }) 
 
 export const StrokeCanvas = memo(function StrokeCanvas({
   strokes,
+  highlightedStrokeId,
 }: StrokeCanvasProps) {
   return (
     <svg
@@ -61,7 +71,11 @@ export const StrokeCanvas = memo(function StrokeCanvas({
       style={{ pointerEvents: "none" }}
     >
       {strokes.map((stroke) => (
-        <StrokePath key={stroke.id} stroke={stroke} />
+        <StrokePath
+          key={stroke.id}
+          stroke={stroke}
+          isHighlighted={highlightedStrokeId === stroke.id}
+        />
       ))}
     </svg>
   );
