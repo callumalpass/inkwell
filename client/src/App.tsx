@@ -1,9 +1,11 @@
 import { BrowserRouter, Routes, Route, Navigate, useParams } from "react-router-dom";
 import { NotebooksPage } from "./pages/NotebooksPage";
 import { WritingPage } from "./pages/WritingPage";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { listPages, createPage } from "./api/pages";
 import { useSettingsStore } from "./stores/settings-store";
+import { Toaster } from "./components/ui/Toaster";
+import { KeyboardShortcutsDialog } from "./components/ui/KeyboardShortcutsDialog";
 
 function NotebookRedirect() {
   const { notebookId } = useParams<{ notebookId: string }>();
@@ -32,10 +34,34 @@ function NotebookRedirect() {
 
 export function App() {
   const { loaded, fetchSettings } = useSettingsStore();
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
 
   useEffect(() => {
     fetchSettings();
   }, [fetchSettings]);
+
+  const handleGlobalKeyDown = useCallback((e: KeyboardEvent) => {
+    // Ignore if user is typing in an input
+    const target = e.target as HTMLElement;
+    if (
+      target.tagName === "INPUT" ||
+      target.tagName === "TEXTAREA" ||
+      target.isContentEditable
+    ) {
+      return;
+    }
+
+    // ? key to show shortcuts
+    if (e.key === "?" && !e.metaKey && !e.ctrlKey) {
+      e.preventDefault();
+      setShortcutsOpen(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    document.addEventListener("keydown", handleGlobalKeyDown);
+    return () => document.removeEventListener("keydown", handleGlobalKeyDown);
+  }, [handleGlobalKeyDown]);
 
   if (!loaded) return null;
 
@@ -46,6 +72,11 @@ export function App() {
         <Route path="/notebook/:notebookId" element={<NotebookRedirect />} />
         <Route path="/notebook/:notebookId/page/:pageId" element={<WritingPage />} />
       </Routes>
+      <Toaster />
+      <KeyboardShortcutsDialog
+        open={shortcutsOpen}
+        onClose={() => setShortcutsOpen(false)}
+      />
     </BrowserRouter>
   );
 }

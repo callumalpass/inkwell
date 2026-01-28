@@ -4,6 +4,8 @@ import { useViewStore } from "../../stores/view-store";
 import { exportPagePdf, exportPagePng } from "../../api/export";
 import { listNotebooks } from "../../api/notebooks";
 import type { NotebookMeta } from "../../api/notebooks";
+import { ConfirmDialog } from "../ui/ConfirmDialog";
+import { showError, showSuccess } from "../../stores/toast-store";
 
 type ExportFormat = "pdf" | "png";
 type PageSize = "original" | "a4" | "letter";
@@ -46,6 +48,7 @@ export function OverviewView() {
   const [tagInput, setTagInput] = useState("");
   const [exportOpen, setExportOpen] = useState(false);
   const [moveOpen, setMoveOpen] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
 
   const selectedIds = useMemo(() => Array.from(selected), [selected]);
   const selectedCount = selectedIds.length;
@@ -113,35 +116,59 @@ export function OverviewView() {
     const tags = parseTags(tagInput);
     if (tags.length === 0) return;
     const selectedPages = pages.filter((p) => selected.has(p.id));
-    await Promise.all(
-      selectedPages.map((page) => {
-        const current = page.tags ?? [];
-        const next =
-          tagMode === "add"
-            ? mergeTags(current, tags)
-            : current.filter((t) => !tags.includes(t));
-        return updatePageTags(page.id, next);
-      }),
-    );
+    try {
+      await Promise.all(
+        selectedPages.map((page) => {
+          const current = page.tags ?? [];
+          const next =
+            tagMode === "add"
+              ? mergeTags(current, tags)
+              : current.filter((t) => !tags.includes(t));
+          return updatePageTags(page.id, next);
+        }),
+      );
+      showSuccess(
+        tagMode === "add"
+          ? `Added tags to ${selectedPages.length} page${selectedPages.length > 1 ? "s" : ""}`
+          : `Removed tags from ${selectedPages.length} page${selectedPages.length > 1 ? "s" : ""}`,
+      );
+    } catch (err: unknown) {
+      showError(err instanceof Error ? err.message : "Failed to update tags");
+    }
     setTagInput("");
     setTagDialogOpen(false);
   };
 
-  const handleDelete = async () => {
+  const handleDeleteClick = () => {
     if (selectedCount === 0) return;
-    const confirmed = window.confirm(
-      `Delete ${selectedCount} page${selectedCount > 1 ? "s" : ""}? This cannot be undone.`,
-    );
-    if (!confirmed) return;
-    await removePages(selectedIds);
-    setSelected(new Set());
+    setDeleteConfirmOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    setDeleteConfirmOpen(false);
+    try {
+      await removePages(selectedIds);
+      showSuccess(
+        `Deleted ${selectedCount} page${selectedCount > 1 ? "s" : ""}`,
+      );
+      setSelected(new Set());
+    } catch (err: unknown) {
+      showError(err instanceof Error ? err.message : "Failed to delete pages");
+    }
   };
 
   const handleMove = async (targetNotebookId: string) => {
     if (!targetNotebookId || selectedCount === 0) return;
-    await movePages(selectedIds, targetNotebookId);
-    setSelected(new Set());
-    setMoveOpen(false);
+    try {
+      await movePages(selectedIds, targetNotebookId);
+      showSuccess(
+        `Moved ${selectedCount} page${selectedCount > 1 ? "s" : ""} to new notebook`,
+      );
+      setSelected(new Set());
+      setMoveOpen(false);
+    } catch (err: unknown) {
+      showError(err instanceof Error ? err.message : "Failed to move pages");
+    }
   };
 
   return (
@@ -204,7 +231,7 @@ export function OverviewView() {
             Move
           </button>
           <button
-            onClick={handleDelete}
+            onClick={handleDeleteClick}
             className={`${BTN} ${selectedCount ? "bg-red-600 text-white" : `${BTN_INACTIVE} ${BTN_DISABLED}`}`}
             disabled={!selectedCount}
           >
@@ -300,6 +327,17 @@ export function OverviewView() {
           onMove={handleMove}
         />
       )}
+
+      <ConfirmDialog
+        open={deleteConfirmOpen}
+        title="Delete pages"
+        message={`Are you sure you want to delete ${selectedCount} page${selectedCount > 1 ? "s" : ""}? This action cannot be undone.`}
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        variant="danger"
+        onConfirm={handleDeleteConfirm}
+        onCancel={() => setDeleteConfirmOpen(false)}
+      />
     </div>
   );
 }
@@ -385,9 +423,12 @@ function MultiExportDialog({
           await exportPagePng(pageId, { scale: pngScale });
         }
       }
+      showSuccess(`Exported ${pageIds.length} page${pageIds.length > 1 ? "s" : ""}`);
       onClose();
-    } catch (err: any) {
-      setError(err.message || "Export failed");
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Export failed";
+      setError(message);
+      showError(message);
     } finally {
       setExporting(false);
     }
