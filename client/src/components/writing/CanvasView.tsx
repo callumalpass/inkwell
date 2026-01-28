@@ -32,11 +32,12 @@ export function CanvasView() {
   const canvasTransform = useViewStore((s) => s.canvasTransform);
   const setCanvasTransform = useViewStore((s) => s.setCanvasTransform);
   const isZoomLocked = useViewStore((s) => s.isZoomLocked);
+  const setCanvasContainerSize = useViewStore((s) => s.setCanvasContainerSize);
+  const canvasContainerSize = useViewStore((s) => s.canvasContainerSize);
   const loadPageStrokes = usePageStore((s) => s.loadPageStrokes);
   const activeTool = useDrawingStore((s) => s.tool);
   const containerRef = useRef<HTMLDivElement>(null);
   const [visiblePageIds, setVisiblePageIds] = useState<Set<string>>(new Set());
-  const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
 
   const getCanvasTransform = useCallback(
     () => useViewStore.getState().canvasTransform,
@@ -57,20 +58,20 @@ export function CanvasView() {
   );
   usePinchZoom(containerRef, getCanvasTransform, setCanvasTransform, pinchZoomOptions);
 
-  // Track container size for minimap
+  // Track container size for minimap and Fit All functionality
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
 
     const ro = new ResizeObserver(([entry]) => {
-      setContainerSize({
+      setCanvasContainerSize({
         width: entry.contentRect.width,
         height: entry.contentRect.height,
       });
     });
     ro.observe(container);
     return () => ro.disconnect();
-  }, []);
+  }, [setCanvasContainerSize]);
 
   // Panning state
   const isPanning = useRef(false);
@@ -483,8 +484,8 @@ export function CanvasView() {
       {/* Minimap for navigation */}
       <Minimap
         pagePositions={pagePositions}
-        containerWidth={containerSize.width}
-        containerHeight={containerSize.height}
+        containerWidth={canvasContainerSize.width}
+        containerHeight={canvasContainerSize.height}
       />
     </div>
   );
