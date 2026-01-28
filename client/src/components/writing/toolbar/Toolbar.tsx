@@ -128,6 +128,10 @@ function CompactLayout({
           <StrokePreview />
         </button>
 
+        <Divider />
+
+        <PageNavControls />
+
         <div className="flex-1" />
 
         <UndoRedoButtons pageId={currentPageId} />
@@ -166,10 +170,8 @@ function CompactLayout({
             />
           </div>
 
-          {/* Page nav, zoom */}
+          {/* Zoom + indicators */}
           <div className="flex flex-wrap items-center gap-1.5">
-            <PageNavControls />
-            <Divider />
             <ZoomControls />
 
             <div className="flex-1" />

@@ -6,6 +6,8 @@ import { useUndoRedoStore } from "../../stores/undo-redo-store";
 import { useMultiPageWebSocket } from "../../hooks/useMultiPageWebSocket";
 import { usePinchZoom } from "../../hooks/usePinchZoom";
 import { useViewStore } from "../../stores/view-store";
+import { postStrokes } from "../../api/strokes";
+import { enqueueStrokes } from "../../lib/offline-queue";
 import { PageSurface } from "./PageSurface";
 import type { GridType } from "./PageBackground";
 import {
@@ -114,9 +116,15 @@ export function CanvasView() {
     const unload = usePageStore.getState().unloadPageStrokes;
     for (const pid of prevCanvasVisibleRef.current) {
       if (!visiblePageIds.has(pid)) {
+        const flushed = useDrawingStore.getState().flushPendingForPage(pid);
+        if (flushed.length > 0) {
+          usePageStore.getState().addSavedStrokes(pid, flushed);
+          postStrokes(pid, flushed).catch(() => {
+            enqueueStrokes(pid, flushed).catch(console.error);
+          });
+        }
         unload(pid);
         useUndoRedoStore.getState().clearPage(pid);
-        useDrawingStore.getState().flushPendingForPage(pid);
       }
     }
     prevCanvasVisibleRef.current = new Set(visiblePageIds);

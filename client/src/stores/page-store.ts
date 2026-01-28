@@ -39,12 +39,21 @@ export const usePageStore = create<PageStore>((set, get) => ({
   },
 
   addSavedStrokes: (pageId, strokes) =>
-    set((state) => ({
-      strokesByPage: {
-        ...state.strokesByPage,
-        [pageId]: [...(state.strokesByPage[pageId] ?? []), ...strokes],
-      },
-    })),
+    set((state) => {
+      const existing = state.strokesByPage[pageId] ?? [];
+      // Deduplicate: skip strokes whose IDs already exist in saved state.
+      // This prevents the WebSocket echo (server broadcasts strokes:added
+      // back to the client that just posted them) from doubling strokes.
+      const existingIds = new Set(existing.map((s) => s.id));
+      const novel = strokes.filter((s) => !existingIds.has(s.id));
+      if (novel.length === 0) return state;
+      return {
+        strokesByPage: {
+          ...state.strokesByPage,
+          [pageId]: [...existing, ...novel],
+        },
+      };
+    }),
 
   removeSavedStroke: (pageId, strokeId) =>
     set((state) => ({

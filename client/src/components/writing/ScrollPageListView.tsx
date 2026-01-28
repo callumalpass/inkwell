@@ -37,15 +37,19 @@ export function ScrollPageListView() {
     // Unload strokes and associated state for pages that left the viewport
     for (const pid of prevVisibleRef.current) {
       if (!visiblePageIds.has(pid)) {
-        unloadPageStrokes(pid);
-        useUndoRedoStore.getState().clearPage(pid);
-        // Save any pending strokes to the server before unloading
+        // Flush pending strokes and save to server before unloading.
+        // This ensures strokes aren't lost if the page scrolls out mid-draw.
         const flushed = useDrawingStore.getState().flushPendingForPage(pid);
         if (flushed.length > 0) {
+          // Optimistically add to saved state so they aren't absent during the
+          // network call (addSavedStrokes deduplicates by ID).
+          usePageStore.getState().addSavedStrokes(pid, flushed);
           postStrokes(pid, flushed).catch(() => {
             enqueueStrokes(pid, flushed).catch(console.error);
           });
         }
+        unloadPageStrokes(pid);
+        useUndoRedoStore.getState().clearPage(pid);
       }
     }
     prevVisibleRef.current = new Set(visiblePageIds);

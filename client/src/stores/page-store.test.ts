@@ -36,6 +36,46 @@ describe("addSavedStrokes", () => {
     usePageStore.getState().addSavedStrokes("newPage", [s]);
     expect(usePageStore.getState().strokesByPage["newPage"]).toHaveLength(1);
   });
+
+  it("deduplicates strokes by id (WebSocket echo)", () => {
+    const s1 = makeStroke("s1");
+    const s2 = makeStroke("s2");
+
+    // First add (optimistic from batch save)
+    usePageStore.getState().addSavedStrokes("page1", [s1, s2]);
+    // Second add (WebSocket echo of the same strokes)
+    usePageStore.getState().addSavedStrokes("page1", [s1, s2]);
+
+    const strokes = usePageStore.getState().strokesByPage["page1"];
+    expect(strokes).toHaveLength(2);
+    expect(strokes.map((s) => s.id)).toEqual(["s1", "s2"]);
+  });
+
+  it("adds novel strokes while skipping duplicates", () => {
+    const s1 = makeStroke("s1");
+    const s2 = makeStroke("s2");
+    const s3 = makeStroke("s3");
+
+    usePageStore.getState().addSavedStrokes("page1", [s1, s2]);
+    // s2 is duplicate, s3 is new
+    usePageStore.getState().addSavedStrokes("page1", [s2, s3]);
+
+    const strokes = usePageStore.getState().strokesByPage["page1"];
+    expect(strokes).toHaveLength(3);
+    expect(strokes.map((s) => s.id)).toEqual(["s1", "s2", "s3"]);
+  });
+
+  it("returns unchanged state when all strokes are duplicates", () => {
+    const s1 = makeStroke("s1");
+    usePageStore.getState().addSavedStrokes("page1", [s1]);
+
+    const stateBefore = usePageStore.getState();
+    usePageStore.getState().addSavedStrokes("page1", [s1]);
+    const stateAfter = usePageStore.getState();
+
+    // State reference should be unchanged (optimization: no unnecessary re-render)
+    expect(stateAfter).toBe(stateBefore);
+  });
 });
 
 describe("removeSavedStroke", () => {
