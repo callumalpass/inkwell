@@ -160,6 +160,9 @@ describe("syncPage", () => {
     expect(result.destination).toBe(
       join(syncDir, "Test Notebook", "1-pg_test1.md"),
     );
+    expect(
+      existsSync(join(syncDir, "Test Notebook", "1-pg_test1.pdf")),
+    ).toBe(true);
 
     const content = await readFile(result.destination, "utf-8");
     expect(content).toBe("Hello world\n\nSecond paragraph");
@@ -272,12 +275,18 @@ describe("syncNotebook", () => {
       "utf-8",
     );
     expect(file1).toBe("Content of page 1");
+    expect(
+      existsSync(join(syncDir, "Bulk Notebook", "1-pg_bulk1.pdf")),
+    ).toBe(true);
 
     const file2 = await readFile(
       join(syncDir, "Bulk Notebook", "2-pg_bulk2.md"),
       "utf-8",
     );
     expect(file2).toBe("Content of page 2");
+    expect(
+      existsSync(join(syncDir, "Bulk Notebook", "2-pg_bulk2.pdf")),
+    ).toBe(true);
   });
 
   it("throws NOTEBOOK_NOT_FOUND for non-existent notebook", async () => {

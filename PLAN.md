@@ -839,19 +839,30 @@ The spatial view showing all pages arranged on a 2D canvas.
 - Drag handle (grip icon) on each page for mouse-based repositioning (touch drag also supported)
 - Context menu (long press): Delete, Duplicate, Transcribe, Export
 
-#### 3. Notebook View (Sequential)
+#### 3. Overview View (Page Management)
 
-Linear view of pages in sequence order, like scrolling through a physical notebook.
+A grid-based view for bulk page operations and organisation. This view is read-only for drawing but enables powerful multi-select operations.
 
 **Layout:**
-- Vertical stack of pages
-- Current page centered, adjacent pages partially visible
-- Swipe up/down to navigate
+- Responsive grid of page thumbnail cards (2-4 columns based on screen width)
+- Each card shows: page number, thumbnail image, tags (up to 3, with "+N" for more)
+- Cards are draggable for reordering pages
 
-**UI Elements:**
-- Page number indicator (e.g., "3 / 12")
-- Button to switch to Canvas View
-- Same context menu as Canvas View
+**Selection:**
+- Checkbox on each card for individual selection
+- "Select All" button to select all pages
+- "Clear" button to deselect all pages
+- Selection count displayed in toolbar
+
+**Bulk Operations:**
+- **Add Tags**: Apply tags to all selected pages
+- **Remove Tags**: Remove specified tags from selected pages
+- **Export**: Export selected pages as PDF or PNG (one file per page)
+- **Move**: Move selected pages to another notebook
+- **Delete**: Delete selected pages (with confirmation)
+
+**Page Navigation:**
+- Click page thumbnail to open in Single Page View
 
 #### 4. Page View (Editing)
 
@@ -1186,6 +1197,21 @@ Frontend:
 
 **Milestone**: Transcription markdown files include configurable frontmatter and are automatically synced to an external directory (e.g., an Obsidian vault).
 
+### Phase 7: Overview View & Page Management
+
+- [x] Replace scroll view with overview view (grid-based page management)
+- [x] Multi-select page support with checkboxes
+- [x] Select All / Clear selection functionality
+- [x] Bulk tagging (add/remove tags to selected pages)
+- [x] Bulk export (PDF/PNG export for selected pages)
+- [x] Move pages between notebooks (API and UI)
+- [x] Bulk delete with confirmation
+- [x] Drag-and-drop page reordering in overview
+- [x] Page thumbnails in grid layout
+- [x] Tag display on page cards (with overflow indicator)
+
+**Milestone**: Overview view provides comprehensive page management — bulk operations, organisation, and cross-notebook moves.
+
 ### Post-release fixes
 
 - [x] Fix CanvasView discarding flushed strokes on page unload (strokes saved to server now)
@@ -1196,6 +1222,7 @@ Frontend:
 - [x] Add `aria-label` to width picker buttons for accessibility and testability
 - [x] Fix e2e test selectors: pen button exact match, width button aria-label, eraser drag path, compact mode resize ordering
 - [x] Add comprehensive scroll-stroke-drop e2e tests (7 tests covering stroke survival, duplication, rapid drawing, wheel scroll, multi-page)
+- [x] Fix defaultViewMode validation (scroll → overview migration)
 
 ---
 

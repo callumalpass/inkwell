@@ -1,5 +1,5 @@
 import { mkdir, writeFile, readFile } from "node:fs/promises";
-import { join, dirname } from "node:path";
+import { join, dirname, extname } from "node:path";
 import { existsSync } from "node:fs";
 import type { PageMeta, NotebookMeta, MarkdownConfig } from "../types/index.js";
 import { getPage, listPages } from "../storage/page-store.js";
@@ -12,6 +12,7 @@ import {
   stripFrontmatter,
   type TemplateContext,
 } from "./frontmatter.js";
+import { exportPagePdf } from "./export.js";
 
 /**
  * Build a TemplateContext from a page ID by loading all required data.
@@ -67,6 +68,12 @@ function computeDestPath(
     context,
   );
   return join(mdConfig.sync.destination, relativePath);
+}
+
+function toPdfPath(markdownPath: string): string {
+  const ext = extname(markdownPath);
+  if (ext) return markdownPath.slice(0, -ext.length) + ".pdf";
+  return markdownPath + ".pdf";
 }
 
 export interface SyncPageResult {
@@ -129,6 +136,14 @@ export async function syncPage(pageId: string): Promise<SyncPageResult> {
   await mkdir(dirname(destPath), { recursive: true });
   await writeFile(destPath, content, "utf-8");
 
+  const pdfBuffer = await exportPagePdf(pageId, {
+    includeTranscription: true,
+    pageSize: "original",
+  });
+  if (pdfBuffer) {
+    await writeFile(toPdfPath(destPath), pdfBuffer);
+  }
+
   await recordSync(1);
 
   return { synced: true, destination: destPath };
@@ -187,6 +202,14 @@ export async function syncNotebook(
 
     await mkdir(dirname(destPath), { recursive: true });
     await writeFile(destPath, content, "utf-8");
+
+    const pdfBuffer = await exportPagePdf(page.id, {
+      includeTranscription: true,
+      pageSize: "original",
+    });
+    if (pdfBuffer) {
+      await writeFile(toPdfPath(destPath), pdfBuffer);
+    }
     synced++;
   }
 
