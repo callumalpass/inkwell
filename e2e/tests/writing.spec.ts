@@ -462,7 +462,7 @@ test.describe("Writing - Canvas view", () => {
     expect(touchAction).toBe("none");
   });
 
-  test("dragging a page in canvas mode does not create strokes", async ({ page }) => {
+  test("middle-click dragging a page in canvas mode does not create strokes", async ({ page }) => {
     await page.goto("/");
     await expect(page.getByText("Notebooks")).toBeVisible();
 
@@ -479,13 +479,14 @@ test.describe("Writing - Canvas view", () => {
     const box = await pageSurface.boundingBox();
     if (!box) throw new Error("No bounding box for page surface");
 
-    // Drag the page: click in centre, move 100px right and 80px down, release
+    // Middle-click drag the page (drawing tools use left-click for strokes,
+    // so page dragging requires middle-click when pen/eraser is active)
     const cx = box.x + box.width / 2;
     const cy = box.y + box.height / 2;
     await page.mouse.move(cx, cy);
-    await page.mouse.down();
+    await page.mouse.down({ button: "middle" });
     await page.mouse.move(cx + 100, cy + 80, { steps: 10 });
-    await page.mouse.up();
+    await page.mouse.up({ button: "middle" });
 
     // Move the mouse around over the page after drag to check for ghost strokes
     await page.mouse.move(cx + 120, cy + 100);
@@ -495,7 +496,7 @@ test.describe("Writing - Canvas view", () => {
     // Wait a moment for any would-be strokes to render
     await page.waitForTimeout(500);
 
-    // No SVG path elements should exist — dragging must not create strokes
+    // No SVG path elements should exist — middle-click dragging must not create strokes
     await expect(page.locator("svg path")).toHaveCount(0);
 
     // Also verify via API: fetch strokes for the first page

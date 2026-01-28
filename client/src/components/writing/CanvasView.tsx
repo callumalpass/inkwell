@@ -25,6 +25,7 @@ export function CanvasView() {
   const canvasTransform = useViewStore((s) => s.canvasTransform);
   const setCanvasTransform = useViewStore((s) => s.setCanvasTransform);
   const loadPageStrokes = usePageStore((s) => s.loadPageStrokes);
+  const activeTool = useDrawingStore((s) => s.tool);
   const containerRef = useRef<HTMLDivElement>(null);
   const [visiblePageIds, setVisiblePageIds] = useState<Set<string>>(new Set());
 
@@ -161,10 +162,16 @@ export function CanvasView() {
     [],
   );
 
-  // Page dragging: left-click on a page
+  // Page dragging: middle-click on a page when drawing tools are active,
+  // left-click otherwise. This lets pointer events reach DrawingLayer for pen/eraser.
   const handlePagePointerDown = useCallback(
     (e: React.PointerEvent, pageId: string, canvasX: number, canvasY: number) => {
-      if (e.button !== 0) return;
+      const tool = useDrawingStore.getState().tool;
+      if (tool === "pen" || tool === "eraser") {
+        if (e.button !== 1) return; // let event reach DrawingLayer
+      } else {
+        if (e.button !== 0) return;
+      }
       e.stopPropagation();
       e.preventDefault();
       dragState.current = {
@@ -255,7 +262,10 @@ export function CanvasView() {
                 top: displayY,
                 width: PAGE_RENDER_WIDTH,
                 height: PAGE_RENDER_HEIGHT,
-                cursor: isDragging ? "grabbing" : "grab",
+                touchAction: "none",
+                cursor: (activeTool === "pen" || activeTool === "eraser")
+                  ? undefined
+                  : isDragging ? "grabbing" : "grab",
                 zIndex: isDragging ? 10 : 0,
                 boxShadow: isDragging ? "0 4px 16px rgba(0,0,0,0.2)" : undefined,
               }}

@@ -3,6 +3,7 @@ import { nanoid } from "nanoid";
 import { notebookStore, pageStore } from "../storage/index.js";
 import type { PageMeta } from "../types/index.js";
 import { clearIdleTimer } from "./strokes.js";
+import { regenerateFrontmatter } from "../services/markdown-sync.js";
 
 // Canvas layout constants for auto-positioning
 const CANVAS_PAGE_WIDTH = 400;
@@ -105,6 +106,14 @@ export function pageRoutes(app: FastifyInstance) {
 
       const updated = await pageStore.updatePage(req.params.pageId, updates);
       if (!updated) return reply.code(404).send({ error: "Page not found" });
+
+      // Regenerate frontmatter when tags or metadata change
+      if (tags !== undefined) {
+        regenerateFrontmatter(req.params.pageId).catch(() => {
+          // Best-effort: frontmatter regeneration failure is non-fatal
+        });
+      }
+
       return updated;
     },
   );

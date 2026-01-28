@@ -152,6 +152,17 @@ export function Toolbar() {
         <>
           {/* Primary row: essential tools always visible */}
           <div className="flex items-center gap-1.5">
+            {/* Home */}
+            <button
+              onClick={() => navigate("/")}
+              aria-label="Home"
+              className={`${BTN} ${BTN_INACTIVE}`}
+            >
+              Home
+            </button>
+
+            <Divider />
+
             {/* Tool selector */}
             <div className="flex gap-1">
               {(["pen", "eraser"] as Tool[]).map((t) => (
@@ -386,6 +397,17 @@ export function Toolbar() {
         <>
           {/* Row 1: Drawing tools */}
           <div className="flex items-center gap-2">
+            {/* Home */}
+            <button
+              onClick={() => navigate("/")}
+              aria-label="Home"
+              className={`${BTN} ${BTN_INACTIVE}`}
+            >
+              Home
+            </button>
+
+            <Divider />
+
             {/* Tool selector */}
             <div className="flex gap-1">
               {(["pen", "eraser"] as Tool[]).map((t) => (

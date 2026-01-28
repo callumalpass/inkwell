@@ -5,6 +5,7 @@ import { broadcastToPage } from "../ws/handlers.js";
 import { invalidateThumbnail } from "../services/thumbnail.js";
 import { config } from "../config.js";
 import { enqueueTranscription } from "../services/transcription-queue.js";
+import { getAppSettings } from "../storage/config-store.js";
 
 // Track idle timers per page for auto-transcription
 const idleTimers = new Map<string, ReturnType<typeof setTimeout>>();
@@ -18,8 +19,16 @@ export function clearIdleTimer(pageId: string): void {
   }
 }
 
-function scheduleAutoTranscribe(pageId: string): void {
-  if (!config.transcription.autoTranscribe || !config.gemini.apiKey) return;
+async function scheduleAutoTranscribe(pageId: string): Promise<void> {
+  if (!config.gemini.apiKey) return;
+
+  // Check persisted setting first, fall back to env var
+  const appSettings = await getAppSettings();
+  const autoEnabled =
+    appSettings.autoTranscribe !== undefined
+      ? appSettings.autoTranscribe
+      : config.transcription.autoTranscribe;
+  if (!autoEnabled) return;
 
   // Clear existing timer for this page
   const existing = idleTimers.get(pageId);

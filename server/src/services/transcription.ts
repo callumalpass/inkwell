@@ -3,9 +3,12 @@ import { createCanvas } from "@napi-rs/canvas";
 import { readFile, writeFile } from "node:fs/promises";
 import { config } from "../config.js";
 import { paths } from "../storage/paths.js";
-import { getNotebookIdForPage } from "../storage/page-store.js";
+import { getNotebookIdForPage, getPage } from "../storage/page-store.js";
+import { getNotebook } from "../storage/notebook-store.js";
 import { getStrokes } from "../storage/stroke-store.js";
 import { renderStrokeToCanvas } from "./stroke-rendering.js";
+import { getMarkdownConfig } from "../storage/config-store.js";
+import { buildMarkdownWithFrontmatter, type TemplateContext } from "./frontmatter.js";
 
 const PAGE_WIDTH = 1404;
 const PAGE_HEIGHT = 1872;
@@ -79,7 +82,27 @@ export async function saveTranscription(
   const notebookId = await getNotebookIdForPage(pageId);
   if (!notebookId) throw new Error(`Page ${pageId} not found`);
 
-  await writeFile(paths.transcription(notebookId, pageId), content, "utf-8");
+  const page = await getPage(pageId);
+  const notebook = page ? await getNotebook(notebookId) : null;
+  let fileContent = content;
+
+  if (page && notebook) {
+    try {
+      const mdConfig = await getMarkdownConfig();
+      if (mdConfig.frontmatter.enabled) {
+        const context: TemplateContext = {
+          page,
+          notebook,
+          transcriptionContent: content,
+        };
+        fileContent = buildMarkdownWithFrontmatter(mdConfig, context, content);
+      }
+    } catch {
+      // If config loading fails, save without frontmatter
+    }
+  }
+
+  await writeFile(paths.transcription(notebookId, pageId), fileContent, "utf-8");
 }
 
 export async function getTranscriptionContent(
@@ -89,11 +112,35 @@ export async function getTranscriptionContent(
   if (!notebookId) return null;
 
   try {
-    return await readFile(paths.transcription(notebookId, pageId), "utf-8");
+    const raw = await readFile(paths.transcription(notebookId, pageId), "utf-8");
+    // Strip frontmatter if present, return only the transcription body
+    return stripFrontmatterFromContent(raw);
   } catch (err: any) {
     if (err.code === "ENOENT") return null;
     throw err;
   }
+}
+
+/**
+ * Strip YAML frontmatter (---...---) from the beginning of markdown content.
+ */
+function stripFrontmatterFromContent(content: string): string {
+  if (!content.startsWith("---\n") && !content.startsWith("---\r\n")) {
+    return content;
+  }
+
+  const endIndex = content.indexOf("\n---\n", 4);
+  if (endIndex !== -1) {
+    return content.substring(endIndex + 5);
+  }
+
+  // Check for --- at very end of file
+  const endIndex2 = content.indexOf("\n---", 4);
+  if (endIndex2 !== -1 && endIndex2 + 4 >= content.length) {
+    return "";
+  }
+
+  return content;
 }
 
 export async function transcribePage(pageId: string): Promise<string> {

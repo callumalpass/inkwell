@@ -3,6 +3,7 @@ import { NotebooksPage } from "./pages/NotebooksPage";
 import { WritingPage } from "./pages/WritingPage";
 import { useEffect, useState } from "react";
 import { listPages, createPage } from "./api/pages";
+import { useSettingsStore } from "./stores/settings-store";
 
 function NotebookRedirect() {
   const { notebookId } = useParams<{ notebookId: string }>();
@@ -30,6 +31,14 @@ function NotebookRedirect() {
 }
 
 export function App() {
+  const { loaded, fetchSettings } = useSettingsStore();
+
+  useEffect(() => {
+    fetchSettings();
+  }, [fetchSettings]);
+
+  if (!loaded) return null;
+
   return (
     <BrowserRouter>
       <Routes>

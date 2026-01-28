@@ -2,6 +2,10 @@ import { create } from "zustand";
 import * as pagesApi from "../api/pages";
 import * as notebooksApi from "../api/notebooks";
 import type { NotebookSettings } from "../api/notebooks";
+import { useSettingsStore } from "./settings-store";
+import { useDrawingStore } from "./drawing-store";
+import { useViewStore } from "./view-store";
+import { DEFAULT_STROKE_COLOR, DEFAULT_STROKE_WIDTH } from "../lib/constants";
 
 interface NotebookPagesStore {
   notebookId: string | null;
@@ -35,12 +39,39 @@ export const useNotebookPagesStore = create<NotebookPagesStore>((set, get) => ({
         pagesApi.listPages(notebookId),
         notebooksApi.getNotebook(notebookId),
       ]);
+      const notebookSettings = notebook.settings ?? {};
       set({
         pages,
         loading: false,
         currentPageIndex: 0,
-        settings: notebook.settings ?? {},
+        settings: notebookSettings,
       });
+
+      // Merge: per-notebook > global app settings > hardcoded defaults
+      const global = useSettingsStore.getState().settings;
+
+      const effectiveColor =
+        notebookSettings.defaultColor ?? global.defaultColor ?? DEFAULT_STROKE_COLOR;
+      const effectiveWidth =
+        notebookSettings.defaultStrokeWidth ?? global.defaultStrokeWidth ?? DEFAULT_STROKE_WIDTH;
+      const effectivePenStyle = global.defaultPenStyle ?? "pressure";
+      const effectiveViewMode = global.defaultViewMode ?? "single";
+      const effectiveGridType = notebookSettings.gridType ?? global.defaultGridType;
+
+      const drawing = useDrawingStore.getState();
+      drawing.setColor(effectiveColor);
+      drawing.setWidth(effectiveWidth);
+      drawing.setPenStyle(effectivePenStyle);
+      drawing.setTool("pen");
+
+      useViewStore.getState().setViewMode(effectiveViewMode);
+
+      // Apply effective grid type back into notebook-level settings display
+      if (effectiveGridType && !notebookSettings.gridType) {
+        set((s) => ({
+          settings: { ...s.settings, gridType: effectiveGridType },
+        }));
+      }
     } catch (err: any) {
       set({ error: err.message, loading: false });
     }

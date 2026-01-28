@@ -6,6 +6,8 @@ import { thumbnailRoutes } from "./thumbnails.js";
 import { transcriptionRoutes } from "./transcription.js";
 import { exportRoutes } from "./export.js";
 import { searchRoutes } from "./search.js";
+import { markdownSyncRoutes } from "./markdown-sync.js";
+import { settingsRoutes } from "./settings.js";
 
 export function registerRoutes(app: FastifyInstance) {
   notebookRoutes(app);
@@ -15,4 +17,6 @@ export function registerRoutes(app: FastifyInstance) {
   transcriptionRoutes(app);
   exportRoutes(app);
   searchRoutes(app);
+  markdownSyncRoutes(app);
+  settingsRoutes(app);
 }

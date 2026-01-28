@@ -7,6 +7,8 @@ import { registerRoutes } from "./routes/index.js";
 import { registerWebSocket } from "./ws/index.js";
 import { broadcastToPage } from "./ws/handlers.js";
 import { setTranscriptionListener } from "./services/transcription-queue.js";
+import { syncPage, SyncError } from "./services/markdown-sync.js";
+import { getMarkdownConfig } from "./storage/config-store.js";
 
 // Route params that must match safe ID format (nanoid with prefix)
 const ID_PARAM_PATTERN = /^[a-zA-Z0-9_-]+$/;
@@ -41,6 +43,31 @@ export async function buildApp() {
         pageId,
         content: data.content,
       });
+
+      // Auto-sync to destination if configured
+      (async () => {
+        try {
+          const mdConfig = await getMarkdownConfig();
+          if (mdConfig.sync.enabled && mdConfig.sync.syncOnTranscription) {
+            const result = await syncPage(pageId);
+            broadcastToPage(app, pageId, {
+              type: "markdown:synced",
+              pageId,
+              destination: result.destination,
+            });
+          }
+        } catch (err) {
+          if (err instanceof SyncError) {
+            broadcastToPage(app, pageId, {
+              type: "markdown:sync.failed",
+              pageId,
+              error: err.message,
+            });
+          }
+          // Sync failures are non-fatal; log and continue
+          app.log.error({ err, pageId }, "Auto-sync failed after transcription");
+        }
+      })();
     } else if (event === "failed") {
       broadcastToPage(app, pageId, {
         type: "transcription:failed",

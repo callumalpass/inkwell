@@ -104,9 +104,54 @@ Global application configuration.
     "height": 1872
   },
   "autoTranscribe": true,
-  "transcribeDelayMs": 5000
+  "transcribeDelayMs": 5000,
+  "markdown": {
+    "frontmatter": {
+      "enabled": true,
+      "template": {
+        "title": "{{transcription.firstLine}}",
+        "date": "{{page.created}}",
+        "modified": "{{page.modified}}",
+        "tags": "{{page.tags}}",
+        "notebook": "{{notebook.name}}",
+        "page_id": "{{page.id}}"
+      }
+    },
+    "sync": {
+      "enabled": false,
+      "destination": "/path/to/target/directory",
+      "filenameTemplate": "{{notebook.name}}/{{page.seq}}-{{page.id}}.md",
+      "syncOnTranscription": true,
+      "syncOnManual": true
+    }
+  }
 }
 ```
+
+**Markdown configuration:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| markdown.frontmatter.enabled | boolean | Whether to prepend YAML frontmatter to transcription markdown files |
+| markdown.frontmatter.template | object | Key-value pairs for frontmatter. Values support template variables (see below) |
+| markdown.sync.enabled | boolean | Whether to copy markdown files to an external directory |
+| markdown.sync.destination | string | Absolute path on the server where markdown files are copied |
+| markdown.sync.filenameTemplate | string | Template for the output filename, relative to destination |
+| markdown.sync.syncOnTranscription | boolean | Automatically sync when transcription completes |
+| markdown.sync.syncOnManual | boolean | Allow manual sync trigger via API |
+
+**Template variables:**
+
+| Variable | Description |
+|----------|-------------|
+| `{{page.id}}` | Page ID |
+| `{{page.created}}` | Page creation date (ISO 8601) |
+| `{{page.modified}}` | Page last modified date (ISO 8601) |
+| `{{page.seq}}` | Page sequence number |
+| `{{page.tags}}` | Page tags as YAML array |
+| `{{notebook.id}}` | Notebook ID |
+| `{{notebook.name}}` | Notebook name |
+| `{{transcription.firstLine}}` | First line of the transcription content |
 
 ### Notebook meta.json
 
@@ -203,7 +248,19 @@ Global application configuration.
 
 Plain markdown file containing the transcribed text. Kept separate from meta.json for easy access and editing.
 
+When `markdown.frontmatter.enabled` is true, the file includes YAML frontmatter generated from the configured template:
+
 ```markdown
+---
+title: "Meeting notes - Project X kickoff"
+date: 2025-01-28T10:05:00Z
+modified: 2025-01-28T10:45:00Z
+tags:
+  - meeting
+  - project-x
+notebook: "Project Notes"
+page_id: pg_x1y2z3
+---
 Meeting notes - Project X kickoff
 
 Attendees: Alice, Bob, Charlie
@@ -217,6 +274,8 @@ Action items:
 - Alice to draft project plan
 - Bob to set up dev environment
 ```
+
+When frontmatter is disabled, the file contains only the raw transcription text (no frontmatter block).
 
 ---
 
@@ -591,6 +650,85 @@ Response:
 
 ---
 
+### Markdown Sync
+
+#### Sync page markdown
+
+```
+POST /pages/:pageId/sync
+```
+
+Copies the page's transcription markdown (with frontmatter if enabled) to the configured sync destination. Returns 400 if `markdown.sync.enabled` is false or no destination is configured.
+
+Response:
+```json
+{
+  "synced": true,
+  "destination": "/path/to/target/directory/Project Notes/1-pg_x1y2z3.md"
+}
+```
+
+#### Sync notebook markdown
+
+```
+POST /notebooks/:notebookId/sync
+```
+
+Syncs all transcribed pages in the notebook to the configured destination.
+
+Response:
+```json
+{
+  "synced": 12,
+  "skipped": 3,
+  "destination": "/path/to/target/directory/Project Notes/"
+}
+```
+
+#### Get sync status
+
+```
+GET /sync/status
+```
+
+Response:
+```json
+{
+  "enabled": true,
+  "destination": "/path/to/target/directory",
+  "lastSync": "2025-01-28T15:00:00Z",
+  "totalSynced": 45
+}
+```
+
+#### Update markdown config
+
+```
+PATCH /config/markdown
+```
+
+Request:
+```json
+{
+  "frontmatter": {
+    "enabled": true,
+    "template": {
+      "title": "{{transcription.firstLine}}",
+      "date": "{{page.created}}",
+      "tags": "{{page.tags}}"
+    }
+  },
+  "sync": {
+    "enabled": true,
+    "destination": "/home/user/obsidian-vault/inkwell"
+  }
+}
+```
+
+Response: Updated markdown config object.
+
+---
+
 ### WebSocket Events
 
 Connect to `ws://{minipc-ip}:3000/ws` for real-time updates.
@@ -630,6 +768,24 @@ Connect to `ws://{minipc-ip}:3000/ws` for real-time updates.
   "type": "transcription.failed",
   "pageId": "pg_x1y2z3",
   "error": "API rate limit exceeded"
+}
+```
+
+**Markdown synced**
+```json
+{
+  "type": "markdown.synced",
+  "pageId": "pg_x1y2z3",
+  "destination": "/path/to/target/directory/Project Notes/1-pg_x1y2z3.md"
+}
+```
+
+**Markdown sync failed**
+```json
+{
+  "type": "markdown.sync.failed",
+  "pageId": "pg_x1y2z3",
+  "error": "Destination directory does not exist"
 }
 ```
 
@@ -680,6 +836,7 @@ The spatial view showing all pages arranged on a 2D canvas.
 
 **Page manipulation:**
 - Drag page to reposition on canvas
+- Drag handle (grip icon) on each page for mouse-based repositioning (touch drag also supported)
 - Context menu (long press): Delete, Duplicate, Transcribe, Export
 
 #### 3. Notebook View (Sequential)
@@ -984,6 +1141,7 @@ doc.path(pathData).fill(stroke.color);
 
 ### Phase 4: Export & Polish
 
+Backend:
 - [x] PDF export (single page and notebook)
 - [x] PNG export
 - [x] Search functionality
@@ -991,7 +1149,14 @@ doc.path(pathData).fill(stroke.color);
 - [x] Tags
 - [x] Settings (notebook settings API)
 
-**Milestone**: Feature complete.
+Frontend:
+- [ ] Export UI (buttons/dialogs for PDF and PNG export)
+- [ ] Search view (search input, result cards with excerpt/thumbnail)
+- [ ] Page linking UI (view/edit links on pages)
+- [ ] Tags UI (view/add/remove tags on pages)
+- [ ] Settings UI (defaultTool, defaultColor, defaultStrokeWidth — grid type already in toolbar)
+
+**Milestone**: Feature complete — all features accessible from the UI.
 
 ### Phase 5: Refinement
 
@@ -1003,6 +1168,23 @@ doc.path(pathData).fill(stroke.color);
 - [x] Pinch-to-zoom for single page, scroll, and canvas views
 - [x] Two-finger double-tap to reset zoom
 - [x] Conditional touch-action (touch-pan-y in scroll mode, touch-none elsewhere)
+- [ ] Drag handle on canvas view pages (mouse-friendly page repositioning)
+
+### Phase 6: Markdown & Sync
+
+- [x] Configurable YAML frontmatter for transcription markdown files
+- [x] Template variable system for frontmatter values
+- [x] Frontmatter regeneration when page tags or metadata change
+- [x] Configurable sync destination path on server
+- [x] Filename template for synced files (supports subdirectories)
+- [x] Auto-sync on transcription completion
+- [x] Manual sync API (per-page and per-notebook)
+- [x] Sync status tracking and API
+- [x] Markdown config API (PATCH /api/config/markdown)
+- [ ] Markdown config UI in settings
+- [ ] Tag management UI on page view (add/remove tags)
+
+**Milestone**: Transcription markdown files include configurable frontmatter and are automatically synced to an external directory (e.g., an Obsidian vault).
 
 ---
 
