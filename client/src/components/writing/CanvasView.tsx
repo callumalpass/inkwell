@@ -384,6 +384,7 @@ export function CanvasView() {
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
       onPointerCancel={handlePointerCancel}
+      data-testid="canvas-view"
     >
       <div
         style={{

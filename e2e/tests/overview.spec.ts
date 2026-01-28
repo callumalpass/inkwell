@@ -457,11 +457,12 @@ test.describe("Overview View - Page deletion", () => {
     // Select one page
     await page.locator('input[type="checkbox"]').first().click();
 
-    // Set up dialog handler
-    page.on("dialog", (dialog) => dialog.accept());
-
     // Click Delete
     await page.getByRole("button", { name: "Delete" }).click();
+
+    // Confirm in dialog
+    await expect(page.getByTestId("confirm-dialog")).toBeVisible();
+    await page.getByTestId("confirm-dialog-confirm").click();
 
     // Should only have one page now
     await expect(page.locator('img[alt^="Page"]')).toHaveCount(1);
@@ -482,11 +483,12 @@ test.describe("Overview View - Page deletion", () => {
     // Select all pages
     await page.getByRole("button", { name: "Select All" }).click();
 
-    // Set up dialog handler
-    page.on("dialog", (dialog) => dialog.accept());
-
     // Click Delete
     await page.getByRole("button", { name: "Delete" }).click();
+
+    // Confirm in dialog
+    await expect(page.getByTestId("confirm-dialog")).toBeVisible();
+    await page.getByTestId("confirm-dialog-confirm").click();
 
     // Should have no pages now
     await expect(page.locator('img[alt^="Page"]')).toHaveCount(0);
@@ -502,11 +504,12 @@ test.describe("Overview View - Page deletion", () => {
     // Select page
     await page.locator('input[type="checkbox"]').first().click();
 
-    // Set up dialog handler to cancel
-    page.on("dialog", (dialog) => dialog.dismiss());
-
     // Click Delete
     await page.getByRole("button", { name: "Delete" }).click();
+
+    // Cancel in dialog
+    await expect(page.getByTestId("confirm-dialog")).toBeVisible();
+    await page.getByTestId("confirm-dialog-cancel").click();
 
     // Page should still exist
     await expect(page.locator('img[alt^="Page"]')).toHaveCount(1);
@@ -524,11 +527,12 @@ test.describe("Overview View - Page deletion", () => {
     await page.locator('input[type="checkbox"]').first().click();
     await expect(page.getByText("Selected: 1")).toBeVisible();
 
-    // Set up dialog handler
-    page.on("dialog", (dialog) => dialog.accept());
-
     // Delete
     await page.getByRole("button", { name: "Delete" }).click();
+
+    // Confirm in dialog
+    await expect(page.getByTestId("confirm-dialog")).toBeVisible();
+    await page.getByTestId("confirm-dialog-confirm").click();
 
     // Selection should be cleared
     await expect(page.getByText("Selected: 0")).toBeVisible();
