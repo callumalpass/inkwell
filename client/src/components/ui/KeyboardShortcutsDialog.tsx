@@ -20,6 +20,14 @@ const SHORTCUT_GROUPS: ShortcutGroup[] = [
     ],
   },
   {
+    title: "View Modes",
+    shortcuts: [
+      { keys: ["1"], description: "Single page view" },
+      { keys: ["2"], description: "Canvas view" },
+      { keys: ["3"], description: "Overview" },
+    ],
+  },
+  {
     title: "Pages",
     shortcuts: [
       { keys: ["N"], description: "New page" },
@@ -40,6 +48,7 @@ const SHORTCUT_GROUPS: ShortcutGroup[] = [
   {
     title: "Canvas View",
     shortcuts: [
+      { keys: ["F"], description: "Fit all pages" },
       { keys: ["2-finger drag"], description: "Pan canvas" },
       { keys: ["Pinch"], description: "Zoom in/out" },
       { keys: ["Scroll wheel"], description: "Zoom in/out" },

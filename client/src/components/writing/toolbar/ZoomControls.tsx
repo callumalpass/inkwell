@@ -1,91 +1,27 @@
-import { useMemo, useCallback } from "react";
 import { useViewStore } from "../../../stores/view-store";
-import { useNotebookPagesStore } from "../../../stores/notebook-pages-store";
 import {
   CANVAS_MIN_ZOOM,
   CANVAS_MAX_ZOOM,
   VIEW_MIN_ZOOM,
   VIEW_MAX_ZOOM,
-  PAGE_WIDTH,
-  PAGE_HEIGHT,
 } from "../../../lib/constants";
 import { BTN, BTN_INACTIVE, BTN_DISABLED, ToolbarButton } from "./ToolbarPrimitives";
-
-const PAGE_RENDER_WIDTH = 400;
-const PAGE_RENDER_HEIGHT = PAGE_RENDER_WIDTH * (PAGE_HEIGHT / PAGE_WIDTH);
+import { useFitAll } from "../../../hooks/useFitAll";
 
 const ZOOM_FACTOR = 1.2;
-const FIT_PADDING = 40; // Padding around content when fitting all pages
 
 export function ZoomControls() {
   const viewMode = useViewStore((s) => s.viewMode);
   const isZoomLocked = useViewStore((s) => s.isZoomLocked);
   const toggleZoomLocked = useViewStore((s) => s.toggleZoomLocked);
-  const canvasContainerSize = useViewStore((s) => s.canvasContainerSize);
   const activeTransform = useViewStore((s) =>
     s.viewMode === "canvas" ? s.canvasTransform : s.singlePageTransform,
   );
   const setActiveTransform = useViewStore((s) =>
     s.viewMode === "canvas" ? s.setCanvasTransform : s.setSinglePageTransform,
   );
-  const pages = useNotebookPagesStore((s) => s.pages);
 
-  // Calculate page positions for Fit All
-  const pagePositions = useMemo(() => {
-    return pages.map((page) => ({
-      x: page.canvasX ?? 0,
-      y: page.canvasY ?? 0,
-    }));
-  }, [pages]);
-
-  // Calculate bounding box of all pages
-  const contentBounds = useMemo(() => {
-    if (pagePositions.length === 0) {
-      return { minX: 0, minY: 0, maxX: PAGE_RENDER_WIDTH, maxY: PAGE_RENDER_HEIGHT };
-    }
-
-    let minX = Infinity;
-    let minY = Infinity;
-    let maxX = -Infinity;
-    let maxY = -Infinity;
-
-    for (const pos of pagePositions) {
-      minX = Math.min(minX, pos.x);
-      minY = Math.min(minY, pos.y);
-      maxX = Math.max(maxX, pos.x + PAGE_RENDER_WIDTH);
-      maxY = Math.max(maxY, pos.y + PAGE_RENDER_HEIGHT);
-    }
-
-    return { minX, minY, maxX, maxY };
-  }, [pagePositions]);
-
-  const handleFitAll = useCallback(() => {
-    const { width, height } = canvasContainerSize;
-    if (width === 0 || height === 0) return;
-
-    const contentWidth = contentBounds.maxX - contentBounds.minX;
-    const contentHeight = contentBounds.maxY - contentBounds.minY;
-
-    // Calculate scale to fit all content with padding
-    const availableWidth = width - FIT_PADDING * 2;
-    const availableHeight = height - FIT_PADDING * 2;
-    const scale = Math.min(
-      availableWidth / contentWidth,
-      availableHeight / contentHeight,
-      CANVAS_MAX_ZOOM // Don't zoom in more than max
-    );
-
-    // Clamp scale to min
-    const clampedScale = Math.max(scale, CANVAS_MIN_ZOOM);
-
-    // Calculate position to center the content
-    const scaledContentWidth = contentWidth * clampedScale;
-    const scaledContentHeight = contentHeight * clampedScale;
-    const x = (width - scaledContentWidth) / 2 - contentBounds.minX * clampedScale;
-    const y = (height - scaledContentHeight) / 2 - contentBounds.minY * clampedScale;
-
-    setActiveTransform({ x, y, scale: clampedScale });
-  }, [canvasContainerSize, contentBounds, setActiveTransform]);
+  const { fitAll } = useFitAll();
 
   if (viewMode === "overview") return null;
 
@@ -137,7 +73,7 @@ export function ZoomControls() {
       </button>
       {viewMode === "canvas" && (
         <ToolbarButton
-          onClick={handleFitAll}
+          onClick={fitAll}
           aria-label="Fit all pages"
           data-testid="fit-all-button"
         >

@@ -14,12 +14,14 @@ import { KeyboardShortcutsDialog } from "../ui/KeyboardShortcutsDialog";
 import { useUndoRedoKeyboard } from "../../hooks/useUndoRedo";
 import { useOfflineSync } from "../../hooks/useOfflineSync";
 import { usePageNavKeyboard } from "../../hooks/usePageNavKeyboard";
+import { useFitAll } from "../../hooks/useFitAll";
 import { showSuccess, showError } from "../../stores/toast-store";
 
 export function WritingView() {
   const navigate = useNavigate();
   const { notebookId } = useParams<{ notebookId: string }>();
   const viewMode = useViewStore((s) => s.viewMode);
+  const setViewMode = useViewStore((s) => s.setViewMode);
   const currentPageId = useNotebookPagesStore(
     (s) => s.pages[s.currentPageIndex]?.id ?? "",
   );
@@ -27,6 +29,8 @@ export function WritingView() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [creatingPage, setCreatingPage] = useState(false);
+
+  const { fitAll } = useFitAll();
 
   useUndoRedoKeyboard(currentPageId);
   useOfflineSync();
@@ -76,8 +80,32 @@ export function WritingView() {
     if (e.key === "n" && !e.metaKey && !e.ctrlKey && !e.altKey) {
       e.preventDefault();
       handleCreatePage();
+      return;
     }
-  }, [handleCreatePage]);
+
+    // View mode shortcuts: 1 = single, 2 = canvas, 3 = overview
+    if (e.key === "1" && !e.metaKey && !e.ctrlKey && !e.altKey) {
+      e.preventDefault();
+      setViewMode("single");
+      return;
+    }
+    if (e.key === "2" && !e.metaKey && !e.ctrlKey && !e.altKey) {
+      e.preventDefault();
+      setViewMode("canvas");
+      return;
+    }
+    if (e.key === "3" && !e.metaKey && !e.ctrlKey && !e.altKey) {
+      e.preventDefault();
+      setViewMode("overview");
+      return;
+    }
+
+    // F to fit all pages (only in canvas view)
+    if (e.key === "f" && !e.metaKey && !e.ctrlKey && !e.altKey) {
+      e.preventDefault();
+      fitAll();
+    }
+  }, [handleCreatePage, setViewMode, fitAll]);
 
   useEffect(() => {
     document.addEventListener("keydown", handleKeyDown);
