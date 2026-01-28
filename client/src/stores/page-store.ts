@@ -1,48 +1,72 @@
 import { create } from "zustand";
 import type { Stroke } from "../api/strokes";
 import * as strokesApi from "../api/strokes";
-import * as pagesApi from "../api/pages";
 
 interface PageStore {
-  page: pagesApi.PageMeta | null;
-  savedStrokes: Stroke[];
-  loading: boolean;
-  error: string | null;
-  loadPage: (pageId: string) => Promise<void>;
-  addSavedStrokes: (strokes: Stroke[]) => void;
-  removeSavedStroke: (strokeId: string) => void;
-  clearSavedStrokes: () => void;
-  setSavedStrokes: (strokes: Stroke[]) => void;
+  strokesByPage: Record<string, Stroke[]>;
+  loadingPages: Set<string>;
+
+  loadPageStrokes: (pageId: string) => Promise<void>;
+  addSavedStrokes: (pageId: string, strokes: Stroke[]) => void;
+  removeSavedStroke: (pageId: string, strokeId: string) => void;
+  clearSavedStrokes: (pageId: string) => void;
+  unloadPageStrokes: (pageId: string) => void;
 }
 
-export const usePageStore = create<PageStore>((set) => ({
-  page: null,
-  savedStrokes: [],
-  loading: false,
-  error: null,
+export const usePageStore = create<PageStore>((set, get) => ({
+  strokesByPage: {},
+  loadingPages: new Set(),
 
-  loadPage: async (pageId: string) => {
-    set({ loading: true, error: null });
+  loadPageStrokes: async (pageId: string) => {
+    const { loadingPages, strokesByPage } = get();
+    if (loadingPages.has(pageId) || strokesByPage[pageId]) return;
+
+    set({ loadingPages: new Set([...loadingPages, pageId]) });
     try {
-      const [page, strokes] = await Promise.all([
-        pagesApi.getPage(pageId),
-        strokesApi.getStrokes(pageId),
-      ]);
-      set({ page, savedStrokes: strokes, loading: false });
-    } catch (err: any) {
-      set({ error: err.message, loading: false });
+      const strokes = await strokesApi.getStrokes(pageId);
+      const updated = new Set(get().loadingPages);
+      updated.delete(pageId);
+      set({
+        strokesByPage: { ...get().strokesByPage, [pageId]: strokes },
+        loadingPages: updated,
+      });
+    } catch (err) {
+      console.error(`Failed to load strokes for page ${pageId}:`, err);
+      const updated = new Set(get().loadingPages);
+      updated.delete(pageId);
+      set({ loadingPages: updated });
     }
   },
 
-  addSavedStrokes: (strokes) =>
-    set((state) => ({ savedStrokes: [...state.savedStrokes, ...strokes] })),
-
-  removeSavedStroke: (strokeId) =>
+  addSavedStrokes: (pageId, strokes) =>
     set((state) => ({
-      savedStrokes: state.savedStrokes.filter((s) => s.id !== strokeId),
+      strokesByPage: {
+        ...state.strokesByPage,
+        [pageId]: [...(state.strokesByPage[pageId] ?? []), ...strokes],
+      },
     })),
 
-  clearSavedStrokes: () => set({ savedStrokes: [] }),
+  removeSavedStroke: (pageId, strokeId) =>
+    set((state) => ({
+      strokesByPage: {
+        ...state.strokesByPage,
+        [pageId]: (state.strokesByPage[pageId] ?? []).filter(
+          (s) => s.id !== strokeId,
+        ),
+      },
+    })),
 
-  setSavedStrokes: (strokes) => set({ savedStrokes: strokes }),
+  clearSavedStrokes: (pageId) =>
+    set((state) => ({
+      strokesByPage: {
+        ...state.strokesByPage,
+        [pageId]: [],
+      },
+    })),
+
+  unloadPageStrokes: (pageId) =>
+    set((state) => {
+      const { [pageId]: _, ...rest } = state.strokesByPage;
+      return { strokesByPage: rest };
+    }),
 }));

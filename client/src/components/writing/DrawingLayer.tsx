@@ -2,19 +2,29 @@ import { useStrokeCapture } from "../../hooks/useStrokeCapture";
 import { useDrawingStore } from "../../stores/drawing-store";
 import { usePageStore } from "../../stores/page-store";
 import * as strokesApi from "../../api/strokes";
+import type { Stroke } from "../../api/strokes";
 import { PAGE_WIDTH, PAGE_HEIGHT } from "../../lib/constants";
 import { useCallback, useRef } from "react";
 
-export function DrawingLayer() {
-  const { onPointerDown, onPointerMove, onPointerUp } = useStrokeCapture();
+const EMPTY: Stroke[] = [];
+
+interface DrawingLayerProps {
+  pageId: string;
+}
+
+export function DrawingLayer({ pageId }: DrawingLayerProps) {
+  const { onPointerDown, onPointerMove, onPointerUp, captureRef } = useStrokeCapture(pageId);
   const tool = useDrawingStore((s) => s.tool);
-  const savedStrokes = usePageStore((s) => s.savedStrokes);
+  const savedStrokes = usePageStore((s) => s.strokesByPage[pageId] ?? EMPTY);
   const removeSavedStroke = usePageStore((s) => s.removeSavedStroke);
-  const page = usePageStore((s) => s.page);
   const lastEraseRef = useRef<string | null>(null);
+
+  const isPenOrMouse = (e: React.PointerEvent) =>
+    e.pointerType === "pen" || e.pointerType === "mouse";
 
   const handlePointerDown = useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
+      if (!isPenOrMouse(e)) return;
       if (tool === "eraser") {
         eraseAt(e);
       } else {
@@ -26,6 +36,7 @@ export function DrawingLayer() {
 
   const handlePointerMove = useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
+      if (!isPenOrMouse(e)) return;
       if (tool === "eraser") {
         if (e.buttons > 0) eraseAt(e);
       } else {
@@ -37,6 +48,7 @@ export function DrawingLayer() {
 
   const handlePointerUp = useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
+      if (!isPenOrMouse(e)) return;
       if (tool === "eraser") {
         lastEraseRef.current = null;
       } else {
@@ -59,10 +71,8 @@ export function DrawingLayer() {
         const dy = pt.y - y;
         if (dx * dx + dy * dy < threshold * threshold) {
           lastEraseRef.current = stroke.id;
-          removeSavedStroke(stroke.id);
-          if (page) {
-            strokesApi.deleteStroke(page.id, stroke.id).catch(console.error);
-          }
+          removeSavedStroke(pageId, stroke.id);
+          strokesApi.deleteStroke(pageId, stroke.id).catch(console.error);
           return;
         }
       }
@@ -71,6 +81,7 @@ export function DrawingLayer() {
 
   return (
     <div
+      ref={captureRef}
       className="absolute inset-0 touch-none"
       style={{ cursor: tool === "eraser" ? "crosshair" : "default" }}
       onPointerDown={handlePointerDown}

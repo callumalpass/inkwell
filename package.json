@@ -8,6 +8,14 @@
   ],
   "scripts": {
     "dev": "npm run dev --workspace=server & npm run dev --workspace=client & wait",
-    "build": "npm run build --workspace=server && npm run build --workspace=client"
+    "build": "npm run build --workspace=server && npm run build --workspace=client",
+    "test": "npm run test:server && npm run test:client",
+    "test:server": "npm test --workspace=server",
+    "test:client": "npm test --workspace=client",
+    "test:e2e": "npx playwright test",
+    "test:all": "npm run test:server && npm run test:client && npm run test:e2e"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.58.0"
   }
 }

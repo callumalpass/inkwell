@@ -1,15 +1,36 @@
 import { memo } from "react";
 import { PAGE_WIDTH, PAGE_HEIGHT } from "../../lib/constants";
-import { getSvgPathFromStroke, type StrokeData } from "../../lib/stroke-renderer";
+import {
+  getSvgPathFromStroke,
+  getSvgPathFromStrokeFilled,
+  type StrokeData,
+} from "../../lib/stroke-renderer";
 
 interface StrokeCanvasProps {
   strokes: StrokeData[];
 }
 
 const StrokePath = memo(function StrokePath({ stroke }: { stroke: StrokeData }) {
+  const useFilled = stroke.penStyle === "pressure" || !stroke.penStyle;
+
+  if (useFilled) {
+    const d = getSvgPathFromStrokeFilled(stroke);
+    if (!d) return null;
+    return <path d={d} fill={stroke.color} />;
+  }
+
   const d = getSvgPathFromStroke(stroke);
   if (!d) return null;
-  return <path d={d} fill={stroke.color} />;
+  return (
+    <path
+      d={d}
+      fill="none"
+      stroke={stroke.color}
+      strokeWidth={stroke.width}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  );
 });
 
 export const StrokeCanvas = memo(function StrokeCanvas({

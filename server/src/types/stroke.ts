@@ -9,5 +9,6 @@ export interface Stroke {
   points: StrokePoint[];
   color: string;
   width: number;
+  penStyle?: "pressure" | "uniform" | "ballpoint";
   createdAt: string;
 }
