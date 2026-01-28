@@ -69,7 +69,7 @@ test.describe("Offline support", () => {
     await page.goto("/");
     await expect(page.getByText("Notebooks")).toBeVisible();
 
-    await page.getByText(notebookTitle).click();
+    await page.getByText(notebookTitle).first().click();
     await page.waitForURL(/\/notebook\/nb_.*\/page\//);
 
     // Should NOT show offline indicator when online
@@ -104,7 +104,7 @@ test.describe("Offline support", () => {
     await page.goto("/");
     await expect(page.getByText("Notebooks")).toBeVisible();
 
-    await page.getByText(notebookTitle).click();
+    await page.getByText(notebookTitle).first().click();
     await page.waitForURL(/\/notebook\/nb_.*\/page\//);
 
     // Wait for initial load to finish
@@ -144,7 +144,7 @@ test.describe("Offline support", () => {
     await page.goto("/");
     await expect(page.getByText("Notebooks")).toBeVisible();
 
-    await page.getByText(notebookTitle).click();
+    await page.getByText(notebookTitle).first().click();
     await page.waitForURL(/\/notebook\/nb_.*\/page\//);
 
     await page.waitForTimeout(1000);
@@ -171,7 +171,7 @@ test.describe("Offline support", () => {
     await page.goto("/");
     await expect(page.getByText("Notebooks")).toBeVisible();
 
-    await page.getByText(notebookTitle).click();
+    await page.getByText(notebookTitle).first().click();
     await page.waitForURL(/\/notebook\/nb_.*\/page\//);
 
     await page.waitForTimeout(1000);
