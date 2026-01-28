@@ -1,3 +1,4 @@
+import { useState, useRef, useEffect } from "react";
 import type { NotebookMeta } from "../../api/notebooks";
 
 interface NotebookCardProps {
@@ -6,12 +7,48 @@ interface NotebookCardProps {
   onDelete: () => void;
   onDuplicate: () => void;
   onExport: () => void;
+  onRename: (newTitle: string) => void;
 }
 
-export function NotebookCard({ notebook, onClick, onDelete, onDuplicate, onExport }: NotebookCardProps) {
+export function NotebookCard({ notebook, onClick, onDelete, onDuplicate, onExport, onRename }: NotebookCardProps) {
   const thumbnailUrl = notebook.coverPageId
     ? `/api/pages/${notebook.coverPageId}/thumbnail`
     : null;
+
+  const [isEditing, setIsEditing] = useState(false);
+  const [editValue, setEditValue] = useState(notebook.title);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (isEditing && inputRef.current) {
+      inputRef.current.focus();
+      inputRef.current.select();
+    }
+  }, [isEditing]);
+
+  const handleDoubleClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setEditValue(notebook.title);
+    setIsEditing(true);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      submitRename();
+    } else if (e.key === "Escape") {
+      setIsEditing(false);
+      setEditValue(notebook.title);
+    }
+  };
+
+  const submitRename = () => {
+    const trimmed = editValue.trim();
+    if (trimmed && trimmed !== notebook.title) {
+      onRename(trimmed);
+    }
+    setIsEditing(false);
+  };
 
   return (
     <div
@@ -34,10 +71,44 @@ export function NotebookCard({ notebook, onClick, onDelete, onDuplicate, onExpor
 
       <div className="p-4">
         <div className="flex items-start justify-between">
-          <h3 className="font-medium text-gray-900">{notebook.title}</h3>
+          {isEditing ? (
+            <input
+              ref={inputRef}
+              type="text"
+              value={editValue}
+              onChange={(e) => setEditValue(e.target.value)}
+              onKeyDown={handleKeyDown}
+              onBlur={submitRename}
+              onClick={(e) => e.stopPropagation()}
+              className="flex-1 rounded border border-gray-300 px-2 py-1 text-sm font-medium text-gray-900 focus:border-gray-500 focus:outline-none"
+              data-testid="notebook-rename-input"
+            />
+          ) : (
+            <h3
+              className="font-medium text-gray-900"
+              onDoubleClick={handleDoubleClick}
+              title="Double-click to rename"
+            >
+              {notebook.title}
+            </h3>
+          )}
           <div className="flex gap-1">
             <button
               className="ml-2 text-gray-400 opacity-0 hover:text-gray-700 group-hover:opacity-100"
+              onClick={(e) => {
+                e.stopPropagation();
+                setEditValue(notebook.title);
+                setIsEditing(true);
+              }}
+              aria-label="Rename notebook"
+              title="Rename"
+            >
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M11.5 2.5l2 2M2 14l1-4 9-9 2 2-9 9-3 1z" />
+              </svg>
+            </button>
+            <button
+              className="text-gray-400 opacity-0 hover:text-gray-700 group-hover:opacity-100"
               onClick={(e) => {
                 e.stopPropagation();
                 onDuplicate();

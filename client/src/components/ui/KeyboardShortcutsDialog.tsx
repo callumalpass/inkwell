@@ -20,6 +20,14 @@ const SHORTCUT_GROUPS: ShortcutGroup[] = [
     ],
   },
   {
+    title: "Pages",
+    shortcuts: [
+      { keys: ["N"], description: "New page" },
+      { keys: ["\u2190"], description: "Previous page" },
+      { keys: ["\u2192"], description: "Next page" },
+    ],
+  },
+  {
     title: "Drawing",
     shortcuts: [
       { keys: ["Cmd", "Z"], description: "Undo" },
@@ -27,13 +35,6 @@ const SHORTCUT_GROUPS: ShortcutGroup[] = [
       { keys: ["2-finger tap"], description: "Undo (touch)" },
       { keys: ["3-finger tap"], description: "Redo (touch)" },
       { keys: ["2-finger double-tap"], description: "Reset zoom to 100%" },
-    ],
-  },
-  {
-    title: "Page Navigation",
-    shortcuts: [
-      { keys: ["\u2190"], description: "Previous page" },
-      { keys: ["\u2192"], description: "Next page" },
     ],
   },
   {

@@ -35,12 +35,17 @@ export function PageActionButtons({
   const closeTagsPanel = useTagsPanelStore((s) => s.closePanel);
 
   const duplicatePage = useNotebookPagesStore((s) => s.duplicatePage);
+  const pages = useNotebookPagesStore((s) => s.pages);
+  const currentPageIndex = useNotebookPagesStore((s) => s.currentPageIndex);
+  const removePages = useNotebookPagesStore((s) => s.removePages);
 
   const [exportOpen, setExportOpen] = useState(false);
   const [notebookSettingsOpen, setNotebookSettingsOpen] = useState(false);
   const [duplicating, setDuplicating] = useState(false);
   const [clearConfirmOpen, setClearConfirmOpen] = useState(false);
   const [clearing, setClearing] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const clearSavedStrokes = usePageStore((s) => s.clearSavedStrokes);
   const clearUndoHistory = useUndoRedoStore((s) => s.clearPage);
@@ -70,6 +75,7 @@ export function PageActionButtons({
     setDuplicating(true);
     try {
       const newPage = await duplicatePage(currentPageId);
+      showSuccess("Page duplicated");
       // Navigate to the new page
       const nbId = routeNotebookId || notebookId;
       if (nbId) {
@@ -77,6 +83,7 @@ export function PageActionButtons({
       }
     } catch (err) {
       console.error("Failed to duplicate page:", err);
+      showError("Failed to duplicate page");
     } finally {
       setDuplicating(false);
     }
@@ -96,6 +103,39 @@ export function PageActionButtons({
       showError("Failed to clear page");
     } finally {
       setClearing(false);
+    }
+  };
+
+  const handleDeletePage = async () => {
+    if (!currentPageId || deleting) return;
+    setDeleting(true);
+    setDeleteConfirmOpen(false);
+    try {
+      // Find next page to navigate to before deletion
+      const nbId = routeNotebookId || notebookId;
+      let nextPageId: string | null = null;
+      if (pages.length > 1) {
+        // Navigate to adjacent page
+        const nextIndex = currentPageIndex < pages.length - 1 ? currentPageIndex + 1 : currentPageIndex - 1;
+        nextPageId = pages[nextIndex]?.id ?? null;
+      }
+
+      await removePages([currentPageId]);
+      showSuccess("Page deleted");
+
+      if (nbId) {
+        if (nextPageId) {
+          navigate(`/notebook/${nbId}/page/${nextPageId}`, { replace: true });
+        } else {
+          // No pages left, go back to notebook overview
+          navigate(`/notebook/${nbId}`, { replace: true });
+        }
+      }
+    } catch (err) {
+      console.error("Failed to delete page:", err);
+      showError("Failed to delete page");
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -127,6 +167,15 @@ export function PageActionButtons({
             data-testid={`toolbar-clear${suffix}`}
           >
             {clearing ? "..." : "Clear"}
+          </ToolbarButton>
+          <ToolbarButton
+            onClick={() => setDeleteConfirmOpen(true)}
+            disabled={deleting}
+            aria-label="Delete page"
+            data-testid={`toolbar-delete${suffix}`}
+            variant="danger"
+          >
+            {deleting ? "..." : "Delete"}
           </ToolbarButton>
           <Divider />
         </>
@@ -191,6 +240,17 @@ export function PageActionButtons({
         variant="danger"
         onConfirm={handleClearPage}
         onCancel={() => setClearConfirmOpen(false)}
+      />
+
+      <ConfirmDialog
+        open={deleteConfirmOpen}
+        title="Delete page"
+        message="Are you sure you want to delete this page? This action cannot be undone."
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        variant="danger"
+        onConfirm={handleDeletePage}
+        onCancel={() => setDeleteConfirmOpen(false)}
       />
     </>
   );

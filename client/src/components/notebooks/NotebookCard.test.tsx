@@ -13,12 +13,12 @@ const noop = () => {};
 
 describe("NotebookCard", () => {
   it("renders the notebook title", () => {
-    render(<NotebookCard notebook={notebook} onClick={noop} onDelete={noop} onDuplicate={noop} onExport={noop} />);
+    render(<NotebookCard notebook={notebook} onClick={noop} onDelete={noop} onDuplicate={noop} onRename={noop} onExport={noop} />);
     expect(screen.getByText("Test Notebook")).toBeInTheDocument();
   });
 
   it("renders the page count and formatted date", () => {
-    render(<NotebookCard notebook={notebook} onClick={noop} onDelete={noop} onDuplicate={noop} onExport={noop} />);
+    render(<NotebookCard notebook={notebook} onClick={noop} onDelete={noop} onDuplicate={noop} onRename={noop} onExport={noop} />);
     const dateStr = new Date(notebook.updatedAt).toLocaleDateString();
     // Text is split across nodes, so use a function matcher
     expect(
@@ -31,7 +31,7 @@ describe("NotebookCard", () => {
   it("calls onClick when the card is clicked", async () => {
     const user = userEvent.setup();
     const onClick = vi.fn();
-    render(<NotebookCard notebook={notebook} onClick={onClick} onDelete={noop} onDuplicate={noop} onExport={noop} />);
+    render(<NotebookCard notebook={notebook} onClick={onClick} onDelete={noop} onDuplicate={noop} onRename={noop} onExport={noop} />);
 
     await user.click(screen.getByText("Test Notebook"));
     expect(onClick).toHaveBeenCalledOnce();
@@ -41,7 +41,7 @@ describe("NotebookCard", () => {
     const user = userEvent.setup();
     const onDelete = vi.fn();
     const onClick = vi.fn();
-    render(<NotebookCard notebook={notebook} onClick={onClick} onDelete={onDelete} onDuplicate={noop} onExport={noop} />);
+    render(<NotebookCard notebook={notebook} onClick={onClick} onDelete={onDelete} onDuplicate={noop} onRename={noop} onExport={noop} />);
 
     await user.click(screen.getByRole("button", { name: /delete notebook/i }));
     expect(onDelete).toHaveBeenCalledOnce();
@@ -51,7 +51,7 @@ describe("NotebookCard", () => {
     const user = userEvent.setup();
     const onClick = vi.fn();
     const onDelete = vi.fn();
-    render(<NotebookCard notebook={notebook} onClick={onClick} onDelete={onDelete} onDuplicate={noop} onExport={noop} />);
+    render(<NotebookCard notebook={notebook} onClick={onClick} onDelete={onDelete} onDuplicate={noop} onRename={noop} onExport={noop} />);
 
     await user.click(screen.getByRole("button", { name: /delete notebook/i }));
     expect(onClick).not.toHaveBeenCalled();
@@ -61,7 +61,7 @@ describe("NotebookCard", () => {
     const user = userEvent.setup();
     const onExport = vi.fn();
     const onClick = vi.fn();
-    render(<NotebookCard notebook={notebook} onClick={onClick} onDelete={noop} onDuplicate={noop} onExport={onExport} />);
+    render(<NotebookCard notebook={notebook} onClick={onClick} onDelete={noop} onDuplicate={noop} onRename={noop} onExport={onExport} />);
 
     await user.click(screen.getByRole("button", { name: /export notebook/i }));
     expect(onExport).toHaveBeenCalledOnce();
@@ -71,7 +71,7 @@ describe("NotebookCard", () => {
     const user = userEvent.setup();
     const onClick = vi.fn();
     const onExport = vi.fn();
-    render(<NotebookCard notebook={notebook} onClick={onClick} onDelete={noop} onDuplicate={noop} onExport={onExport} />);
+    render(<NotebookCard notebook={notebook} onClick={onClick} onDelete={noop} onDuplicate={noop} onRename={noop} onExport={onExport} />);
 
     await user.click(screen.getByRole("button", { name: /export notebook/i }));
     expect(onClick).not.toHaveBeenCalled();
@@ -81,7 +81,7 @@ describe("NotebookCard", () => {
     const user = userEvent.setup();
     const onDuplicate = vi.fn();
     const onClick = vi.fn();
-    render(<NotebookCard notebook={notebook} onClick={onClick} onDelete={noop} onDuplicate={onDuplicate} onExport={noop} />);
+    render(<NotebookCard notebook={notebook} onClick={onClick} onDelete={noop} onDuplicate={onDuplicate} onRename={noop} onExport={noop} />);
 
     await user.click(screen.getByRole("button", { name: /duplicate notebook/i }));
     expect(onDuplicate).toHaveBeenCalledOnce();
@@ -91,9 +91,64 @@ describe("NotebookCard", () => {
     const user = userEvent.setup();
     const onClick = vi.fn();
     const onDuplicate = vi.fn();
-    render(<NotebookCard notebook={notebook} onClick={onClick} onDelete={noop} onDuplicate={onDuplicate} onExport={noop} />);
+    render(<NotebookCard notebook={notebook} onClick={onClick} onDelete={noop} onDuplicate={onDuplicate} onRename={noop} onExport={noop} />);
 
     await user.click(screen.getByRole("button", { name: /duplicate notebook/i }));
     expect(onClick).not.toHaveBeenCalled();
+  });
+
+  it("enters edit mode when rename button is clicked", async () => {
+    const user = userEvent.setup();
+    render(<NotebookCard notebook={notebook} onClick={noop} onDelete={noop} onDuplicate={noop} onRename={noop} onExport={noop} />);
+
+    await user.click(screen.getByRole("button", { name: /rename notebook/i }));
+    expect(screen.getByTestId("notebook-rename-input")).toBeInTheDocument();
+  });
+
+  it("enters edit mode when title is double-clicked", async () => {
+    const user = userEvent.setup();
+    render(<NotebookCard notebook={notebook} onClick={noop} onDelete={noop} onDuplicate={noop} onRename={noop} onExport={noop} />);
+
+    await user.dblClick(screen.getByText("Test Notebook"));
+    expect(screen.getByTestId("notebook-rename-input")).toBeInTheDocument();
+  });
+
+  it("calls onRename when Enter is pressed with new title", async () => {
+    const user = userEvent.setup();
+    const onRename = vi.fn();
+    render(<NotebookCard notebook={notebook} onClick={noop} onDelete={noop} onDuplicate={noop} onRename={onRename} onExport={noop} />);
+
+    await user.click(screen.getByRole("button", { name: /rename notebook/i }));
+    const input = screen.getByTestId("notebook-rename-input");
+    await user.clear(input);
+    await user.type(input, "New Title{Enter}");
+
+    expect(onRename).toHaveBeenCalledWith("New Title");
+  });
+
+  it("cancels rename when Escape is pressed", async () => {
+    const user = userEvent.setup();
+    const onRename = vi.fn();
+    render(<NotebookCard notebook={notebook} onClick={noop} onDelete={noop} onDuplicate={noop} onRename={onRename} onExport={noop} />);
+
+    await user.click(screen.getByRole("button", { name: /rename notebook/i }));
+    const input = screen.getByTestId("notebook-rename-input");
+    await user.clear(input);
+    await user.type(input, "New Title{Escape}");
+
+    expect(onRename).not.toHaveBeenCalled();
+    expect(screen.queryByTestId("notebook-rename-input")).not.toBeInTheDocument();
+  });
+
+  it("does not call onRename if title is unchanged", async () => {
+    const user = userEvent.setup();
+    const onRename = vi.fn();
+    render(<NotebookCard notebook={notebook} onClick={noop} onDelete={noop} onDuplicate={noop} onRename={onRename} onExport={noop} />);
+
+    await user.click(screen.getByRole("button", { name: /rename notebook/i }));
+    const input = screen.getByTestId("notebook-rename-input");
+    await user.type(input, "{Enter}");
+
+    expect(onRename).not.toHaveBeenCalled();
   });
 });

@@ -333,4 +333,201 @@ test.describe("Keyboard Shortcuts Help", () => {
     await expect(page.getByText("Undo").first()).toBeVisible();
     await expect(page.getByText("Redo").first()).toBeVisible();
   });
+
+  test("dialog shows new page shortcut", async ({ page }) => {
+    await openNotebook(page, notebookTitle);
+    await page.locator("body").click();
+    await page.keyboard.type("?");
+    await expect(page.getByTestId("shortcuts-dialog").first()).toBeVisible();
+    await expect(page.getByText("New page").first()).toBeVisible();
+  });
+});
+
+test.describe("Notebook Rename", () => {
+  let notebookId: string;
+  let notebookTitle: string;
+
+  test.beforeEach(async () => {
+    const nb = await createNotebook(uniqueTitle("E2E Rename"));
+    notebookId = nb.id;
+    notebookTitle = nb.title;
+    await addPage(notebookId);
+  });
+
+  test.afterEach(async () => {
+    await deleteNotebook(notebookId);
+  });
+
+  test("can rename notebook via rename button", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.getByText("Notebooks")).toBeVisible();
+
+    // Find the notebook card and click rename
+    const card = page.getByText(notebookTitle).locator("..");
+    await card.getByRole("button", { name: "Rename notebook" }).click();
+
+    // Input should appear
+    const input = page.getByTestId("notebook-rename-input");
+    await expect(input).toBeVisible();
+
+    // Type a new name and press Enter
+    await input.fill("Renamed Notebook");
+    await input.press("Enter");
+
+    // The notebook should show the new name
+    await expect(page.getByText("Renamed Notebook")).toBeVisible();
+    await expect(page.getByText(notebookTitle)).not.toBeVisible();
+  });
+
+  test("rename saves on blur", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.getByText("Notebooks")).toBeVisible();
+
+    // Click rename button
+    const card = page.getByText(notebookTitle).locator("..");
+    await card.getByRole("button", { name: "Rename notebook" }).click();
+
+    // Type a new name
+    const input = page.getByTestId("notebook-rename-input");
+    await input.fill("Blur Renamed");
+
+    // Click elsewhere to trigger blur
+    await page.getByText("Notebooks").click();
+
+    // The notebook should show the new name
+    await expect(page.getByText("Blur Renamed")).toBeVisible();
+  });
+
+  test("can cancel rename with Escape", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.getByText("Notebooks")).toBeVisible();
+
+    // Click rename button
+    const card = page.getByText(notebookTitle).locator("..");
+    await card.getByRole("button", { name: "Rename notebook" }).click();
+
+    // Type something but press Escape
+    const input = page.getByTestId("notebook-rename-input");
+    await input.fill("Should Not Save");
+    await input.press("Escape");
+
+    // Original name should still be visible
+    await expect(page.getByText(notebookTitle)).toBeVisible();
+    await expect(page.getByText("Should Not Save")).not.toBeVisible();
+  });
+});
+
+test.describe("Page Delete from Single View", () => {
+  let notebookId: string;
+  let notebookTitle: string;
+
+  test.beforeEach(async () => {
+    const nb = await createNotebook(uniqueTitle("E2E PageDelete"));
+    notebookId = nb.id;
+    notebookTitle = nb.title;
+    await addPage(notebookId);
+    await addPage(notebookId);
+  });
+
+  test.afterEach(async () => {
+    await deleteNotebook(notebookId);
+  });
+
+  test("shows delete button in toolbar", async ({ page }) => {
+    await openNotebookSingleMode(page, notebookTitle);
+    await expect(page.getByRole("button", { name: "Delete page" })).toBeVisible();
+  });
+
+  test("shows confirmation dialog when clicking delete", async ({ page }) => {
+    await openNotebookSingleMode(page, notebookTitle);
+
+    await page.getByRole("button", { name: "Delete page" }).click();
+
+    await expect(page.getByTestId("confirm-dialog")).toBeVisible();
+    await expect(page.getByText("Delete page")).toBeVisible();
+    await expect(page.getByText(/Are you sure you want to delete this page/)).toBeVisible();
+  });
+
+  test("can cancel page deletion", async ({ page }) => {
+    await openNotebookSingleMode(page, notebookTitle);
+    const pagesBefore = await getPages(notebookId);
+
+    await page.getByRole("button", { name: "Delete page" }).click();
+    await page.getByTestId("confirm-dialog-cancel").click();
+
+    await expect(page.getByTestId("confirm-dialog")).not.toBeVisible();
+
+    // Page count should be unchanged
+    const pagesAfter = await getPages(notebookId);
+    expect(pagesAfter.length).toBe(pagesBefore.length);
+  });
+
+  test("deleting page navigates to adjacent page", async ({ page }) => {
+    await openNotebookSingleMode(page, notebookTitle);
+
+    // Should be on page 1 of 2
+    await expect(page.getByText("1/2")).toBeVisible();
+
+    // Delete the current page
+    await page.getByRole("button", { name: "Delete page" }).click();
+    await page.getByTestId("confirm-dialog-confirm").click();
+
+    // Should navigate to the remaining page (now 1/1)
+    await expect(page.getByText("1/1")).toBeVisible();
+
+    // Verify only 1 page remains
+    const pagesAfter = await getPages(notebookId);
+    expect(pagesAfter.length).toBe(1);
+  });
+});
+
+test.describe("New Page Keyboard Shortcut", () => {
+  let notebookId: string;
+  let notebookTitle: string;
+
+  test.beforeEach(async () => {
+    const nb = await createNotebook(uniqueTitle("E2E NewPageKey"));
+    notebookId = nb.id;
+    notebookTitle = nb.title;
+    await addPage(notebookId);
+  });
+
+  test.afterEach(async () => {
+    await deleteNotebook(notebookId);
+  });
+
+  test("pressing N creates a new page", async ({ page }) => {
+    await openNotebookSingleMode(page, notebookTitle);
+
+    // Should start with 1 page
+    await expect(page.getByText("1/1")).toBeVisible();
+    const pagesBefore = await getPages(notebookId);
+    expect(pagesBefore.length).toBe(1);
+
+    // Press N to create new page
+    await page.locator("body").click();
+    await page.keyboard.press("n");
+
+    // Should navigate to the new page (now 2/2)
+    await expect(page.getByText("2/2")).toBeVisible({ timeout: 5000 });
+
+    // Verify 2 pages now exist
+    const pagesAfter = await getPages(notebookId);
+    expect(pagesAfter.length).toBe(2);
+  });
+
+  test("N does not create page when typing in input", async ({ page }) => {
+    await openNotebook(page, notebookTitle);
+
+    // Open search which has an input
+    await page.keyboard.press("Control+k");
+    await expect(page.getByPlaceholder(/search/i)).toBeVisible();
+
+    // Type 'n' in the search input
+    await page.keyboard.type("n");
+
+    // No new page should be created (still 1 page)
+    const pagesAfter = await getPages(notebookId);
+    expect(pagesAfter.length).toBe(1);
+  });
 });

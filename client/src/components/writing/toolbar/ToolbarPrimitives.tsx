@@ -5,6 +5,7 @@ export const BTN =
   "rounded-md px-3 py-2 text-sm font-medium border border-transparent";
 export const BTN_ACTIVE = "bg-black text-white border-black";
 export const BTN_INACTIVE = "text-gray-800 border-gray-300 bg-white";
+export const BTN_DANGER = "text-red-600 border-red-300 bg-white hover:bg-red-50";
 export const BTN_DISABLED = "opacity-25";
 
 export function Divider() {
@@ -22,18 +23,21 @@ export function ToolbarRow({ label, children }: { label: string; children: React
 
 interface ToolbarButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   active?: boolean;
+  variant?: "default" | "danger";
 }
 
 export function ToolbarButton({
   active = false,
+  variant = "default",
   disabled,
   className = "",
   ...rest
 }: ToolbarButtonProps) {
+  const variantClass = variant === "danger" ? BTN_DANGER : active ? BTN_ACTIVE : BTN_INACTIVE;
   return (
     <button
       disabled={disabled}
-      className={`${BTN} ${active ? BTN_ACTIVE : BTN_INACTIVE} ${disabled ? BTN_DISABLED : ""} ${className}`}
+      className={`${BTN} ${variantClass} ${disabled ? BTN_DISABLED : ""} ${className}`}
       {...rest}
     />
   );
