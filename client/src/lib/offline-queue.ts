@@ -7,6 +7,15 @@ const STORE_NAME = "pending-strokes";
 /** Max age for stale entries (24 hours). */
 const STALE_ENTRY_AGE_MS = 24 * 60 * 60 * 1000;
 
+/** Callback for quota exceeded events. */
+type QuotaExceededCallback = () => void;
+let onQuotaExceeded: QuotaExceededCallback | null = null;
+
+/** Set a callback to be notified when storage quota is exceeded. */
+export function setQuotaExceededCallback(callback: QuotaExceededCallback | null): void {
+  onQuotaExceeded = callback;
+}
+
 export interface PendingEntry {
   /** Auto-incremented key */
   id?: number;
@@ -56,9 +65,16 @@ export async function enqueueStrokes(
     tx.onerror = () => {
       db.close();
       const error = tx.error;
-      // QuotaExceededError — storage is full; log but don't crash
+      // QuotaExceededError — storage is full; notify and don't crash
       if (error?.name === "QuotaExceededError") {
         console.warn("Offline queue storage quota exceeded; stroke not queued");
+        if (onQuotaExceeded) {
+          try {
+            onQuotaExceeded();
+          } catch {
+            // Don't let callback errors break the queue
+          }
+        }
         resolve();
         return;
       }

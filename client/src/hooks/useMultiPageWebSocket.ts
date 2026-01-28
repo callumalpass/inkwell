@@ -56,29 +56,48 @@ export function useMultiPageWebSocket(pageIds: string[]) {
         };
 
         ws.onmessage = (event) => {
+          let msg: unknown;
           try {
-            const msg = JSON.parse(event.data);
-            switch (msg.type) {
+            msg = JSON.parse(event.data);
+          } catch (parseError) {
+            // Log JSON parse errors - these indicate protocol issues
+            console.error(
+              `[WebSocket] Failed to parse message for page ${pageId}:`,
+              parseError instanceof Error ? parseError.message : parseError,
+            );
+            return;
+          }
+
+          try {
+            const typedMsg = msg as { type?: string; strokes?: unknown; strokeId?: string; content?: string; error?: string };
+            switch (typedMsg.type) {
               case "strokes:added":
-                addSavedStrokes(pageId, msg.strokes);
+                addSavedStrokes(pageId, typedMsg.strokes as import("../api/strokes").Stroke[]);
                 break;
               case "strokes:deleted":
-                removeSavedStroke(pageId, msg.strokeId);
+                removeSavedStroke(pageId, typedMsg.strokeId!);
                 break;
               case "strokes:cleared":
                 clearSavedStrokes(pageId);
                 break;
               case "transcription:complete":
-                updateTranscriptionStatus(pageId, "complete", msg.content);
+                updateTranscriptionStatus(pageId, "complete", typedMsg.content);
                 showSuccess("Transcription complete");
                 break;
               case "transcription:failed":
-                updateTranscriptionStatus(pageId, "failed", undefined, msg.error);
-                showError(`Transcription failed: ${msg.error || "Unknown error"}`);
+                updateTranscriptionStatus(pageId, "failed", undefined, typedMsg.error);
+                showError(`Transcription failed: ${typedMsg.error || "Unknown error"}`);
                 break;
+              default:
+                // Unknown message type - log for debugging
+                console.warn(`[WebSocket] Unknown message type for page ${pageId}:`, typedMsg.type);
             }
-          } catch {
-            // ignore malformed messages
+          } catch (handlerError) {
+            // Log handler errors - these indicate bugs in our message handling
+            console.error(
+              `[WebSocket] Error handling message for page ${pageId}:`,
+              handlerError instanceof Error ? handlerError.message : handlerError,
+            );
           }
         };
 

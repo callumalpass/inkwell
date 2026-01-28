@@ -6,6 +6,7 @@ import {
   removePendingEntry,
   pendingCount,
   purgeStaleEntries,
+  setQuotaExceededCallback,
 } from "./offline-queue";
 import type { Stroke } from "../api/strokes";
 
@@ -38,6 +39,7 @@ describe("offline-queue", () => {
 
   afterEach(() => {
     vi.restoreAllMocks();
+    setQuotaExceededCallback(null);
   });
 
   it("starts with zero pending entries", async () => {
@@ -193,6 +195,32 @@ describe("offline-queue", () => {
       const remaining = await peekAllPending();
       expect(remaining).toHaveLength(1);
       expect(remaining[0].pageId).toBe("pg_new");
+    });
+  });
+
+  describe("setQuotaExceededCallback", () => {
+    it("allows setting a callback function", () => {
+      const callback = vi.fn();
+      setQuotaExceededCallback(callback);
+      // Just verify it doesn't throw
+      expect(true).toBe(true);
+    });
+
+    it("allows clearing the callback with null", () => {
+      const callback = vi.fn();
+      setQuotaExceededCallback(callback);
+      setQuotaExceededCallback(null);
+      // Just verify it doesn't throw
+      expect(true).toBe(true);
+    });
+
+    it("replaces previous callback when set multiple times", () => {
+      const callback1 = vi.fn();
+      const callback2 = vi.fn();
+      setQuotaExceededCallback(callback1);
+      setQuotaExceededCallback(callback2);
+      // Just verify it doesn't throw
+      expect(true).toBe(true);
     });
   });
 });

@@ -6,6 +6,7 @@ import { ensureDir, writeJson } from "../storage/fs-utils.js";
 import { paths } from "../storage/paths.js";
 import {
   renderPageToPng,
+  renderPageForTranscription,
   saveTranscription,
   getTranscriptionContent,
 } from "./transcription.js";
@@ -124,6 +125,74 @@ describe("renderPageToPng", () => {
 
   it("returns null for non-existent page", async () => {
     const result = await renderPageToPng("pg_nonexistent");
+    expect(result).toBeNull();
+  });
+});
+
+describe("renderPageForTranscription", () => {
+  it("returns null for empty page (no strokes)", async () => {
+    await setupTestPage("nb_test", "pg_empty_trans");
+
+    const result = await renderPageForTranscription("pg_empty_trans");
+    expect(result).toBeNull();
+  });
+
+  it("returns a PNG buffer at reduced resolution", async () => {
+    await setupTestPage("nb_test", "pg_drawn_trans");
+    await writeJson(paths.strokes("nb_test", "pg_drawn_trans"), [
+      {
+        id: "st_1",
+        points: [
+          { x: 100, y: 100, pressure: 0.5 },
+          { x: 200, y: 200, pressure: 0.7 },
+          { x: 300, y: 300, pressure: 0.5 },
+          { x: 400, y: 400, pressure: 0.5 },
+        ],
+        color: "#000000",
+        width: 3,
+        penStyle: "pressure",
+        createdAt: new Date().toISOString(),
+      },
+    ]);
+
+    const result = await renderPageForTranscription("pg_drawn_trans");
+    expect(result).not.toBeNull();
+    expect(Buffer.isBuffer(result)).toBe(true);
+
+    // PNG signature check: first 8 bytes
+    const pngSignature = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
+    expect(result!.subarray(0, 8).equals(pngSignature)).toBe(true);
+  });
+
+  it("produces smaller buffer than full resolution", async () => {
+    await setupTestPage("nb_test", "pg_size_compare");
+    await writeJson(paths.strokes("nb_test", "pg_size_compare"), [
+      {
+        id: "st_1",
+        points: [
+          { x: 100, y: 100, pressure: 0.5 },
+          { x: 200, y: 200, pressure: 0.7 },
+          { x: 300, y: 300, pressure: 0.5 },
+          { x: 400, y: 400, pressure: 0.5 },
+        ],
+        color: "#000000",
+        width: 3,
+        penStyle: "pressure",
+        createdAt: new Date().toISOString(),
+      },
+    ]);
+
+    const fullRes = await renderPageToPng("pg_size_compare");
+    const reducedRes = await renderPageForTranscription("pg_size_compare");
+
+    expect(fullRes).not.toBeNull();
+    expect(reducedRes).not.toBeNull();
+    // The reduced resolution should produce a smaller file
+    expect(reducedRes!.length).toBeLessThan(fullRes!.length);
+  });
+
+  it("returns null for non-existent page", async () => {
+    const result = await renderPageForTranscription("pg_nonexistent");
     expect(result).toBeNull();
   });
 });

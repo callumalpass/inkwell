@@ -1,12 +1,14 @@
 import { BrowserRouter, Routes, Route, Navigate, useParams } from "react-router-dom";
 import { NotebooksPage } from "./pages/NotebooksPage";
 import { WritingPage } from "./pages/WritingPage";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { listPages, createPage } from "./api/pages";
 import { useSettingsStore } from "./stores/settings-store";
 import { Toaster } from "./components/ui/Toaster";
 import { KeyboardShortcutsDialog } from "./components/ui/KeyboardShortcutsDialog";
 import { ErrorBoundary } from "./components/ui/ErrorBoundary";
+import { setQuotaExceededCallback } from "./lib/offline-queue";
+import { showError } from "./stores/toast-store";
 
 function NotebookRedirect() {
   const { notebookId } = useParams<{ notebookId: string }>();
@@ -36,10 +38,26 @@ function NotebookRedirect() {
 export function App() {
   const { loaded, fetchSettings } = useSettingsStore();
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const quotaWarningShownRef = useRef(false);
 
   useEffect(() => {
     fetchSettings();
   }, [fetchSettings]);
+
+  // Set up offline queue quota exceeded notification
+  useEffect(() => {
+    setQuotaExceededCallback(() => {
+      // Only show warning once per session to avoid spam
+      if (!quotaWarningShownRef.current) {
+        quotaWarningShownRef.current = true;
+        showError(
+          "Offline storage full. Some strokes may not be saved while offline.",
+          8000,
+        );
+      }
+    });
+    return () => setQuotaExceededCallback(null);
+  }, []);
 
   const handleGlobalKeyDown = useCallback((e: KeyboardEvent) => {
     // Ignore if user is typing in an input
