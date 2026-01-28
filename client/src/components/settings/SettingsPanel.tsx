@@ -1,6 +1,7 @@
 import { useSettingsStore } from "../../stores/settings-store";
 import type { AppSettings } from "../../api/settings";
 import { COLOR_PRESETS } from "../../lib/constants";
+import { MarkdownConfigPanel } from "./MarkdownConfigPanel";
 
 interface SettingsPanelProps {
   open: boolean;
@@ -47,8 +48,8 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
-      <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-lg">
-        <div className="flex items-center justify-between">
+      <div className="flex max-h-[85vh] w-full max-w-lg flex-col rounded-lg bg-white shadow-lg">
+        <div className="flex items-center justify-between px-6 pt-6">
           <h2 className="text-lg font-semibold">Settings</h2>
           <button
             onClick={onClose}
@@ -58,11 +59,11 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
           </button>
         </div>
 
-        <p className="mt-1 text-xs text-gray-500">
+        <p className="mt-1 px-6 text-xs text-gray-500">
           Global defaults for new notebooks. Per-notebook settings override these.
         </p>
 
-        <div className="mt-4 space-y-4">
+        <div className="mt-4 flex-1 space-y-4 overflow-y-auto px-6 pb-6">
           {/* Pen Style */}
           <SettingsRow label="Pen Style">
             <div className="flex flex-wrap gap-1">
@@ -174,6 +175,11 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
               </button>
             </div>
           </SettingsRow>
+
+          {/* Markdown & Sync */}
+          <div className="border-t border-gray-200 pt-4">
+            <MarkdownConfigPanel />
+          </div>
         </div>
       </div>
     </div>

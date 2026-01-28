@@ -1181,7 +1181,7 @@ Frontend:
 - [x] Manual sync API (per-page and per-notebook)
 - [x] Sync status tracking and API
 - [x] Markdown config API (PATCH /api/config/markdown)
-- [ ] Markdown config UI in settings
+- [x] Markdown config UI in settings
 - [x] Tag management UI on page view (add/remove tags)
 
 **Milestone**: Transcription markdown files include configurable frontmatter and are automatically synced to an external directory (e.g., an Obsidian vault).
