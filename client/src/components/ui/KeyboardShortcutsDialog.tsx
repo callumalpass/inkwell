@@ -31,8 +31,16 @@ const SHORTCUT_GROUPS: ShortcutGroup[] = [
     title: "Pages",
     shortcuts: [
       { keys: ["N"], description: "New page" },
+      { keys: ["G"], description: "Go to page (jump)" },
       { keys: ["\u2190"], description: "Previous page" },
       { keys: ["\u2192"], description: "Next page" },
+    ],
+  },
+  {
+    title: "Tools",
+    shortcuts: [
+      { keys: ["P"], description: "Pen tool" },
+      { keys: ["E"], description: "Eraser tool" },
     ],
   },
   {

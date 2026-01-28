@@ -1,5 +1,5 @@
 import { useMemo, useCallback, useRef, useState } from "react";
-import { useViewStore, type CanvasTransform } from "../../stores/view-store";
+import { useViewStore } from "../../stores/view-store";
 import { PAGE_WIDTH, PAGE_HEIGHT } from "../../lib/constants";
 
 const PAGE_RENDER_WIDTH = 400;

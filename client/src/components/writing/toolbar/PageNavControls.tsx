@@ -1,9 +1,11 @@
 import { useNotebookPagesStore } from "../../../stores/notebook-pages-store";
 import { useViewStore } from "../../../stores/view-store";
+import { useUIStore } from "../../../stores/ui-store";
 import { useNavigate, useParams } from "react-router-dom";
 import { ToolbarButton, Divider } from "./ToolbarPrimitives";
 
 export function PageNavControls() {
+  const setPageJumpOpen = useUIStore((s) => s.setPageJumpOpen);
   const viewMode = useViewStore((s) => s.viewMode);
   const pages = useNotebookPagesStore((s) => s.pages);
   const currentPageIndex = useNotebookPagesStore((s) => s.currentPageIndex);
@@ -51,9 +53,15 @@ export function PageNavControls() {
             >
               Prev
             </ToolbarButton>
-            <span className="px-1 text-sm font-medium text-gray-800">
+            <button
+              onClick={() => setPageJumpOpen(true)}
+              className="rounded px-2 py-1 text-sm font-medium text-gray-800 hover:bg-gray-100"
+              title="Click to jump to page (G)"
+              aria-label="Jump to page"
+              data-testid="page-jump-button"
+            >
               {currentPageIndex + 1}/{pages.length}
-            </span>
+            </button>
             <ToolbarButton
               onClick={() => handlePageNav("next")}
               disabled={currentPageIndex >= pages.length - 1}

@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useViewStore } from "../../stores/view-store";
 import { useNotebookPagesStore } from "../../stores/notebook-pages-store";
+import { useDrawingStore } from "../../stores/drawing-store";
+import { useUIStore } from "../../stores/ui-store";
 import { Toolbar } from "./toolbar";
 import { SinglePageView } from "./SinglePageView";
 import { CanvasView } from "./CanvasView";
@@ -11,6 +13,7 @@ import { PageLinksPanel } from "./PageLinksPanel";
 import { PageTagsPanel } from "./PageTagsPanel";
 import { SearchView } from "../search/SearchView";
 import { KeyboardShortcutsDialog } from "../ui/KeyboardShortcutsDialog";
+import { PageJumpDialog } from "./PageJumpDialog";
 import { useUndoRedoKeyboard } from "../../hooks/useUndoRedo";
 import { useOfflineSync } from "../../hooks/useOfflineSync";
 import { usePageNavKeyboard } from "../../hooks/usePageNavKeyboard";
@@ -26,6 +29,9 @@ export function WritingView() {
     (s) => s.pages[s.currentPageIndex]?.id ?? "",
   );
   const addNewPage = useNotebookPagesStore((s) => s.addNewPage);
+  const setTool = useDrawingStore((s) => s.setTool);
+  const pageJumpOpen = useUIStore((s) => s.pageJumpOpen);
+  const setPageJumpOpen = useUIStore((s) => s.setPageJumpOpen);
   const [searchOpen, setSearchOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [creatingPage, setCreatingPage] = useState(false);
@@ -104,8 +110,31 @@ export function WritingView() {
     if (e.key === "f" && !e.metaKey && !e.ctrlKey && !e.altKey) {
       e.preventDefault();
       fitAll();
+      return;
     }
-  }, [handleCreatePage, setViewMode, fitAll]);
+
+    // G to open page jump dialog (only in single view)
+    if (e.key === "g" && !e.metaKey && !e.ctrlKey && !e.altKey) {
+      e.preventDefault();
+      if (viewMode === "single") {
+        setPageJumpOpen(true);
+      }
+      return;
+    }
+
+    // P for pen tool
+    if (e.key === "p" && !e.metaKey && !e.ctrlKey && !e.altKey) {
+      e.preventDefault();
+      setTool("pen");
+      return;
+    }
+
+    // E for eraser tool
+    if (e.key === "e" && !e.metaKey && !e.ctrlKey && !e.altKey) {
+      e.preventDefault();
+      setTool("eraser");
+    }
+  }, [handleCreatePage, setViewMode, fitAll, viewMode, setTool]);
 
   useEffect(() => {
     document.addEventListener("keydown", handleKeyDown);
@@ -125,6 +154,10 @@ export function WritingView() {
       <KeyboardShortcutsDialog
         open={shortcutsOpen}
         onClose={() => setShortcutsOpen(false)}
+      />
+      <PageJumpDialog
+        open={pageJumpOpen}
+        onClose={() => setPageJumpOpen(false)}
       />
     </div>
   );
