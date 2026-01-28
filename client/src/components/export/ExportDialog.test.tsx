@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ExportDialog } from "./ExportDialog";
 import * as exportApi from "../../api/export";
@@ -144,6 +144,10 @@ describe("ExportDialog", () => {
       includeTranscription: true,
       pageSize: "a4",
     });
+    // Wait for export to complete and state to settle
+    await waitFor(() => {
+      expect(onClose).toHaveBeenCalled();
+    });
   });
 
   it("exports page as PNG with selected scale", async () => {
@@ -209,10 +213,12 @@ describe("ExportDialog", () => {
     expect(screen.getByTestId("export-submit")).toBeDisabled();
     expect(screen.getByTestId("export-submit")).toHaveTextContent("Exporting\u2026");
 
-    // Resolve the promise and wait for state to settle
-    resolve!();
+    // Resolve the promise and wait for state to settle using act
+    await act(async () => {
+      resolve!();
+    });
     // Wait for the export to complete and dialog to close
-    await vi.waitFor(() => {
+    await waitFor(() => {
       expect(onClose).toHaveBeenCalled();
     });
   });

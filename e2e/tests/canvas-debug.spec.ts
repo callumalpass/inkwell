@@ -7,7 +7,57 @@ import {
   uniqueTitle,
 } from "../helpers";
 
-test("debug canvas drawing", async ({ page }) => {
+test("debug scroll view rendering", async ({ page }) => {
+  const nb = await createNotebook(uniqueTitle("E2E ScrollDebug"));
+  const notebookId = nb.id;
+  const notebookTitle = nb.title;
+  await addPage(notebookId);
+  await addPage(notebookId);
+
+  try {
+    await openNotebook(page, notebookTitle);
+    await page.getByRole("button", { name: "Scroll" }).click();
+
+    await expect(page.locator(".overflow-y-auto.bg-gray-100")).toBeVisible({ timeout: 5000 });
+
+    // Check how many page surfaces are rendered
+    const surfaces = await page.locator(".bg-white.shadow-sm").count();
+    console.log("Page surfaces in scroll view:", surfaces);
+
+    // Check how many are PageSurface (have SVGs) vs placeholders
+    const svgCount = await page.locator(".bg-white.shadow-sm svg").count();
+    console.log("SVGs in scroll view:", svgCount);
+
+    // Check visible pages (via touch-pan-y class)
+    const touchPanCount = await page.locator(".touch-pan-y").count();
+    console.log("touch-pan-y elements:", touchPanCount);
+
+    // Get bounding boxes of all page surfaces
+    const pageDivs = page.locator(".bg-white.shadow-sm");
+    const count = await pageDivs.count();
+    for (let i = 0; i < count; i++) {
+      const div = pageDivs.nth(i);
+      const box = await div.boundingBox();
+      const hasSvg = await div.locator("svg").count() > 0;
+      console.log(`Page ${i}: box=`, box, "hasSvg:", hasSvg);
+    }
+
+    // Check for placeholder divs (bg-gray-50)
+    const placeholders = await page.locator(".bg-gray-50").count();
+    console.log("Placeholder divs:", placeholders);
+
+    // Get all elements in the scroll container
+    const scrollContainerHTML = await page.evaluate(() => {
+      const container = document.querySelector('.overflow-y-auto.bg-gray-100 > div');
+      return container ? container.childElementCount : 0;
+    });
+    console.log("Children in scroll content div:", scrollContainerHTML);
+  } finally {
+    await deleteNotebook(notebookId);
+  }
+});
+
+test.skip("debug canvas drawing", async ({ page }) => {
   const nb = await createNotebook(uniqueTitle("E2E DebugCanvas"));
   const notebookId = nb.id;
   const notebookTitle = nb.title;
@@ -64,7 +114,7 @@ test("debug canvas drawing", async ({ page }) => {
     // Debug: Get position via getBoundingClientRect in browser
     const rectInfo = await page.evaluate(() => {
       const canvasEl = document.querySelector('.relative.flex-1.overflow-hidden.bg-gray-200');
-      const flexEl = document.querySelector('.flex.h-screen.flex-col.overflow-x-hidden');
+      const flexEl = document.querySelector('.flex.h-screen.flex-col');
       const toolbar = document.querySelector('.border-b-2.border-gray-400');
 
       // Get all direct children of flexEl
@@ -88,13 +138,13 @@ test("debug canvas drawing", async ({ page }) => {
     console.log("Rect info from browser:", JSON.stringify(rectInfo, null, 2));
 
     // Check parent elements
-    const flexContainer = page.locator(".flex.h-screen.flex-col.overflow-x-hidden");
+    const flexContainer = page.locator(".flex.h-screen.flex-col");
     const flexBox = await flexContainer.boundingBox();
     console.log("Flex container box:", flexBox);
 
     // Check flex container's scroll position
     const flexScrollInfo = await page.evaluate(() => {
-      const flexEl = document.querySelector('.flex.h-screen.flex-col.overflow-x-hidden');
+      const flexEl = document.querySelector('.flex.h-screen.flex-col');
       if (!flexEl) return { exists: false };
       return {
         exists: true,

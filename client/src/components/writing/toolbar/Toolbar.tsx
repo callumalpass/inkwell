@@ -215,7 +215,7 @@ function FullLayout({
   return (
     <>
       {/* Row 1: Drawing tools */}
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <ToolbarButton onClick={() => navigate("/")} aria-label="Home">
           Home
         </ToolbarButton>
@@ -255,7 +255,7 @@ function FullLayout({
       </div>
 
       {/* Row 2: Page & view controls */}
-      <div className="mt-1.5 flex items-center gap-2 border-t border-gray-200 pt-1.5">
+      <div className="mt-1.5 flex flex-wrap items-center gap-2 border-t border-gray-200 pt-1.5">
         <PageNavControls />
 
         <Divider />
