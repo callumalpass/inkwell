@@ -242,8 +242,8 @@ test.describe("Toolbar - Multi-page navigation", () => {
     // Should start with 3 pages
     await expect(page.getByText("1/3")).toBeVisible();
 
-    // Click "+ Page" to add a new page
-    await page.getByRole("button", { name: "+ Page" }).click();
+    // Click "+ Page" to add a new page (aria-label is "Add new page")
+    await page.getByRole("button", { name: /add new page/i }).click();
 
     // Should now show 4 pages, and navigate to the new page (page 4)
     await expect(page.getByText(/4\/4/)).toBeVisible({ timeout: 5000 });
