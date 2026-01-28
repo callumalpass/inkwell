@@ -60,3 +60,9 @@ export function movePages(pageIds: string[], targetNotebookId: string) {
     body: JSON.stringify({ pageIds, targetNotebookId }),
   });
 }
+
+export function duplicatePage(pageId: string) {
+  return apiFetch<PageMeta>(`/pages/${pageId}/duplicate`, {
+    method: "POST",
+  });
+}

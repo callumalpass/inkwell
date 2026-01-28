@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import * as transcriptionApi from "../api/transcription";
 import type { TranscriptionStatus, TranscriptionInfo } from "../api/transcription";
+import { showInfo, showError } from "./toast-store";
 
 interface TranscriptionStore {
   // Per-page transcription data
@@ -55,8 +56,10 @@ export const useTranscriptionStore = create<TranscriptionStore>((set, get) => ({
           },
         },
       });
+      showInfo("Transcription started");
     } catch (err) {
       console.error(`Failed to trigger transcription for ${pageId}:`, err);
+      showError("Failed to start transcription");
     }
   },
 

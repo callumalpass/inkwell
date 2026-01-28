@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { usePageStore } from "../stores/page-store";
 import { useTranscriptionStore } from "../stores/transcription-store";
+import { showSuccess, showError } from "../stores/toast-store";
 
 export function useMultiPageWebSocket(pageIds: string[]) {
   const wsMapRef = useRef<Map<string, WebSocket>>(new Map());
@@ -58,9 +59,11 @@ export function useMultiPageWebSocket(pageIds: string[]) {
                 break;
               case "transcription:complete":
                 updateTranscriptionStatus(pageId, "complete", msg.content);
+                showSuccess("Transcription complete");
                 break;
               case "transcription:failed":
                 updateTranscriptionStatus(pageId, "failed", undefined, msg.error);
+                showError(`Transcription failed: ${msg.error || "Unknown error"}`);
                 break;
             }
           } catch {

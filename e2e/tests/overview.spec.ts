@@ -104,8 +104,8 @@ test.describe("Overview View", () => {
       await page.getByRole("button", { name: "Select All" }).click();
       await expect(page.getByText("Selected: 2")).toBeVisible();
 
-      // Clear selection
-      await page.getByRole("button", { name: "Clear" }).click();
+      // Clear selection (use overview-scoped button to avoid toolbar Clear button)
+      await page.getByTestId("overview-view").getByRole("button", { name: "Clear" }).click();
       await expect(page.getByText("Selected: 0")).toBeVisible();
     });
 

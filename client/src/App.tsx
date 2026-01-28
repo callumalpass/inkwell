@@ -6,6 +6,7 @@ import { listPages, createPage } from "./api/pages";
 import { useSettingsStore } from "./stores/settings-store";
 import { Toaster } from "./components/ui/Toaster";
 import { KeyboardShortcutsDialog } from "./components/ui/KeyboardShortcutsDialog";
+import { ErrorBoundary } from "./components/ui/ErrorBoundary";
 
 function NotebookRedirect() {
   const { notebookId } = useParams<{ notebookId: string }>();
@@ -66,17 +67,19 @@ export function App() {
   if (!loaded) return null;
 
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<NotebooksPage />} />
-        <Route path="/notebook/:notebookId" element={<NotebookRedirect />} />
-        <Route path="/notebook/:notebookId/page/:pageId" element={<WritingPage />} />
-      </Routes>
-      <Toaster />
-      <KeyboardShortcutsDialog
-        open={shortcutsOpen}
-        onClose={() => setShortcutsOpen(false)}
-      />
-    </BrowserRouter>
+    <ErrorBoundary>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/" element={<NotebooksPage />} />
+          <Route path="/notebook/:notebookId" element={<NotebookRedirect />} />
+          <Route path="/notebook/:notebookId/page/:pageId" element={<WritingPage />} />
+        </Routes>
+        <Toaster />
+        <KeyboardShortcutsDialog
+          open={shortcutsOpen}
+          onClose={() => setShortcutsOpen(false)}
+        />
+      </BrowserRouter>
+    </ErrorBoundary>
   );
 }

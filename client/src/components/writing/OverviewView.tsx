@@ -5,7 +5,8 @@ import { exportPagePdf, exportPagePng } from "../../api/export";
 import { listNotebooks } from "../../api/notebooks";
 import type { NotebookMeta } from "../../api/notebooks";
 import { ConfirmDialog } from "../ui/ConfirmDialog";
-import { showError, showSuccess } from "../../stores/toast-store";
+import { showError, showSuccess, showInfo } from "../../stores/toast-store";
+import { triggerTranscription, bulkTranscribe } from "../../api/transcription";
 
 type ExportFormat = "pdf" | "png";
 type PageSize = "original" | "a4" | "letter";
@@ -38,6 +39,7 @@ export function OverviewView() {
   const removePages = useNotebookPagesStore((s) => s.removePages);
   const movePages = useNotebookPagesStore((s) => s.movePages);
   const updatePageTags = useNotebookPagesStore((s) => s.updatePageTags);
+  const duplicatePage = useNotebookPagesStore((s) => s.duplicatePage);
   const setViewMode = useViewStore((s) => s.setViewMode);
 
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -49,6 +51,8 @@ export function OverviewView() {
   const [exportOpen, setExportOpen] = useState(false);
   const [moveOpen, setMoveOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [transcribing, setTranscribing] = useState(false);
+  const [duplicating, setDuplicating] = useState(false);
 
   const selectedIds = useMemo(() => Array.from(selected), [selected]);
   const selectedCount = selectedIds.length;
@@ -171,6 +175,64 @@ export function OverviewView() {
     }
   };
 
+  const handleTranscribeSelected = async () => {
+    if (selectedCount === 0) return;
+    setTranscribing(true);
+    showInfo(`Queuing ${selectedCount} page${selectedCount > 1 ? "s" : ""} for transcription...`);
+    try {
+      let queued = 0;
+      for (const pageId of selectedIds) {
+        try {
+          await triggerTranscription(pageId, false);
+          queued++;
+        } catch {
+          // Continue with other pages even if one fails
+        }
+      }
+      showSuccess(`Queued ${queued} page${queued > 1 ? "s" : ""} for transcription`);
+    } catch (err: unknown) {
+      showError(err instanceof Error ? err.message : "Failed to queue transcription");
+    } finally {
+      setTranscribing(false);
+    }
+  };
+
+  const handleTranscribeAll = async () => {
+    if (!notebookId) return;
+    setTranscribing(true);
+    showInfo("Queuing all pages for transcription...");
+    try {
+      const result = await bulkTranscribe(notebookId);
+      showSuccess(`Queued ${result.queued} of ${result.total} pages for transcription`);
+    } catch (err: unknown) {
+      showError(err instanceof Error ? err.message : "Failed to queue transcription");
+    } finally {
+      setTranscribing(false);
+    }
+  };
+
+  const handleDuplicate = async () => {
+    if (selectedCount === 0) return;
+    setDuplicating(true);
+    try {
+      let duplicated = 0;
+      for (const pageId of selectedIds) {
+        try {
+          await duplicatePage(pageId);
+          duplicated++;
+        } catch {
+          // Continue with other pages even if one fails
+        }
+      }
+      showSuccess(`Duplicated ${duplicated} page${duplicated > 1 ? "s" : ""}`);
+      setSelected(new Set());
+    } catch (err: unknown) {
+      showError(err instanceof Error ? err.message : "Failed to duplicate pages");
+    } finally {
+      setDuplicating(false);
+    }
+  };
+
   return (
     <div
       className="flex-1 overflow-y-auto bg-gray-50 px-6 py-4"
@@ -224,11 +286,33 @@ export function OverviewView() {
             Export
           </button>
           <button
+            onClick={handleDuplicate}
+            className={`${BTN} ${selectedCount && !duplicating ? BTN_INACTIVE : `${BTN_INACTIVE} ${BTN_DISABLED}`}`}
+            disabled={!selectedCount || duplicating}
+          >
+            {duplicating ? "Duplicating..." : "Duplicate"}
+          </button>
+          <button
             onClick={() => setMoveOpen(true)}
             className={`${BTN} ${selectedCount ? BTN_INACTIVE : `${BTN_INACTIVE} ${BTN_DISABLED}`}`}
             disabled={!selectedCount}
           >
             Move
+          </button>
+          <button
+            onClick={handleTranscribeSelected}
+            className={`${BTN} ${selectedCount && !transcribing ? BTN_INACTIVE : `${BTN_INACTIVE} ${BTN_DISABLED}`}`}
+            disabled={!selectedCount || transcribing}
+          >
+            {transcribing ? "Transcribing..." : "Transcribe"}
+          </button>
+          <button
+            onClick={handleTranscribeAll}
+            className={`${BTN} ${!transcribing ? BTN_INACTIVE : `${BTN_INACTIVE} ${BTN_DISABLED}`}`}
+            disabled={transcribing}
+            title="Transcribe all pages that haven't been transcribed yet"
+          >
+            Transcribe All
           </button>
           <button
             onClick={handleDeleteClick}
