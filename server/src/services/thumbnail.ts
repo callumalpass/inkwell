@@ -1,10 +1,9 @@
-import { createCanvas } from "@napi-rs/canvas";
 import { writeFile, unlink, stat } from "node:fs/promises";
-import type { Stroke } from "../types/index.js";
 import { paths } from "../storage/paths.js";
 import { getNotebookIdForPage } from "../storage/page-store.js";
 import { getStrokes } from "../storage/stroke-store.js";
 import { renderStrokeToCanvas } from "./stroke-rendering.js";
+import { createRenderingCanvas, canvasToPngBuffer } from "./canvas-context.js";
 
 // Page dimensions (matching the client's page coordinate system)
 const PAGE_WIDTH = 1404;
@@ -19,8 +18,7 @@ export async function generateThumbnail(pageId: string): Promise<Buffer | null> 
   const strokes = await getStrokes(pageId);
   if (!strokes) return null;
 
-  const canvas = createCanvas(THUMBNAIL_WIDTH, THUMBNAIL_HEIGHT);
-  const ctx = canvas.getContext("2d");
+  const { canvas, ctx } = createRenderingCanvas(THUMBNAIL_WIDTH, THUMBNAIL_HEIGHT);
 
   // White background
   ctx.fillStyle = "#ffffff";
@@ -30,15 +28,10 @@ export async function generateThumbnail(pageId: string): Promise<Buffer | null> 
   const scaleY = THUMBNAIL_HEIGHT / PAGE_HEIGHT;
 
   for (const stroke of strokes) {
-    renderStrokeToCanvas(
-      ctx as unknown as CanvasRenderingContext2D,
-      stroke,
-      scaleX,
-      scaleY,
-    );
+    renderStrokeToCanvas(ctx, stroke, scaleX, scaleY);
   }
 
-  return canvas.toBuffer("image/png") as unknown as Buffer;
+  return canvasToPngBuffer(canvas);
 }
 
 export async function getThumbnailPath(pageId: string): Promise<string | null> {

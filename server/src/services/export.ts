@@ -1,10 +1,10 @@
 import PDFDocument from "pdfkit";
-import { createCanvas } from "@napi-rs/canvas";
 import type { Stroke } from "../types/index.js";
 import { getStrokes } from "../storage/stroke-store.js";
 import { getNotebookIdForPage } from "../storage/page-store.js";
 import { getTranscriptionContent } from "./transcription.js";
 import { strokeToSvgPath, renderStrokeToCanvas } from "./stroke-rendering.js";
+import { createRenderingCanvas, canvasToPngBuffer } from "./canvas-context.js";
 
 const PAGE_WIDTH = 1404;
 const PAGE_HEIGHT = 1872;
@@ -176,8 +176,7 @@ export async function exportPagePng(
   const width = Math.round(PAGE_WIDTH * scale);
   const height = Math.round(PAGE_HEIGHT * scale);
 
-  const canvas = createCanvas(width, height);
-  const ctx = canvas.getContext("2d");
+  const { canvas, ctx } = createRenderingCanvas(width, height);
 
   // White background
   ctx.fillStyle = "#ffffff";
@@ -188,11 +187,8 @@ export async function exportPagePng(
   }
 
   for (const stroke of strokes) {
-    renderStrokeToCanvas(
-      ctx as unknown as CanvasRenderingContext2D,
-      stroke,
-    );
+    renderStrokeToCanvas(ctx, stroke);
   }
 
-  return canvas.toBuffer("image/png") as unknown as Buffer;
+  return canvasToPngBuffer(canvas);
 }

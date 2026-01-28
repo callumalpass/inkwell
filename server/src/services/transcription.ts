@@ -1,5 +1,4 @@
 import { GoogleGenAI, ThinkingLevel, PartMediaResolutionLevel } from "@google/genai";
-import { createCanvas } from "@napi-rs/canvas";
 import { readFile, writeFile } from "node:fs/promises";
 import { config } from "../config.js";
 import { paths } from "../storage/paths.js";
@@ -7,6 +6,7 @@ import { getNotebookIdForPage, getPage } from "../storage/page-store.js";
 import { getNotebook } from "../storage/notebook-store.js";
 import { getStrokes } from "../storage/stroke-store.js";
 import { renderStrokeToCanvas } from "./stroke-rendering.js";
+import { createRenderingCanvas, canvasToPngBuffer } from "./canvas-context.js";
 import { getMarkdownConfig } from "../storage/config-store.js";
 import {
   buildMarkdownWithFrontmatter,
@@ -37,17 +37,16 @@ export async function renderPageToPng(pageId: string): Promise<Buffer | null> {
   const strokes = await getStrokes(pageId);
   if (!strokes || strokes.length === 0) return null;
 
-  const canvas = createCanvas(PAGE_WIDTH, PAGE_HEIGHT);
-  const ctx = canvas.getContext("2d");
+  const { canvas, ctx } = createRenderingCanvas(PAGE_WIDTH, PAGE_HEIGHT);
 
   ctx.fillStyle = "#ffffff";
   ctx.fillRect(0, 0, PAGE_WIDTH, PAGE_HEIGHT);
 
   for (const stroke of strokes) {
-    renderStrokeToCanvas(ctx as unknown as CanvasRenderingContext2D, stroke);
+    renderStrokeToCanvas(ctx, stroke);
   }
 
-  return canvas.toBuffer("image/png") as unknown as Buffer;
+  return canvasToPngBuffer(canvas);
 }
 
 /**
@@ -63,8 +62,7 @@ export async function renderPageForTranscription(pageId: string): Promise<Buffer
   const scaledWidth = TRANSCRIPTION_TARGET_WIDTH;
   const scaledHeight = Math.round(PAGE_HEIGHT * scale);
 
-  const canvas = createCanvas(scaledWidth, scaledHeight);
-  const ctx = canvas.getContext("2d");
+  const { canvas, ctx } = createRenderingCanvas(scaledWidth, scaledHeight);
 
   // Fill white background
   ctx.fillStyle = "#ffffff";
@@ -74,10 +72,10 @@ export async function renderPageForTranscription(pageId: string): Promise<Buffer
   ctx.scale(scale, scale);
 
   for (const stroke of strokes) {
-    renderStrokeToCanvas(ctx as unknown as CanvasRenderingContext2D, stroke);
+    renderStrokeToCanvas(ctx, stroke);
   }
 
-  return canvas.toBuffer("image/png") as unknown as Buffer;
+  return canvasToPngBuffer(canvas);
 }
 
 export async function callGeminiTranscription(imageBuffer: Buffer): Promise<string> {

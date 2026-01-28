@@ -1,5 +1,6 @@
 import getStroke from "perfect-freehand";
 import type { Stroke, StrokePoint } from "../types/index.js";
+import type { StrokeRenderingContext } from "./canvas-context.js";
 
 export type PenStyle = "pressure" | "uniform" | "ballpoint";
 
@@ -54,9 +55,11 @@ export function getOutlinePoints(stroke: Stroke): number[][] {
 
 /**
  * Render a stroke to a Canvas 2D context, with optional scaling.
+ * Accepts both browser CanvasRenderingContext2D and @napi-rs/canvas contexts
+ * through the StrokeRenderingContext interface.
  */
 export function renderStrokeToCanvas(
-  ctx: CanvasRenderingContext2D,
+  ctx: StrokeRenderingContext,
   stroke: Stroke,
   scaleX: number = 1,
   scaleY: number = 1,

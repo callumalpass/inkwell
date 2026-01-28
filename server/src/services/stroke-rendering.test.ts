@@ -1,4 +1,5 @@
 import type { Stroke } from "../types/index.js";
+import type { StrokeRenderingContext } from "./canvas-context.js";
 import {
   getStrokeOptions,
   getOutlinePoints,
@@ -58,7 +59,14 @@ const curveStroke = makeStroke(
 
 // ─── Canvas mock ──────────────────────────────────────────────────────
 
-function createMockCtx() {
+function createMockCtx(): StrokeRenderingContext & {
+  beginPath: ReturnType<typeof vi.fn>;
+  moveTo: ReturnType<typeof vi.fn>;
+  quadraticCurveTo: ReturnType<typeof vi.fn>;
+  lineTo: ReturnType<typeof vi.fn>;
+  closePath: ReturnType<typeof vi.fn>;
+  fill: ReturnType<typeof vi.fn>;
+} {
   return {
     beginPath: vi.fn(),
     moveTo: vi.fn(),
@@ -66,8 +74,10 @@ function createMockCtx() {
     lineTo: vi.fn(),
     closePath: vi.fn(),
     fill: vi.fn(),
+    fillRect: vi.fn(),
+    scale: vi.fn(),
     fillStyle: "",
-  } as unknown as CanvasRenderingContext2D;
+  };
 }
 
 // ─── SVG path helpers ─────────────────────────────────────────────────
