@@ -2,11 +2,18 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useSearchStore } from "../../stores/search-store";
 import { SearchResultCard } from "./SearchResultCard";
+import type { MatchType } from "../../api/search";
 
 interface SearchViewProps {
   open: boolean;
   onClose: () => void;
 }
+
+const FILTER_OPTIONS: { value: MatchType; label: string }[] = [
+  { value: "transcription", label: "Content" },
+  { value: "tag", label: "Tags" },
+  { value: "notebook", label: "Notebook" },
+];
 
 export function SearchView({ open, onClose }: SearchViewProps) {
   const navigate = useNavigate();
@@ -15,8 +22,22 @@ export function SearchView({ open, onClose }: SearchViewProps) {
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
   const [selectedIndex, setSelectedIndex] = useState(-1);
 
-  const { query, results, total, loading, error, searched, setQuery, search, clear } =
-    useSearchStore();
+  const {
+    query,
+    results,
+    total,
+    hasMore,
+    loading,
+    loadingMore,
+    error,
+    searched,
+    matchTypeFilter,
+    setQuery,
+    setMatchTypeFilter,
+    search,
+    loadMore,
+    clear,
+  } = useSearchStore();
 
   // Focus the input when the dialog opens
   useEffect(() => {
@@ -115,54 +136,92 @@ export function SearchView({ open, onClose }: SearchViewProps) {
         data-testid="search-dialog"
       >
         {/* Search input */}
-        <div className="flex items-center gap-3 border-b border-gray-200 px-4 py-3">
-          <svg
-            width="20"
-            height="20"
-            viewBox="0 0 20 20"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className="shrink-0 text-gray-400"
-          >
-            <circle cx="8.5" cy="8.5" r="5.5" />
-            <path d="M13 13l4 4" />
-          </svg>
-          <input
-            ref={inputRef}
-            type="text"
-            value={query}
-            onChange={(e) => handleInputChange(e.target.value)}
-            placeholder="Search notes, tags, notebooks..."
-            className="flex-1 bg-transparent text-sm text-gray-900 outline-none placeholder:text-gray-400"
-            data-testid="search-input"
-          />
-          {query && (
-            <button
-              onClick={() => {
-                setQuery("");
-                search("");
-                inputRef.current?.focus();
-              }}
-              className="rounded p-1 text-gray-400 hover:text-gray-600"
-              aria-label="Clear search"
-              data-testid="search-clear"
+        <div className="border-b border-gray-200 px-4 py-3">
+          <div className="flex items-center gap-3">
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 20 20"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="shrink-0 text-gray-400"
             >
-              <svg
-                width="16"
-                height="16"
-                viewBox="0 0 16 16"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
+              <circle cx="8.5" cy="8.5" r="5.5" />
+              <path d="M13 13l4 4" />
+            </svg>
+            <input
+              ref={inputRef}
+              type="text"
+              value={query}
+              onChange={(e) => handleInputChange(e.target.value)}
+              placeholder="Search notes, tags, notebooks..."
+              className="flex-1 bg-transparent text-sm text-gray-900 outline-none placeholder:text-gray-400"
+              data-testid="search-input"
+            />
+            {query && (
+              <button
+                onClick={() => {
+                  setQuery("");
+                  search("");
+                  inputRef.current?.focus();
+                }}
+                className="rounded p-1 text-gray-400 hover:text-gray-600"
+                aria-label="Clear search"
+                data-testid="search-clear"
               >
-                <path d="M4 4l8 8M12 4l-8 8" />
-              </svg>
-            </button>
-          )}
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                >
+                  <path d="M4 4l8 8M12 4l-8 8" />
+                </svg>
+              </button>
+            )}
+          </div>
+          {/* Filter chips */}
+          <div className="mt-2 flex items-center gap-2">
+            <span className="text-xs text-gray-400">Filter:</span>
+            {FILTER_OPTIONS.map((option) => {
+              const isActive = matchTypeFilter.includes(option.value);
+              return (
+                <button
+                  key={option.value}
+                  onClick={() => {
+                    const newFilter = isActive
+                      ? matchTypeFilter.filter((t) => t !== option.value)
+                      : [...matchTypeFilter, option.value];
+                    setMatchTypeFilter(newFilter);
+                  }}
+                  className={`rounded-full px-2.5 py-1 text-xs transition-colors ${
+                    isActive
+                      ? "bg-gray-900 text-white"
+                      : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                  }`}
+                  data-testid={`filter-${option.value}`}
+                  aria-pressed={isActive}
+                >
+                  {option.label}
+                </button>
+              );
+            })}
+            {matchTypeFilter.length > 0 && (
+              <button
+                onClick={() => setMatchTypeFilter([])}
+                className="text-xs text-gray-400 hover:text-gray-600"
+                data-testid="filter-clear"
+              >
+                Clear filters
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Results area */}
@@ -189,7 +248,7 @@ export function SearchView({ open, onClose }: SearchViewProps) {
             <>
               <div className="mb-3 flex items-center justify-between">
                 <p className="text-xs text-gray-500" data-testid="search-count">
-                  {total} {total === 1 ? "result" : "results"}
+                  Showing {results.length} of {total} {total === 1 ? "result" : "results"}
                 </p>
                 <p className="hidden text-xs text-gray-400 sm:block">
                   ↑↓ navigate · Enter open
@@ -207,6 +266,21 @@ export function SearchView({ open, onClose }: SearchViewProps) {
                   />
                 ))}
               </div>
+              {hasMore && (
+                <div className="mt-4 flex justify-center">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      loadMore();
+                    }}
+                    disabled={loadingMore}
+                    className="rounded border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                    data-testid="load-more-button"
+                  >
+                    {loadingMore ? "Loading..." : `Load more (${total - results.length} remaining)`}
+                  </button>
+                </div>
+              )}
             </>
           )}
 

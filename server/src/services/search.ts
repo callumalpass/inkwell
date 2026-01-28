@@ -17,6 +17,7 @@ export interface SearchResult {
 export interface SearchResponse {
   results: SearchResult[];
   total: number;
+  hasMore: boolean;
 }
 
 const EXCERPT_CONTEXT_CHARS = 80;
@@ -56,6 +57,8 @@ function matchesTag(tags: string[] | undefined, lowerQuery: string): string | nu
   return null;
 }
 
+export type MatchType = "transcription" | "tag" | "notebook"; // Filter types
+
 /**
  * Search across all notebooks (or a specific notebook).
  * Matches on:
@@ -66,9 +69,16 @@ function matchesTag(tags: string[] | undefined, lowerQuery: string): string | nu
  */
 export async function searchTranscriptions(
   query: string,
-  options: { notebook?: string; limit?: number } = {},
+  options: {
+    notebook?: string;
+    limit?: number;
+    offset?: number;
+    matchType?: MatchType[];
+  } = {},
 ): Promise<SearchResponse> {
   const limit = options.limit ?? 20;
+  const offset = options.offset ?? 0;
+  const matchTypeFilter = options.matchType;
   const results: SearchResult[] = [];
   const seenPages = new Set<string>(); // Prevent duplicates if page matches multiple criteria
 
@@ -80,7 +90,7 @@ export async function searchTranscriptions(
       .filter((e) => e.isDirectory())
       .map((e) => e.name);
   } catch {
-    return { results: [], total: 0 };
+    return { results: [], total: 0, hasMore: false };
   }
 
   // Filter to specific notebook if requested
@@ -152,6 +162,11 @@ export async function searchTranscriptions(
 
       if (!matchType) continue;
 
+      // Apply matchType filter if specified
+      if (matchTypeFilter && matchTypeFilter.length > 0) {
+        if (!matchTypeFilter.includes(matchType)) continue;
+      }
+
       seenPages.add(pageId);
       results.push({
         pageId,
@@ -170,8 +185,12 @@ export async function searchTranscriptions(
   results.sort((a, b) => b.modified.localeCompare(a.modified));
 
   const total = results.length;
+  const paginatedResults = results.slice(offset, offset + limit);
+  const hasMore = offset + paginatedResults.length < total;
+
   return {
-    results: results.slice(0, limit),
+    results: paginatedResults,
     total,
+    hasMore,
   };
 }

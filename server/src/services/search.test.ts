@@ -80,7 +80,7 @@ describe("searchTranscriptions", () => {
     expect(result.total).toBe(1);
   });
 
-  it("limits results", async () => {
+  it("limits results and indicates hasMore", async () => {
     for (let i = 0; i < 5; i++) {
       await setupNotebookWithTranscription(
         `nb_lim${i}`, `Notes ${i}`, `pg_lim${i}`, `common word here ${i}`,
@@ -90,6 +90,39 @@ describe("searchTranscriptions", () => {
     const result = await searchTranscriptions("common", { limit: 2 });
     expect(result.total).toBe(5);
     expect(result.results).toHaveLength(2);
+    expect(result.hasMore).toBe(true);
+  });
+
+  it("supports offset for pagination", async () => {
+    for (let i = 0; i < 5; i++) {
+      await setupNotebookWithTranscription(
+        `nb_off${i}`, `Notes ${i}`, `pg_off${i}`, `common offset word here ${i}`,
+      );
+    }
+
+    const page1 = await searchTranscriptions("offset", { limit: 2, offset: 0 });
+    const page2 = await searchTranscriptions("offset", { limit: 2, offset: 2 });
+    const page3 = await searchTranscriptions("offset", { limit: 2, offset: 4 });
+
+    expect(page1.total).toBe(5);
+    expect(page1.results).toHaveLength(2);
+    expect(page1.hasMore).toBe(true);
+
+    expect(page2.total).toBe(5);
+    expect(page2.results).toHaveLength(2);
+    expect(page2.hasMore).toBe(true);
+
+    expect(page3.total).toBe(5);
+    expect(page3.results).toHaveLength(1);
+    expect(page3.hasMore).toBe(false);
+
+    // No overlap between pages
+    const allIds = [
+      ...page1.results.map((r) => r.pageId),
+      ...page2.results.map((r) => r.pageId),
+      ...page3.results.map((r) => r.pageId),
+    ];
+    expect(new Set(allIds).size).toBe(5);
   });
 
   it("filters by notebook", async () => {
@@ -122,6 +155,110 @@ describe("searchTranscriptions", () => {
     const result = await searchTranscriptions("anything");
     expect(result.total).toBe(0);
     expect(result.results).toHaveLength(0);
+    expect(result.hasMore).toBe(false);
+  });
+
+  it("filters by matchType - transcription only", async () => {
+    // Create a page with both transcription and tag containing "alpha"
+    await createNotebook({
+      id: "nb_mt1",
+      title: "Match Type Test",
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
+
+    const now = new Date().toISOString();
+    await createPage({
+      id: "pg_mt1",
+      notebookId: "nb_mt1",
+      pageNumber: 1,
+      canvasX: 0,
+      canvasY: 0,
+      tags: ["alpha-tag"],
+      createdAt: now,
+      updatedAt: now,
+    });
+    await writeFile(paths.transcription("nb_mt1", "pg_mt1"), "Content about alpha", "utf-8");
+
+    // Without filter, should match (transcription takes priority)
+    const allResult = await searchTranscriptions("alpha");
+    expect(allResult.total).toBe(1);
+    expect(allResult.results[0].matchType).toBe("transcription");
+
+    // With transcription filter, should match
+    const transcriptResult = await searchTranscriptions("alpha", { matchType: ["transcription"] });
+    expect(transcriptResult.total).toBe(1);
+
+    // With tag-only filter, should not match (transcription match is excluded)
+    const tagResult = await searchTranscriptions("alpha", { matchType: ["tag"] });
+    expect(tagResult.total).toBe(0);
+  });
+
+  it("filters by matchType - tag only", async () => {
+    await createNotebook({
+      id: "nb_mt2",
+      title: "Tag Match Test",
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
+
+    const now = new Date().toISOString();
+    await createPage({
+      id: "pg_mt2",
+      notebookId: "nb_mt2",
+      pageNumber: 1,
+      canvasX: 0,
+      canvasY: 0,
+      tags: ["beta-unique-tag"],
+      createdAt: now,
+      updatedAt: now,
+    });
+    // No transcription, so tag match will be the only match type
+
+    const result = await searchTranscriptions("beta", { matchType: ["tag"] });
+    expect(result.total).toBe(1);
+    expect(result.results[0].matchType).toBe("tag");
+
+    // With transcription filter, should not match
+    const transcriptResult = await searchTranscriptions("beta", { matchType: ["transcription"] });
+    expect(transcriptResult.total).toBe(0);
+  });
+
+  it("filters by multiple matchTypes", async () => {
+    await createNotebook({
+      id: "nb_mt3",
+      title: "Gamma Notebook",
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
+
+    const now = new Date().toISOString();
+    await createPage({
+      id: "pg_mt3a",
+      notebookId: "nb_mt3",
+      pageNumber: 1,
+      canvasX: 0,
+      canvasY: 0,
+      createdAt: now,
+      updatedAt: now,
+    });
+    await writeFile(paths.transcription("nb_mt3", "pg_mt3a"), "Content about gamma", "utf-8");
+
+    await createPage({
+      id: "pg_mt3b",
+      notebookId: "nb_mt3",
+      pageNumber: 2,
+      canvasX: 100,
+      canvasY: 0,
+      tags: ["gamma-tag"],
+      createdAt: now,
+      updatedAt: now,
+    });
+    // No transcription for pg_mt3b, so it will be a tag match
+
+    // Filter by transcription OR tag should get both
+    const result = await searchTranscriptions("gamma", { matchType: ["transcription", "tag"] });
+    expect(result.total).toBe(2);
   });
 
   it("sorts results by modified date descending", async () => {

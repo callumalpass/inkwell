@@ -264,16 +264,16 @@ test.describe("Keyboard Shortcuts - Search Navigation", () => {
     // Arrow down to first result
     await page.keyboard.press("ArrowDown");
 
-    // First result should be highlighted (has ring-2 class)
+    // First result should be highlighted (has ring class)
     const firstResult = page.getByTestId("search-result").first();
-    await expect(firstResult).toHaveClass(/ring-2/);
+    await expect(firstResult).toHaveClass(/ring-1/);
 
     // Arrow down to second result
     await page.keyboard.press("ArrowDown");
 
     // Second result should be highlighted
     const secondResult = page.getByTestId("search-result").nth(1);
-    await expect(secondResult).toHaveClass(/ring-2/);
+    await expect(secondResult).toHaveClass(/ring-1/);
   });
 
   test("Enter opens selected search result", async ({ page }) => {

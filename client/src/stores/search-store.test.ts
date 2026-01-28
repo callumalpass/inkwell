@@ -11,9 +11,12 @@ beforeEach(() => {
     query: "",
     results: [],
     total: 0,
+    hasMore: false,
     loading: false,
+    loadingMore: false,
     error: null,
     searched: false,
+    matchTypeFilter: [],
   });
 });
 
@@ -59,7 +62,7 @@ describe("search store", () => {
       expect(useSearchStore.getState().loading).toBe(true);
       expect(useSearchStore.getState().query).toBe("test");
 
-      resolve({ results: [], total: 0 });
+      resolve({ results: [], total: 0, hasMore: false });
       await promise;
       expect(useSearchStore.getState().loading).toBe(false);
     });
@@ -68,6 +71,7 @@ describe("search store", () => {
       vi.mocked(searchApi.searchTranscriptions).mockResolvedValue({
         results: MOCK_RESULTS,
         total: 2,
+        hasMore: false,
       });
 
       await useSearchStore.getState().search("matching");
@@ -75,6 +79,7 @@ describe("search store", () => {
       const state = useSearchStore.getState();
       expect(state.results).toEqual(MOCK_RESULTS);
       expect(state.total).toBe(2);
+      expect(state.hasMore).toBe(false);
       expect(state.searched).toBe(true);
       expect(state.loading).toBe(false);
       expect(state.error).toBeNull();
@@ -84,13 +89,14 @@ describe("search store", () => {
       vi.mocked(searchApi.searchTranscriptions).mockResolvedValue({
         results: [],
         total: 0,
+        hasMore: false,
       });
 
       await useSearchStore.getState().search("test", { notebook: "nb_1" });
 
-      expect(searchApi.searchTranscriptions).toHaveBeenCalledWith("test", {
+      expect(searchApi.searchTranscriptions).toHaveBeenCalledWith("test", expect.objectContaining({
         notebook: "nb_1",
-      });
+      }));
     });
 
     it("sets error on failure", async () => {
@@ -111,6 +117,7 @@ describe("search store", () => {
       vi.mocked(searchApi.searchTranscriptions).mockResolvedValue({
         results: MOCK_RESULTS,
         total: 2,
+        hasMore: false,
       });
       await useSearchStore.getState().search("test");
       expect(useSearchStore.getState().results).toHaveLength(2);
@@ -129,6 +136,7 @@ describe("search store", () => {
       vi.mocked(searchApi.searchTranscriptions).mockResolvedValue({
         results: MOCK_RESULTS,
         total: 2,
+        hasMore: false,
       });
       await useSearchStore.getState().search("test");
 
@@ -137,15 +145,134 @@ describe("search store", () => {
       expect(useSearchStore.getState().results).toEqual([]);
       expect(useSearchStore.getState().searched).toBe(false);
     });
+
+    it("tracks hasMore for pagination", async () => {
+      vi.mocked(searchApi.searchTranscriptions).mockResolvedValue({
+        results: MOCK_RESULTS,
+        total: 50,
+        hasMore: true,
+      });
+
+      await useSearchStore.getState().search("test");
+
+      expect(useSearchStore.getState().hasMore).toBe(true);
+    });
+
+    it("includes matchTypeFilter in search call", async () => {
+      vi.mocked(searchApi.searchTranscriptions).mockResolvedValue({
+        results: [],
+        total: 0,
+        hasMore: false,
+      });
+
+      useSearchStore.getState().setMatchTypeFilter(["transcription", "tag"]);
+      await useSearchStore.getState().search("test");
+
+      expect(searchApi.searchTranscriptions).toHaveBeenCalledWith("test", expect.objectContaining({
+        matchType: ["transcription", "tag"],
+      }));
+    });
   });
 
-  describe("clear", () => {
-    it("resets all state to initial values", async () => {
+  describe("loadMore", () => {
+    it("appends results when loading more", async () => {
+      vi.mocked(searchApi.searchTranscriptions)
+        .mockResolvedValueOnce({
+          results: [MOCK_RESULTS[0]],
+          total: 2,
+          hasMore: true,
+        })
+        .mockResolvedValueOnce({
+          results: [MOCK_RESULTS[1]],
+          total: 2,
+          hasMore: false,
+        });
+
+      await useSearchStore.getState().search("test");
+      expect(useSearchStore.getState().results).toHaveLength(1);
+
+      await useSearchStore.getState().loadMore();
+      expect(useSearchStore.getState().results).toHaveLength(2);
+      expect(useSearchStore.getState().hasMore).toBe(false);
+    });
+
+    it("does not load if hasMore is false", async () => {
       vi.mocked(searchApi.searchTranscriptions).mockResolvedValue({
         results: MOCK_RESULTS,
         total: 2,
+        hasMore: false,
+      });
+
+      await useSearchStore.getState().search("test");
+      vi.clearAllMocks();
+
+      await useSearchStore.getState().loadMore();
+      expect(searchApi.searchTranscriptions).not.toHaveBeenCalled();
+    });
+
+    it("does not load if already loading more", async () => {
+      let resolve!: (value: searchApi.SearchResponse) => void;
+      vi.mocked(searchApi.searchTranscriptions)
+        .mockResolvedValueOnce({
+          results: [MOCK_RESULTS[0]],
+          total: 2,
+          hasMore: true,
+        })
+        .mockReturnValueOnce(
+          new Promise((r) => {
+            resolve = r;
+          }),
+        );
+
+      await useSearchStore.getState().search("test");
+
+      // Start loading more
+      const promise = useSearchStore.getState().loadMore();
+      expect(useSearchStore.getState().loadingMore).toBe(true);
+
+      // Try to load more again - should be ignored
+      await useSearchStore.getState().loadMore();
+      expect(searchApi.searchTranscriptions).toHaveBeenCalledTimes(2); // Only 2, not 3
+
+      resolve({ results: [MOCK_RESULTS[1]], total: 2, hasMore: false });
+      await promise;
+    });
+  });
+
+  describe("setMatchTypeFilter", () => {
+    it("updates matchTypeFilter", () => {
+      useSearchStore.getState().setMatchTypeFilter(["tag"]);
+      expect(useSearchStore.getState().matchTypeFilter).toEqual(["tag"]);
+    });
+
+    it("re-runs search when filter changes (if already searched)", async () => {
+      vi.mocked(searchApi.searchTranscriptions).mockResolvedValue({
+        results: MOCK_RESULTS,
+        total: 2,
+        hasMore: false,
+      });
+
+      await useSearchStore.getState().search("test");
+      vi.clearAllMocks();
+
+      useSearchStore.getState().setMatchTypeFilter(["transcription"]);
+
+      // Should have triggered a new search
+      expect(searchApi.searchTranscriptions).toHaveBeenCalledWith("test", expect.objectContaining({
+        matchType: ["transcription"],
+      }));
+    });
+  });
+
+  describe("clear", () => {
+    it("resets all state to initial values except matchTypeFilter", async () => {
+      vi.mocked(searchApi.searchTranscriptions).mockResolvedValue({
+        results: MOCK_RESULTS,
+        total: 2,
+        hasMore: false,
       });
       await useSearchStore.getState().search("test");
+      useSearchStore.getState().setMatchTypeFilter(["tag"]);
 
       useSearchStore.getState().clear();
 
@@ -153,9 +280,13 @@ describe("search store", () => {
       expect(state.query).toBe("");
       expect(state.results).toEqual([]);
       expect(state.total).toBe(0);
+      expect(state.hasMore).toBe(false);
       expect(state.loading).toBe(false);
+      expect(state.loadingMore).toBe(false);
       expect(state.error).toBeNull();
       expect(state.searched).toBe(false);
+      // matchTypeFilter should be preserved
+      expect(state.matchTypeFilter).toEqual(["tag"]);
     });
   });
 });

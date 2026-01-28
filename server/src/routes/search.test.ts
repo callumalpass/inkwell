@@ -233,4 +233,96 @@ describe("GET /api/search", () => {
     // Should still work, just clamped
     expect(res.statusCode).toBe(200);
   });
+
+  it("supports offset parameter for pagination", async () => {
+    // Create 5 pages with matching content
+    for (let i = 0; i < 5; i++) {
+      await createNotebookWithTranscription(`Notes ${i}`, `Topic beta discussion ${i}`);
+    }
+
+    // Get first page
+    const res1 = await app.inject({
+      method: "GET",
+      url: "/api/search?q=beta&limit=2&offset=0",
+    });
+
+    expect(res1.statusCode).toBe(200);
+    expect(res1.json().total).toBe(5);
+    expect(res1.json().results).toHaveLength(2);
+    expect(res1.json().hasMore).toBe(true);
+
+    // Get second page
+    const res2 = await app.inject({
+      method: "GET",
+      url: "/api/search?q=beta&limit=2&offset=2",
+    });
+
+    expect(res2.statusCode).toBe(200);
+    expect(res2.json().results).toHaveLength(2);
+    expect(res2.json().hasMore).toBe(true);
+
+    // Get last page
+    const res3 = await app.inject({
+      method: "GET",
+      url: "/api/search?q=beta&limit=2&offset=4",
+    });
+
+    expect(res3.statusCode).toBe(200);
+    expect(res3.json().results).toHaveLength(1);
+    expect(res3.json().hasMore).toBe(false);
+  });
+
+  it("supports matchType filter parameter", async () => {
+    // Create notebook and page with transcription
+    const nb = await app.inject({
+      method: "POST",
+      url: "/api/notebooks",
+      payload: { title: "Match Type Test" },
+    });
+    const notebookId = nb.json().id;
+
+    const pg = await app.inject({
+      method: "POST",
+      url: `/api/notebooks/${notebookId}/pages`,
+    });
+    const pageId = pg.json().id;
+
+    // Add transcription with "gamma"
+    const transcriptionPath = paths.transcription(notebookId, pageId);
+    await writeFile(transcriptionPath, "Content about gamma here", "utf-8");
+
+    // Without filter - should find content match
+    const res1 = await app.inject({
+      method: "GET",
+      url: "/api/search?q=gamma",
+    });
+    expect(res1.statusCode).toBe(200);
+    expect(res1.json().total).toBe(1);
+    expect(res1.json().results[0].matchType).toBe("transcription");
+
+    // With transcription filter - should find match
+    const res2 = await app.inject({
+      method: "GET",
+      url: "/api/search?q=gamma&matchType=transcription",
+    });
+    expect(res2.statusCode).toBe(200);
+    expect(res2.json().total).toBe(1);
+
+    // With tag filter - should not find match
+    const res3 = await app.inject({
+      method: "GET",
+      url: "/api/search?q=gamma&matchType=tag",
+    });
+    expect(res3.statusCode).toBe(200);
+    expect(res3.json().total).toBe(0);
+  });
+
+  it("supports multiple matchType filters", async () => {
+    const res = await app.inject({
+      method: "GET",
+      url: "/api/search?q=test&matchType=transcription,tag",
+    });
+
+    expect(res.statusCode).toBe(200);
+  });
 });
