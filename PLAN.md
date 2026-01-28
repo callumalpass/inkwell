@@ -1151,7 +1151,7 @@ Backend:
 
 Frontend:
 - [x] Export UI (buttons/dialogs for PDF and PNG export)
-- [ ] Search view (search input, result cards with excerpt/thumbnail)
+- [x] Search view (search input, result cards with excerpt/thumbnail)
 - [ ] Page linking UI (view/edit links on pages)
 - [ ] Tags UI (view/add/remove tags on pages)
 - [ ] Settings UI (defaultTool, defaultColor, defaultStrokeWidth — grid type already in toolbar)
