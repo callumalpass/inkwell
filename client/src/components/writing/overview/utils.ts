@@ -28,7 +28,7 @@ export function parseTags(input: string): string[] {
 /** Merge existing tags with incoming tags (case-insensitive deduplication). */
 export function mergeTags(existing: string[], incoming: string[]): string[] {
   const set = new Set(existing.map((t) => t.toLowerCase()));
-  for (const tag of incoming) set.add(tag);
+  for (const tag of incoming) set.add(tag.toLowerCase());
   return Array.from(set);
 }
 
