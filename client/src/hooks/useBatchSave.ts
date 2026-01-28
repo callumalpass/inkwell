@@ -11,6 +11,13 @@ async function saveStrokes(pid: string, strokes: Stroke[]) {
   const pageStore = usePageStore.getState();
   const undoStore = useUndoRedoStore.getState();
 
+  // Optimistically add to page store and record undo before the network call
+  // so strokes are never absent from both pending and saved state.
+  pageStore.addSavedStrokes(pid, strokes);
+  for (const stroke of strokes) {
+    undoStore.record({ type: "add-stroke", pageId: pid, stroke });
+  }
+
   try {
     await postStrokes(pid, strokes);
   } catch {
@@ -18,12 +25,6 @@ async function saveStrokes(pid: string, strokes: Stroke[]) {
     await enqueueStrokes(pid, strokes).catch((err) =>
       console.error(`Failed to enqueue strokes offline for ${pid}:`, err),
     );
-  }
-
-  // Always add to page store and record undo regardless of sync success
-  pageStore.addSavedStrokes(pid, strokes);
-  for (const stroke of strokes) {
-    undoStore.record({ type: "add-stroke", pageId: pid, stroke });
   }
 }
 
