@@ -346,3 +346,173 @@ describe("DELETE /api/pages/:pageId", () => {
     expect(res.statusCode).toBe(404);
   });
 });
+
+describe("POST /api/pages/move", () => {
+  it("moves a single page to another notebook", async () => {
+    const srcNb = await createNotebook("Source");
+    const dstNb = await createNotebook("Destination");
+    const { body: page } = await createPage(srcNb.id);
+
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/pages/move",
+      payload: { pageIds: [page.id], targetNotebookId: dstNb.id },
+    });
+
+    expect(res.statusCode).toBe(200);
+    const { moved } = res.json();
+    expect(moved).toHaveLength(1);
+    expect(moved[0].id).toBe(page.id);
+    expect(moved[0].notebookId).toBe(dstNb.id);
+  });
+
+  it("moves multiple pages to another notebook", async () => {
+    const srcNb = await createNotebook("Source");
+    const dstNb = await createNotebook("Destination");
+    const { body: page1 } = await createPage(srcNb.id);
+    const { body: page2 } = await createPage(srcNb.id);
+
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/pages/move",
+      payload: { pageIds: [page1.id, page2.id], targetNotebookId: dstNb.id },
+    });
+
+    expect(res.statusCode).toBe(200);
+    const { moved } = res.json();
+    expect(moved).toHaveLength(2);
+  });
+
+  it("assigns sequential page numbers in target notebook", async () => {
+    const srcNb = await createNotebook("Source");
+    const dstNb = await createNotebook("Destination");
+    // Create existing page in destination
+    await createPage(dstNb.id);
+    const { body: page } = await createPage(srcNb.id);
+
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/pages/move",
+      payload: { pageIds: [page.id], targetNotebookId: dstNb.id },
+    });
+
+    expect(res.statusCode).toBe(200);
+    const { moved } = res.json();
+    expect(moved[0].pageNumber).toBe(2);
+  });
+
+  it("returns 404 for non-existent target notebook", async () => {
+    const srcNb = await createNotebook("Source");
+    const { body: page } = await createPage(srcNb.id);
+
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/pages/move",
+      payload: { pageIds: [page.id], targetNotebookId: "nb_missing" },
+    });
+
+    expect(res.statusCode).toBe(404);
+    expect(res.json().error).toBe("Target notebook not found");
+  });
+
+  it("returns 400 for non-existent page", async () => {
+    const dstNb = await createNotebook("Destination");
+
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/pages/move",
+      payload: { pageIds: ["pg_missing"], targetNotebookId: dstNb.id },
+    });
+
+    expect(res.statusCode).toBe(400);
+    expect(res.json().error).toContain("Page not found");
+  });
+
+  it("returns 400 when moving page to its current notebook", async () => {
+    const nb = await createNotebook("Notebook");
+    const { body: page } = await createPage(nb.id);
+
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/pages/move",
+      payload: { pageIds: [page.id], targetNotebookId: nb.id },
+    });
+
+    expect(res.statusCode).toBe(400);
+    expect(res.json().error).toContain("already in target notebook");
+  });
+
+  it("validates pageIds are in correct format", async () => {
+    const nb = await createNotebook("Notebook");
+
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/pages/move",
+      payload: { pageIds: ["../invalid"], targetNotebookId: nb.id },
+    });
+
+    expect(res.statusCode).toBe(400);
+  });
+
+  it("validates targetNotebookId is in correct format", async () => {
+    const srcNb = await createNotebook("Source");
+    const { body: page } = await createPage(srcNb.id);
+
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/pages/move",
+      payload: { pageIds: [page.id], targetNotebookId: "../invalid" },
+    });
+
+    expect(res.statusCode).toBe(400);
+  });
+
+  it("requires at least one pageId", async () => {
+    const dstNb = await createNotebook("Destination");
+
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/pages/move",
+      payload: { pageIds: [], targetNotebookId: dstNb.id },
+    });
+
+    expect(res.statusCode).toBe(400);
+  });
+
+  it("removes pages from source notebook list", async () => {
+    const srcNb = await createNotebook("Source");
+    const dstNb = await createNotebook("Destination");
+    const { body: page } = await createPage(srcNb.id);
+
+    await app.inject({
+      method: "POST",
+      url: "/api/pages/move",
+      payload: { pageIds: [page.id], targetNotebookId: dstNb.id },
+    });
+
+    const srcPages = await app.inject({
+      method: "GET",
+      url: `/api/notebooks/${srcNb.id}/pages`,
+    });
+    expect(srcPages.json()).toHaveLength(0);
+  });
+
+  it("adds pages to destination notebook list", async () => {
+    const srcNb = await createNotebook("Source");
+    const dstNb = await createNotebook("Destination");
+    const { body: page } = await createPage(srcNb.id);
+
+    await app.inject({
+      method: "POST",
+      url: "/api/pages/move",
+      payload: { pageIds: [page.id], targetNotebookId: dstNb.id },
+    });
+
+    const dstPages = await app.inject({
+      method: "GET",
+      url: `/api/notebooks/${dstNb.id}/pages`,
+    });
+    expect(dstPages.json()).toHaveLength(1);
+    expect(dstPages.json()[0].id).toBe(page.id);
+  });
+});

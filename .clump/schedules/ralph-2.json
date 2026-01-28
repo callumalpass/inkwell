@@ -8,7 +8,7 @@
   "target_type": "custom",
   "filter_query": "state:open",
   "command_id": null,
-  "custom_prompt": "Have a look at this project. Find something that needs improving, and make improvements. Don't be afraid to be ambitious. But if there are minor changes that need addressing, or refactors needed, feel free to fix those too. add tests, use playwright, commit your work",
+  "custom_prompt": "Have a look at this project. read plan.md for the vision. Find something that needs improving, and make improvements. Don't be afraid to be ambitious. But if there are minor changes that need addressing, or refactors needed, feel free to fix those too. let's make this excellent, feature-complete, excellent ux. add tests, use playwright for whatever you need, commit your work",
   "max_items": 10,
   "only_new": false,
   "permission_mode": "bypassPermissions",

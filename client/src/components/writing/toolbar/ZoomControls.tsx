@@ -11,7 +11,6 @@ const ZOOM_FACTOR = 1.2;
 
 export function ZoomControls() {
   const viewMode = useViewStore((s) => s.viewMode);
-  if (viewMode === "overview") return null;
   const isZoomLocked = useViewStore((s) => s.isZoomLocked);
   const toggleZoomLocked = useViewStore((s) => s.toggleZoomLocked);
   const activeTransform = useViewStore((s) =>
@@ -20,6 +19,7 @@ export function ZoomControls() {
   const setActiveTransform = useViewStore((s) =>
     s.viewMode === "canvas" ? s.setCanvasTransform : s.setSinglePageTransform,
   );
+  if (viewMode === "overview") return null;
 
   const minZoom = viewMode === "canvas" ? CANVAS_MIN_ZOOM : VIEW_MIN_ZOOM;
   const maxZoom = viewMode === "canvas" ? CANVAS_MAX_ZOOM : VIEW_MAX_ZOOM;
