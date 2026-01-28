@@ -1,6 +1,6 @@
 import { useViewStore } from "../../stores/view-store";
 import { useNotebookPagesStore } from "../../stores/notebook-pages-store";
-import { Toolbar } from "./Toolbar";
+import { Toolbar } from "./toolbar";
 import { SinglePageView } from "./SinglePageView";
 import { ScrollPageListView } from "./ScrollPageListView";
 import { CanvasView } from "./CanvasView";
