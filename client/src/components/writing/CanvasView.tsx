@@ -190,6 +190,34 @@ export function CanvasView() {
     [],
   );
 
+  // Drag handle: always starts a drag on left-click, regardless of active tool.
+  // This gives a mouse-friendly grip target that works even when pen/eraser is selected.
+  const handleDragHandlePointerDown = useCallback(
+    (e: React.PointerEvent, pageId: string, canvasX: number, canvasY: number) => {
+      if (e.button !== 0) return;
+      e.stopPropagation();
+      e.preventDefault();
+      dragState.current = {
+        pageId,
+        startX: e.clientX,
+        startY: e.clientY,
+        origCanvasX: canvasX,
+        origCanvasY: canvasY,
+        dx: 0,
+        dy: 0,
+      };
+      setDragPageId(pageId);
+      setDragOffset({ dx: 0, dy: 0 });
+      // Capture on the page wrapper (parent), not the handle itself,
+      // so pointerMove/pointerUp on the container still fire correctly.
+      const pageWrapper = (e.currentTarget as HTMLElement).parentElement;
+      if (pageWrapper) {
+        pageWrapper.setPointerCapture(e.pointerId);
+      }
+    },
+    [],
+  );
+
   const handlePointerMove = useCallback(
     (e: React.PointerEvent) => {
       if (isPanning.current) {
@@ -278,6 +306,38 @@ export function CanvasView() {
               ) : (
                 <div className="h-full w-full bg-gray-50" />
               )}
+              {/* Drag handle — always allows left-click drag regardless of active tool */}
+              <div
+                data-testid={`drag-handle-${pos.id}`}
+                onPointerDownCapture={(e) =>
+                  handleDragHandlePointerDown(e, pos.id, pos.x, pos.y)
+                }
+                style={{
+                  position: "absolute",
+                  top: 4,
+                  left: 4,
+                  width: 24,
+                  height: 24,
+                  cursor: isDragging ? "grabbing" : "grab",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  borderRadius: 4,
+                  background: "rgba(255,255,255,0.85)",
+                  boxShadow: "0 1px 3px rgba(0,0,0,0.12)",
+                  touchAction: "none",
+                  zIndex: 5,
+                }}
+              >
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                  <circle cx="4" cy="3" r="1.2" fill="#9ca3af" />
+                  <circle cx="10" cy="3" r="1.2" fill="#9ca3af" />
+                  <circle cx="4" cy="7" r="1.2" fill="#9ca3af" />
+                  <circle cx="10" cy="7" r="1.2" fill="#9ca3af" />
+                  <circle cx="4" cy="11" r="1.2" fill="#9ca3af" />
+                  <circle cx="10" cy="11" r="1.2" fill="#9ca3af" />
+                </svg>
+              </div>
             </div>
           );
         })}
