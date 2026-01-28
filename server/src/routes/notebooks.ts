@@ -1,11 +1,22 @@
 import type { FastifyInstance } from "fastify";
 import { nanoid } from "nanoid";
-import { notebookStore } from "../storage/index.js";
+import { notebookStore, pageStore } from "../storage/index.js";
 import type { NotebookMeta } from "../types/index.js";
 
 export function notebookRoutes(app: FastifyInstance) {
   app.get("/api/notebooks", async () => {
-    return notebookStore.listNotebooks();
+    const notebooks = await notebookStore.listNotebooks();
+    const enriched = await Promise.all(
+      notebooks.map(async (nb) => {
+        const pages = await pageStore.listPages(nb.id);
+        return {
+          ...nb,
+          pageCount: pages.length,
+          coverPageId: pages.length > 0 ? pages[0].id : null,
+        };
+      }),
+    );
+    return enriched;
   });
 
   app.get<{ Params: { id: string } }>("/api/notebooks/:id", async (req, reply) => {

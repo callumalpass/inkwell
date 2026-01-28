@@ -13,5 +13,7 @@ export const paths = {
     join(config.dataDir, "notebooks", notebookId, "pages", pageId, "meta.json"),
   strokes: (notebookId: string, pageId: string) =>
     join(config.dataDir, "notebooks", notebookId, "pages", pageId, "strokes.json"),
+  thumbnail: (notebookId: string, pageId: string) =>
+    join(config.dataDir, "notebooks", notebookId, "pages", pageId, "thumbnail.png"),
   pageIndex: () => join(config.dataDir, "page-index.json"),
 };

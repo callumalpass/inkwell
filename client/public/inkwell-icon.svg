@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="96" fill="#1e293b"/>
+  <!-- Inkwell base -->
+  <ellipse cx="256" cy="380" rx="120" ry="36" fill="#334155"/>
+  <rect x="136" y="340" width="240" height="40" fill="#334155"/>
+  <ellipse cx="256" cy="340" rx="120" ry="36" fill="#475569"/>
+  <ellipse cx="256" cy="340" rx="90" ry="26" fill="#1e293b"/>
+  <!-- Pen nib -->
+  <g transform="translate(256,200) rotate(-35)">
+    <rect x="-8" y="-140" width="16" height="120" rx="4" fill="#e2e8f0"/>
+    <polygon points="-8,-20 8,-20 2,40 -2,40" fill="#94a3b8"/>
+    <line x1="0" y1="-20" x2="0" y2="36" stroke="#64748b" stroke-width="1.5"/>
+  </g>
+  <!-- Ink drop -->
+  <circle cx="290" cy="330" r="8" fill="#3b82f6"/>
+</svg>

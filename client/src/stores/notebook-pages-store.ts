@@ -13,6 +13,7 @@ interface NotebookPagesStore {
   goToNextPage: () => void;
   goToPrevPage: () => void;
   addNewPage: () => Promise<pagesApi.PageMeta>;
+  updatePagePosition: (pageId: string, canvasX: number, canvasY: number) => Promise<void>;
 }
 
 export const useNotebookPagesStore = create<NotebookPagesStore>((set, get) => ({
@@ -59,5 +60,13 @@ export const useNotebookPagesStore = create<NotebookPagesStore>((set, get) => ({
     const page = await pagesApi.createPage(notebookId);
     set({ pages: [...pages, page] });
     return page;
+  },
+
+  updatePagePosition: async (pageId, canvasX, canvasY) => {
+    const updated = await pagesApi.updatePage(pageId, { canvasX, canvasY });
+    const { pages } = get();
+    set({
+      pages: pages.map((p) => (p.id === pageId ? updated : p)),
+    });
   },
 }));

@@ -5,6 +5,8 @@ export interface NotebookMeta {
   title: string;
   createdAt: string;
   updatedAt: string;
+  pageCount?: number;
+  coverPageId?: string | null;
 }
 
 export function listNotebooks() {

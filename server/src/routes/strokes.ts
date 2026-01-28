@@ -2,6 +2,7 @@ import type { FastifyInstance } from "fastify";
 import { strokeStore } from "../storage/index.js";
 import type { Stroke } from "../types/index.js";
 import { broadcastToPage } from "../ws/handlers.js";
+import { invalidateThumbnail } from "../services/thumbnail.js";
 
 export function strokeRoutes(app: FastifyInstance) {
   app.get<{ Params: { pageId: string } }>(
@@ -28,6 +29,8 @@ export function strokeRoutes(app: FastifyInstance) {
         strokes: req.body.strokes,
       });
 
+      invalidateThumbnail(req.params.pageId);
+
       return { count: result.length };
     },
   );
@@ -47,6 +50,8 @@ export function strokeRoutes(app: FastifyInstance) {
         strokeId: req.params.strokeId,
       });
 
+      invalidateThumbnail(req.params.pageId);
+
       return { count: result.length };
     },
   );
@@ -61,6 +66,8 @@ export function strokeRoutes(app: FastifyInstance) {
         type: "strokes:cleared",
         pageId: req.params.pageId,
       });
+
+      invalidateThumbnail(req.params.pageId);
 
       return reply.code(204).send();
     },

@@ -4,6 +4,8 @@ export interface PageMeta {
   id: string;
   notebookId: string;
   pageNumber: number;
+  canvasX: number;
+  canvasY: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -20,6 +22,16 @@ export function createPage(notebookId: string) {
 
 export function getPage(pageId: string) {
   return apiFetch<PageMeta>(`/pages/${pageId}`);
+}
+
+export function updatePage(
+  pageId: string,
+  updates: { canvasX?: number; canvasY?: number; pageNumber?: number },
+) {
+  return apiFetch<PageMeta>(`/pages/${pageId}`, {
+    method: "PATCH",
+    body: JSON.stringify(updates),
+  });
 }
 
 export function deletePage(pageId: string) {

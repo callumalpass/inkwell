@@ -49,6 +49,22 @@ export async function createPage(meta: PageMeta): Promise<void> {
   await writePageIndex(index);
 }
 
+export async function updatePage(
+  pageId: string,
+  updates: Partial<Pick<PageMeta, "canvasX" | "canvasY" | "pageNumber">>,
+): Promise<PageMeta | null> {
+  const index = await readPageIndex();
+  const notebookId = index[pageId];
+  if (!notebookId) return null;
+
+  const meta = await readJson<PageMeta>(paths.pageMeta(notebookId, pageId));
+  if (!meta) return null;
+
+  const updated = { ...meta, ...updates, updatedAt: new Date().toISOString() };
+  await writeJson(paths.pageMeta(notebookId, pageId), updated);
+  return updated;
+}
+
 export async function deletePage(pageId: string): Promise<boolean> {
   const index = await readPageIndex();
   const notebookId = index[pageId];

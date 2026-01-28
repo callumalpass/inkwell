@@ -15,11 +15,15 @@ describe("NotebookCard", () => {
     expect(screen.getByText("Test Notebook")).toBeInTheDocument();
   });
 
-  it("renders the formatted date", () => {
+  it("renders the page count and formatted date", () => {
     render(<NotebookCard notebook={notebook} onClick={() => {}} onDelete={() => {}} />);
-    // The component renders updatedAt as toLocaleDateString()
     const dateStr = new Date(notebook.updatedAt).toLocaleDateString();
-    expect(screen.getByText(dateStr)).toBeInTheDocument();
+    // Text is split across nodes, so use a function matcher
+    expect(
+      screen.getByText((content, element) => {
+        return element?.tagName === "P" && !!element.textContent?.includes(dateStr);
+      }),
+    ).toBeInTheDocument();
   });
 
   it("calls onClick when the card is clicked", async () => {
