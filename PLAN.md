@@ -1153,7 +1153,7 @@ Frontend:
 - [x] Export UI (buttons/dialogs for PDF and PNG export)
 - [x] Search view (search input, result cards with excerpt/thumbnail)
 - [x] Page linking UI (view/edit links on pages)
-- [ ] Tags UI (view/add/remove tags on pages)
+- [x] Tags UI (view/add/remove tags on pages)
 - [ ] Settings UI (defaultTool, defaultColor, defaultStrokeWidth — grid type already in toolbar)
 
 **Milestone**: Feature complete — all features accessible from the UI.
@@ -1182,7 +1182,7 @@ Frontend:
 - [x] Sync status tracking and API
 - [x] Markdown config API (PATCH /api/config/markdown)
 - [ ] Markdown config UI in settings
-- [ ] Tag management UI on page view (add/remove tags)
+- [x] Tag management UI on page view (add/remove tags)
 
 **Milestone**: Transcription markdown files include configurable frontmatter and are automatically synced to an external directory (e.g., an Obsidian vault).
 

@@ -83,6 +83,10 @@ export function Toolbar() {
   const openLinksPanel = useLinksPanelStore((s) => s.openPanel);
   const closeLinksPanel = useLinksPanelStore((s) => s.closePanel);
 
+  const tagsPanelOpen = useTagsPanelStore((s) => s.panelOpen);
+  const openTagsPanel = useTagsPanelStore((s) => s.openPanel);
+  const closeTagsPanel = useTagsPanelStore((s) => s.closePanel);
+
   const [expanded, setExpanded] = useState(false);
   const [isCompact, setIsCompact] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);

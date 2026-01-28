@@ -28,7 +28,7 @@ vi.mock("../../api/notebooks", () => ({
 const makePage = (
   id: string,
   pageNumber: number,
-  links?: string[],
+  opts?: { links?: string[]; tags?: string[] },
 ): PageMeta => ({
   id,
   notebookId: "nb_test",
@@ -37,13 +37,14 @@ const makePage = (
   canvasY: 0,
   createdAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),
-  links,
+  links: opts?.links,
+  tags: opts?.tags,
 });
 
 const threePages = [
-  makePage("pg_1", 1, ["pg_2"]),
+  makePage("pg_1", 1, { links: ["pg_2"], tags: ["meeting", "project-x"] }),
   makePage("pg_2", 2),
-  makePage("pg_3", 3, ["pg_1"]),
+  makePage("pg_3", 3, { links: ["pg_1"] }),
 ];
 
 beforeEach(() => {
@@ -163,7 +164,7 @@ describe("PageLinksPanel", () => {
     // pg_1 links to pg_2, pg_3 links to pg_1
     // If we give pg_1 links to both pg_2 and pg_3, no pages are available
     const pagesAllLinked = [
-      makePage("pg_1", 1, ["pg_2", "pg_3"]),
+      makePage("pg_1", 1, { links: ["pg_2", "pg_3"] }),
       makePage("pg_2", 2),
       makePage("pg_3", 3),
     ];
@@ -177,7 +178,7 @@ describe("PageLinksPanel", () => {
   it("adds a link when a page option is clicked", async () => {
     const user = userEvent.setup();
     const { updatePage } = await import("../../api/pages");
-    const updatedPage = makePage("pg_1", 1, ["pg_2", "pg_3"]);
+    const updatedPage = makePage("pg_1", 1, { links: ["pg_2", "pg_3"] });
     vi.mocked(updatePage).mockResolvedValue(updatedPage);
 
     useLinksPanelStore.setState({ panelOpen: true, panelPageId: "pg_1" });
@@ -194,7 +195,7 @@ describe("PageLinksPanel", () => {
   it("removes a link when remove button is clicked", async () => {
     const user = userEvent.setup();
     const { updatePage } = await import("../../api/pages");
-    const updatedPage = makePage("pg_1", 1, []);
+    const updatedPage = makePage("pg_1", 1, { links: [] });
     vi.mocked(updatePage).mockResolvedValue(updatedPage);
 
     useLinksPanelStore.setState({ panelOpen: true, panelPageId: "pg_1" });
@@ -245,7 +246,7 @@ describe("PageLinksPanel", () => {
   it("closes add menu after selecting a page", async () => {
     const user = userEvent.setup();
     const { updatePage } = await import("../../api/pages");
-    const updatedPage = makePage("pg_1", 1, ["pg_2", "pg_3"]);
+    const updatedPage = makePage("pg_1", 1, { links: ["pg_2", "pg_3"] });
     vi.mocked(updatePage).mockResolvedValue(updatedPage);
 
     useLinksPanelStore.setState({ panelOpen: true, panelPageId: "pg_1" });
@@ -256,5 +257,164 @@ describe("PageLinksPanel", () => {
 
     await user.click(screen.getByTestId("add-link-option-pg_3"));
     expect(screen.queryByTestId("add-link-menu")).not.toBeInTheDocument();
+  });
+});
+
+describe("PageLinksPanel - Tags", () => {
+  it("displays tags section with count", () => {
+    useLinksPanelStore.setState({ panelOpen: true, panelPageId: "pg_1" });
+    render(<PageLinksPanel />);
+    expect(screen.getByText("Tags (2)")).toBeInTheDocument();
+    expect(screen.getByTestId("tags-list")).toBeInTheDocument();
+  });
+
+  it("renders tag chips for each tag", () => {
+    useLinksPanelStore.setState({ panelOpen: true, panelPageId: "pg_1" });
+    render(<PageLinksPanel />);
+    expect(screen.getByTestId("tag-meeting")).toHaveTextContent("meeting");
+    expect(screen.getByTestId("tag-project-x")).toHaveTextContent("project-x");
+  });
+
+  it("shows zero count when no tags exist", () => {
+    useLinksPanelStore.setState({ panelOpen: true, panelPageId: "pg_2" });
+    render(<PageLinksPanel />);
+    expect(screen.getByText("Tags (0)")).toBeInTheDocument();
+    expect(screen.queryByTestId("tags-list")).not.toBeInTheDocument();
+  });
+
+  it("has a tag input field", () => {
+    useLinksPanelStore.setState({ panelOpen: true, panelPageId: "pg_1" });
+    render(<PageLinksPanel />);
+    expect(screen.getByTestId("tag-input")).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("Add tag...")).toBeInTheDocument();
+  });
+
+  it("adds a tag when Add button is clicked", async () => {
+    const user = userEvent.setup();
+    const { updatePage } = await import("../../api/pages");
+    const updatedPage = makePage("pg_1", 1, {
+      links: ["pg_2"],
+      tags: ["meeting", "project-x", "important"],
+    });
+    vi.mocked(updatePage).mockResolvedValue(updatedPage);
+
+    useLinksPanelStore.setState({ panelOpen: true, panelPageId: "pg_1" });
+    render(<PageLinksPanel />);
+
+    await user.type(screen.getByTestId("tag-input"), "important");
+    await user.click(screen.getByTestId("add-tag-button"));
+
+    expect(updatePage).toHaveBeenCalledWith("pg_1", {
+      tags: ["meeting", "project-x", "important"],
+    });
+  });
+
+  it("adds a tag when Enter is pressed", async () => {
+    const user = userEvent.setup();
+    const { updatePage } = await import("../../api/pages");
+    const updatedPage = makePage("pg_1", 1, {
+      links: ["pg_2"],
+      tags: ["meeting", "project-x", "urgent"],
+    });
+    vi.mocked(updatePage).mockResolvedValue(updatedPage);
+
+    useLinksPanelStore.setState({ panelOpen: true, panelPageId: "pg_1" });
+    render(<PageLinksPanel />);
+
+    await user.type(screen.getByTestId("tag-input"), "urgent{Enter}");
+
+    expect(updatePage).toHaveBeenCalledWith("pg_1", {
+      tags: ["meeting", "project-x", "urgent"],
+    });
+  });
+
+  it("clears tag input after adding", async () => {
+    const user = userEvent.setup();
+    const { updatePage } = await import("../../api/pages");
+    const updatedPage = makePage("pg_1", 1, {
+      links: ["pg_2"],
+      tags: ["meeting", "project-x", "newtag"],
+    });
+    vi.mocked(updatePage).mockResolvedValue(updatedPage);
+
+    useLinksPanelStore.setState({ panelOpen: true, panelPageId: "pg_1" });
+    render(<PageLinksPanel />);
+
+    const input = screen.getByTestId("tag-input");
+    await user.type(input, "newtag{Enter}");
+
+    expect(input).toHaveValue("");
+  });
+
+  it("normalizes tags to lowercase", async () => {
+    const user = userEvent.setup();
+    const { updatePage } = await import("../../api/pages");
+    const updatedPage = makePage("pg_1", 1, {
+      links: ["pg_2"],
+      tags: ["meeting", "project-x", "important"],
+    });
+    vi.mocked(updatePage).mockResolvedValue(updatedPage);
+
+    useLinksPanelStore.setState({ panelOpen: true, panelPageId: "pg_1" });
+    render(<PageLinksPanel />);
+
+    await user.type(screen.getByTestId("tag-input"), "IMPORTANT{Enter}");
+
+    // Should be lowercased
+    expect(updatePage).toHaveBeenCalledWith("pg_1", {
+      tags: ["meeting", "project-x", "important"],
+    });
+  });
+
+  it("does not add duplicate tags", async () => {
+    const user = userEvent.setup();
+    const { updatePage } = await import("../../api/pages");
+    vi.mocked(updatePage).mockClear();
+
+    useLinksPanelStore.setState({ panelOpen: true, panelPageId: "pg_1" });
+    render(<PageLinksPanel />);
+
+    await user.type(screen.getByTestId("tag-input"), "meeting{Enter}");
+
+    // Should not call updatePage because "meeting" already exists
+    expect(updatePage).not.toHaveBeenCalled();
+  });
+
+  it("does not add empty tags", async () => {
+    const user = userEvent.setup();
+    const { updatePage } = await import("../../api/pages");
+    vi.mocked(updatePage).mockClear();
+
+    useLinksPanelStore.setState({ panelOpen: true, panelPageId: "pg_1" });
+    render(<PageLinksPanel />);
+
+    await user.type(screen.getByTestId("tag-input"), "   {Enter}");
+
+    expect(updatePage).not.toHaveBeenCalled();
+  });
+
+  it("disables Add button when input is empty", () => {
+    useLinksPanelStore.setState({ panelOpen: true, panelPageId: "pg_1" });
+    render(<PageLinksPanel />);
+    expect(screen.getByTestId("add-tag-button")).toBeDisabled();
+  });
+
+  it("removes a tag when remove button is clicked", async () => {
+    const user = userEvent.setup();
+    const { updatePage } = await import("../../api/pages");
+    const updatedPage = makePage("pg_1", 1, {
+      links: ["pg_2"],
+      tags: ["project-x"],
+    });
+    vi.mocked(updatePage).mockResolvedValue(updatedPage);
+
+    useLinksPanelStore.setState({ panelOpen: true, panelPageId: "pg_1" });
+    render(<PageLinksPanel />);
+
+    await user.click(screen.getByTestId("remove-tag-meeting"));
+
+    expect(updatePage).toHaveBeenCalledWith("pg_1", {
+      tags: ["project-x"],
+    });
   });
 });

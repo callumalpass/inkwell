@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useLinksPanelStore } from "../../stores/links-panel-store";
 import { useNotebookPagesStore } from "../../stores/notebook-pages-store";
@@ -10,6 +10,7 @@ export function PageLinksPanel() {
 
   const pages = useNotebookPagesStore((s) => s.pages);
   const updatePageLinks = useNotebookPagesStore((s) => s.updatePageLinks);
+  const updatePageTags = useNotebookPagesStore((s) => s.updatePageTags);
   const notebookId = useNotebookPagesStore((s) => s.notebookId);
   const setCurrentPageIndex = useNotebookPagesStore(
     (s) => s.setCurrentPageIndex,
@@ -19,6 +20,8 @@ export function PageLinksPanel() {
   const params = useParams<{ notebookId: string }>();
 
   const [addMenuOpen, setAddMenuOpen] = useState(false);
+  const [tagInput, setTagInput] = useState("");
+  const tagInputRef = useRef<HTMLInputElement>(null);
 
   const currentPage = useMemo(
     () => pages.find((p) => p.id === panelPageId),
@@ -26,6 +29,7 @@ export function PageLinksPanel() {
   );
 
   const links = currentPage?.links ?? [];
+  const tags = currentPage?.tags ?? [];
 
   // Pages that this page links to
   const linkedPages = useMemo(
@@ -67,6 +71,30 @@ export function PageLinksPanel() {
     setAddMenuOpen(false);
   };
 
+  const handleAddTag = async () => {
+    const trimmed = tagInput.trim().toLowerCase();
+    if (!trimmed || tags.includes(trimmed)) {
+      setTagInput("");
+      return;
+    }
+    const newTags = [...tags, trimmed];
+    await updatePageTags(panelPageId, newTags);
+    setTagInput("");
+    tagInputRef.current?.focus();
+  };
+
+  const handleRemoveTag = async (tag: string) => {
+    const newTags = tags.filter((t) => t !== tag);
+    await updatePageTags(panelPageId, newTags);
+  };
+
+  const handleTagKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      handleAddTag();
+    }
+  };
+
   const navigateToPage = (pageId: string) => {
     const nbId = params.notebookId ?? notebookId;
     if (!nbId) return;
@@ -87,7 +115,7 @@ export function PageLinksPanel() {
     >
       {/* Header */}
       <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
-        <h2 className="text-sm font-medium text-gray-900">Page Links</h2>
+        <h2 className="text-sm font-medium text-gray-900">Page Info</h2>
         <button
           onClick={closePanel}
           className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
@@ -106,6 +134,66 @@ export function PageLinksPanel() {
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto">
+        {/* Tags */}
+        <div className="border-b border-gray-100 px-4 py-3">
+          <h3 className="mb-2 text-xs font-medium uppercase tracking-wide text-gray-500">
+            Tags ({tags.length})
+          </h3>
+          {tags.length > 0 && (
+            <div className="mb-2 flex flex-wrap gap-1.5" data-testid="tags-list">
+              {tags.map((tag) => (
+                <span
+                  key={tag}
+                  className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-700"
+                  data-testid={`tag-${tag}`}
+                >
+                  {tag}
+                  <button
+                    onClick={() => handleRemoveTag(tag)}
+                    className="ml-0.5 rounded-full p-0.5 text-gray-400 hover:bg-gray-200 hover:text-gray-600"
+                    aria-label={`Remove tag ${tag}`}
+                    data-testid={`remove-tag-${tag}`}
+                  >
+                    <svg
+                      width="10"
+                      height="10"
+                      viewBox="0 0 10 10"
+                      fill="none"
+                    >
+                      <path
+                        d="M3 3L7 7M7 3L3 7"
+                        stroke="currentColor"
+                        strokeWidth="1.5"
+                        strokeLinecap="round"
+                      />
+                    </svg>
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
+          <div className="flex gap-1.5">
+            <input
+              ref={tagInputRef}
+              type="text"
+              value={tagInput}
+              onChange={(e) => setTagInput(e.target.value)}
+              onKeyDown={handleTagKeyDown}
+              placeholder="Add tag..."
+              className="flex-1 rounded border border-gray-200 px-2 py-1 text-sm text-gray-700 placeholder-gray-400 focus:border-gray-400 focus:outline-none"
+              data-testid="tag-input"
+            />
+            <button
+              onClick={handleAddTag}
+              disabled={!tagInput.trim()}
+              className="rounded border border-gray-200 px-2 py-1 text-xs text-gray-600 hover:bg-gray-50 disabled:opacity-40"
+              data-testid="add-tag-button"
+            >
+              Add
+            </button>
+          </div>
+        </div>
+
         {/* Outgoing links */}
         <div className="border-b border-gray-100 px-4 py-3">
           <div className="mb-2 flex items-center justify-between">
