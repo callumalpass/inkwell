@@ -60,6 +60,11 @@ export function CanvasView() {
   const [dragPageId, setDragPageId] = useState<string | null>(null);
   const [dragOffset, setDragOffset] = useState({ dx: 0, dy: 0 });
 
+  // Touch tracking — single-finger touch drags pages / pans canvas,
+  // second finger cancels drag so pinch-to-zoom can take over.
+  const activeTouchIds = useRef<Set<number>>(new Set());
+  const touchCaptureInfo = useRef<{ pointerId: number; element: HTMLElement } | null>(null);
+
   // Use stored canvas positions from page metadata
   const pagePositions = useMemo(() => {
     return pages.map((page) => ({
@@ -117,6 +122,22 @@ export function CanvasView() {
     prevCanvasVisibleRef.current = new Set(visiblePageIds);
   }, [visiblePageIds, loadPageStrokes]);
 
+  const cancelTouchDrag = useCallback(() => {
+    dragState.current = null;
+    setDragPageId(null);
+    setDragOffset({ dx: 0, dy: 0 });
+    isPanning.current = false;
+    if (touchCaptureInfo.current) {
+      const { pointerId, element } = touchCaptureInfo.current;
+      try {
+        element.releasePointerCapture(pointerId);
+      } catch {
+        // already released
+      }
+      touchCaptureInfo.current = null;
+    }
+  }, []);
+
   const handleWheel = useCallback(
     (e: React.WheelEvent) => {
       e.preventDefault();
@@ -149,9 +170,27 @@ export function CanvasView() {
     [canvasTransform, setCanvasTransform],
   );
 
-  // Panning: middle-click or left-click on empty canvas background
+  // Panning: middle-click, left-click on empty canvas background, or single-finger touch
   const handleBackgroundPointerDown = useCallback(
     (e: React.PointerEvent) => {
+      // Touch: single-finger on background → pan; second finger → cancel for pinch-zoom
+      if (e.pointerType === "touch") {
+        activeTouchIds.current.add(e.pointerId);
+        if (activeTouchIds.current.size > 1) {
+          cancelTouchDrag();
+          return;
+        }
+        if (e.currentTarget === e.target) {
+          isPanning.current = true;
+          lastPointer.current = { x: e.clientX, y: e.clientY };
+          const el = e.currentTarget as HTMLElement;
+          el.setPointerCapture(e.pointerId);
+          touchCaptureInfo.current = { pointerId: e.pointerId, element: el };
+          e.preventDefault();
+        }
+        return;
+      }
+
       if (e.button === 1 || (e.button === 0 && e.currentTarget === e.target)) {
         isPanning.current = true;
         lastPointer.current = { x: e.clientX, y: e.clientY };
@@ -159,13 +198,40 @@ export function CanvasView() {
         e.preventDefault();
       }
     },
-    [],
+    [cancelTouchDrag],
   );
 
   // Page dragging: middle-click on a page when drawing tools are active,
-  // left-click otherwise. This lets pointer events reach DrawingLayer for pen/eraser.
+  // left-click otherwise, or single-finger touch (any tool).
+  // This lets pointer events reach DrawingLayer for pen/eraser.
   const handlePagePointerDown = useCallback(
     (e: React.PointerEvent, pageId: string, canvasX: number, canvasY: number) => {
+      // Touch: single-finger on page → drag page; second finger → cancel for pinch-zoom
+      if (e.pointerType === "touch") {
+        activeTouchIds.current.add(e.pointerId);
+        if (activeTouchIds.current.size > 1) {
+          cancelTouchDrag();
+          return;
+        }
+        e.stopPropagation();
+        e.preventDefault();
+        dragState.current = {
+          pageId,
+          startX: e.clientX,
+          startY: e.clientY,
+          origCanvasX: canvasX,
+          origCanvasY: canvasY,
+          dx: 0,
+          dy: 0,
+        };
+        setDragPageId(pageId);
+        setDragOffset({ dx: 0, dy: 0 });
+        const el = e.currentTarget as HTMLElement;
+        el.setPointerCapture(e.pointerId);
+        touchCaptureInfo.current = { pointerId: e.pointerId, element: el };
+        return;
+      }
+
       const tool = useDrawingStore.getState().tool;
       if (tool === "pen" || tool === "eraser") {
         if (e.button !== 1) return; // let event reach DrawingLayer
@@ -187,14 +253,22 @@ export function CanvasView() {
       setDragOffset({ dx: 0, dy: 0 });
       (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
     },
-    [],
+    [cancelTouchDrag],
   );
 
-  // Drag handle: always starts a drag on left-click, regardless of active tool.
+  // Drag handle: always starts a drag on left-click or single-finger touch, regardless of active tool.
   // This gives a mouse-friendly grip target that works even when pen/eraser is selected.
   const handleDragHandlePointerDown = useCallback(
     (e: React.PointerEvent, pageId: string, canvasX: number, canvasY: number) => {
-      if (e.button !== 0) return;
+      if (e.pointerType === "touch") {
+        activeTouchIds.current.add(e.pointerId);
+        if (activeTouchIds.current.size > 1) {
+          cancelTouchDrag();
+          return;
+        }
+      } else {
+        if (e.button !== 0) return;
+      }
       e.stopPropagation();
       e.preventDefault();
       dragState.current = {
@@ -213,13 +287,19 @@ export function CanvasView() {
       const pageWrapper = (e.currentTarget as HTMLElement).parentElement;
       if (pageWrapper) {
         pageWrapper.setPointerCapture(e.pointerId);
+        if (e.pointerType === "touch") {
+          touchCaptureInfo.current = { pointerId: e.pointerId, element: pageWrapper };
+        }
       }
     },
-    [],
+    [cancelTouchDrag],
   );
 
   const handlePointerMove = useCallback(
     (e: React.PointerEvent) => {
+      // When multiple touch fingers are down, let pinch-zoom handle it
+      if (e.pointerType === "touch" && activeTouchIds.current.size > 1) return;
+
       if (isPanning.current) {
         const dx = e.clientX - lastPointer.current.x;
         const dy = e.clientY - lastPointer.current.y;
@@ -243,7 +323,14 @@ export function CanvasView() {
     [canvasTransform, setCanvasTransform],
   );
 
-  const handlePointerUp = useCallback(() => {
+  const handlePointerUp = useCallback((e: React.PointerEvent) => {
+    if (e.pointerType === "touch") {
+      activeTouchIds.current.delete(e.pointerId);
+      if (touchCaptureInfo.current?.pointerId === e.pointerId) {
+        touchCaptureInfo.current = null;
+      }
+    }
+
     if (dragState.current) {
       const { pageId, origCanvasX, origCanvasY, dx, dy } = dragState.current;
       const newX = origCanvasX + dx;
@@ -261,14 +348,23 @@ export function CanvasView() {
     isPanning.current = false;
   }, [updatePagePosition]);
 
+  const handlePointerCancel = useCallback((e: React.PointerEvent) => {
+    if (e.pointerType === "touch") {
+      activeTouchIds.current.delete(e.pointerId);
+    }
+    cancelTouchDrag();
+  }, [cancelTouchDrag]);
+
   return (
     <div
       ref={containerRef}
       className="relative flex-1 overflow-hidden bg-gray-200"
+      style={{ touchAction: "none" }}
       onWheel={handleWheel}
       onPointerDown={handleBackgroundPointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
+      onPointerCancel={handlePointerCancel}
     >
       <div
         style={{
