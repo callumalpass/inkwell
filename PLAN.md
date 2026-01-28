@@ -1150,7 +1150,7 @@ Backend:
 - [x] Settings (notebook settings API)
 
 Frontend:
-- [ ] Export UI (buttons/dialogs for PDF and PNG export)
+- [x] Export UI (buttons/dialogs for PDF and PNG export)
 - [ ] Search view (search input, result cards with excerpt/thumbnail)
 - [ ] Page linking UI (view/edit links on pages)
 - [ ] Tags UI (view/add/remove tags on pages)

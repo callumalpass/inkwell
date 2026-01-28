@@ -2,14 +2,17 @@ import { useEffect, useState } from "react";
 import { AppShell } from "../components/layout/AppShell";
 import { NotebookList } from "../components/notebooks/NotebookList";
 import { CreateNotebookDialog } from "../components/notebooks/CreateNotebookDialog";
+import { ExportDialog } from "../components/export/ExportDialog";
 import { SettingsPanel } from "../components/settings/SettingsPanel";
 import { useNotebookStore } from "../stores/notebook-store";
+import type { NotebookMeta } from "../api/notebooks";
 
 export function NotebooksPage() {
   const { notebooks, loading, fetchNotebooks, createNotebook, deleteNotebook } =
     useNotebookStore();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [exportNotebook, setExportNotebook] = useState<NotebookMeta | null>(null);
 
   useEffect(() => {
     fetchNotebooks();
@@ -37,12 +40,22 @@ export function NotebooksPage() {
       {loading ? (
         <p className="text-center text-gray-500">Loading...</p>
       ) : (
-        <NotebookList notebooks={notebooks} onDelete={deleteNotebook} />
+        <NotebookList
+          notebooks={notebooks}
+          onDelete={deleteNotebook}
+          onExport={(nb) => setExportNotebook(nb)}
+        />
       )}
       <CreateNotebookDialog
         open={dialogOpen}
         onClose={() => setDialogOpen(false)}
         onCreate={createNotebook}
+      />
+      <ExportDialog
+        open={!!exportNotebook}
+        onClose={() => setExportNotebook(null)}
+        notebookId={exportNotebook?.id}
+        notebookTitle={exportNotebook?.title}
       />
       <SettingsPanel
         open={settingsOpen}

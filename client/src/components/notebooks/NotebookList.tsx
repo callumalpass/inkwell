@@ -6,9 +6,10 @@ import * as pagesApi from "../../api/pages";
 interface NotebookListProps {
   notebooks: NotebookMeta[];
   onDelete: (id: string) => void;
+  onExport: (notebook: NotebookMeta) => void;
 }
 
-export function NotebookList({ notebooks, onDelete }: NotebookListProps) {
+export function NotebookList({ notebooks, onDelete, onExport }: NotebookListProps) {
   const navigate = useNavigate();
 
   const handleOpen = async (notebook: NotebookMeta) => {
@@ -39,6 +40,7 @@ export function NotebookList({ notebooks, onDelete }: NotebookListProps) {
           notebook={nb}
           onClick={() => handleOpen(nb)}
           onDelete={() => onDelete(nb.id)}
+          onExport={() => onExport(nb)}
         />
       ))}
     </div>

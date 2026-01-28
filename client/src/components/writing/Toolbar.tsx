@@ -6,6 +6,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import type { PenStyle } from "../../lib/pen-styles";
 import { TranscriptionIndicator } from "./TranscriptionIndicator";
 import { OfflineIndicator } from "./OfflineIndicator";
+import { ExportDialog } from "../export/ExportDialog";
 import { useUndoRedo } from "../../hooks/useUndoRedo";
 import {
   COLOR_PRESETS,
@@ -79,6 +80,7 @@ export function Toolbar() {
 
   const [expanded, setExpanded] = useState(false);
   const [isCompact, setIsCompact] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
   const toolbarRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -354,6 +356,21 @@ export function Toolbar() {
 
                 <Divider />
 
+                {/* Export button */}
+                {currentPage && (
+                  <>
+                    <button
+                      onClick={() => setExportOpen(true)}
+                      className={`${BTN} ${BTN_INACTIVE}`}
+                      aria-label="Export page"
+                      data-testid="toolbar-export-compact"
+                    >
+                      Export
+                    </button>
+                    <Divider />
+                  </>
+                )}
+
                 <div className="flex items-center gap-1">
                   <button
                     onClick={handleZoomOut}
@@ -552,6 +569,21 @@ export function Toolbar() {
 
             <Divider />
 
+            {/* Export button */}
+            {currentPage && (
+              <>
+                <button
+                  onClick={() => setExportOpen(true)}
+                  className={`${BTN} ${BTN_INACTIVE}`}
+                  aria-label="Export page"
+                  data-testid="toolbar-export"
+                >
+                  Export
+                </button>
+                <Divider />
+              </>
+            )}
+
             {/* Grid type selector */}
             <div className="flex gap-1">
               {(["none", "lined", "grid", "dotgrid"] as GridType[]).map((gt) => (
@@ -620,6 +652,15 @@ export function Toolbar() {
             )}
           </div>
         </>
+      )}
+
+      {currentPage && (
+        <ExportDialog
+          open={exportOpen}
+          onClose={() => setExportOpen(false)}
+          pageId={currentPage.id}
+          notebookId={notebookId}
+        />
       )}
     </div>
   );
