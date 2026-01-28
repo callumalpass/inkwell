@@ -2,6 +2,7 @@ import { useEffect, useState, useMemo } from "react";
 import { AppShell } from "../components/layout/AppShell";
 import { NotebookList } from "../components/notebooks/NotebookList";
 import { CreateNotebookDialog } from "../components/notebooks/CreateNotebookDialog";
+import { RecentPagesMenu } from "../components/notebooks/RecentPagesMenu";
 import { ExportDialog } from "../components/export/ExportDialog";
 import { SettingsPanel } from "../components/settings/SettingsPanel";
 import { SearchView } from "../components/search/SearchView";
@@ -102,6 +103,7 @@ export function NotebooksPage() {
               </button>
             ))}
           </div>
+          <RecentPagesMenu />
           <button
             onClick={() => setSearchOpen(true)}
             className="rounded border border-gray-300 px-4 py-2 text-sm text-gray-800 hover:bg-gray-100"

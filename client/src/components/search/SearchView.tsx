@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useSearchStore } from "../../stores/search-store";
 import { SearchResultCard } from "./SearchResultCard";
@@ -11,7 +11,9 @@ interface SearchViewProps {
 export function SearchView({ open, onClose }: SearchViewProps) {
   const navigate = useNavigate();
   const inputRef = useRef<HTMLInputElement>(null);
+  const resultsRef = useRef<HTMLDivElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+  const [selectedIndex, setSelectedIndex] = useState(-1);
 
   const { query, results, total, loading, error, searched, setQuery, search, clear } =
     useSearchStore();
@@ -26,15 +28,45 @@ export function SearchView({ open, onClose }: SearchViewProps) {
 
   // Clear search state when dialog closes
   useEffect(() => {
-    if (!open) clear();
+    if (!open) {
+      clear();
+      setSelectedIndex(-1);
+    }
   }, [open, clear]);
 
-  // Close on Escape key
+  // Reset selection when results change
+  useEffect(() => {
+    setSelectedIndex(-1);
+  }, [results]);
+
+  // Handle keyboard navigation
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      switch (e.key) {
+        case "Escape":
+          onClose();
+          break;
+        case "ArrowDown":
+          e.preventDefault();
+          setSelectedIndex((prev) =>
+            results.length > 0 ? Math.min(prev + 1, results.length - 1) : -1
+          );
+          break;
+        case "ArrowUp":
+          e.preventDefault();
+          setSelectedIndex((prev) => Math.max(prev - 1, -1));
+          break;
+        case "Enter":
+          e.preventDefault();
+          if (selectedIndex >= 0 && selectedIndex < results.length) {
+            const result = results[selectedIndex];
+            onClose();
+            navigate(`/notebook/${result.notebookId}/page/${result.pageId}`);
+          }
+          break;
+      }
     },
-    [onClose],
+    [onClose, results, selectedIndex, navigate],
   );
 
   useEffect(() => {
@@ -42,6 +74,17 @@ export function SearchView({ open, onClose }: SearchViewProps) {
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [open, handleKeyDown]);
+
+  // Scroll selected item into view
+  useEffect(() => {
+    if (selectedIndex < 0 || !resultsRef.current) return;
+    const container = resultsRef.current;
+    const selectedEl = container.children[1]?.children[selectedIndex] as HTMLElement | undefined;
+    // scrollIntoView may not be available in test environments
+    if (selectedEl?.scrollIntoView) {
+      selectedEl.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    }
+  }, [selectedIndex]);
 
   const handleInputChange = (value: string) => {
     setQuery(value);
@@ -123,7 +166,7 @@ export function SearchView({ open, onClose }: SearchViewProps) {
         </div>
 
         {/* Results area */}
-        <div className="overflow-y-auto px-4 py-3">
+        <div ref={resultsRef} className="overflow-y-auto px-4 py-3">
           {loading && (
             <p className="py-8 text-center text-sm text-gray-500" data-testid="search-loading">
               Searching...
@@ -144,16 +187,23 @@ export function SearchView({ open, onClose }: SearchViewProps) {
 
           {!loading && !error && results.length > 0 && (
             <>
-              <p className="mb-3 text-xs text-gray-500" data-testid="search-count">
-                {total} {total === 1 ? "result" : "results"}
-              </p>
+              <div className="mb-3 flex items-center justify-between">
+                <p className="text-xs text-gray-500" data-testid="search-count">
+                  {total} {total === 1 ? "result" : "results"}
+                </p>
+                <p className="hidden text-xs text-gray-400 sm:block">
+                  ↑↓ navigate · Enter open
+                </p>
+              </div>
               <div className="space-y-2">
-                {results.map((result) => (
+                {results.map((result, index) => (
                   <SearchResultCard
                     key={result.pageId}
                     result={result}
                     query={query}
+                    selected={selectedIndex === index}
                     onClick={() => handleResultClick(result)}
+                    onMouseEnter={() => setSelectedIndex(index)}
                   />
                 ))}
               </div>

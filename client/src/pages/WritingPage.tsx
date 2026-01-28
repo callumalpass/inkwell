@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useNotebookPagesStore } from "../stores/notebook-pages-store";
 import { usePageStore } from "../stores/page-store";
+import { useRecentPagesStore } from "../stores/recent-pages-store";
 import { useBatchSave } from "../hooks/useBatchSave";
 import { WritingView } from "../components/writing/WritingView";
 
@@ -11,9 +12,10 @@ export function WritingPage() {
     pageId: string;
   }>();
   const navigate = useNavigate();
-  const { pages, loading, error, loadNotebookPages, setCurrentPageIndex } =
+  const { pages, notebookTitle, loading, error, loadNotebookPages, setCurrentPageIndex } =
     useNotebookPagesStore();
   const loadPageStrokes = usePageStore((s) => s.loadPageStrokes);
+  const addRecentPage = useRecentPagesStore((s) => s.addRecentPage);
 
   useEffect(() => {
     if (notebookId) loadNotebookPages(notebookId);
@@ -31,6 +33,22 @@ export function WritingPage() {
   useEffect(() => {
     if (pageId) loadPageStrokes(pageId);
   }, [pageId, loadPageStrokes]);
+
+  // Track this page as recently visited
+  useEffect(() => {
+    if (pageId && notebookId && notebookTitle && pages.length > 0) {
+      const currentPage = pages.find((p) => p.id === pageId);
+      if (currentPage) {
+        addRecentPage({
+          pageId,
+          notebookId,
+          notebookTitle,
+          pageNumber: currentPage.pageNumber,
+          thumbnailUrl: `/api/pages/${pageId}/thumbnail`,
+        });
+      }
+    }
+  }, [pageId, notebookId, notebookTitle, pages, addRecentPage]);
 
   // Batch save flushes all pending strokes across pages
   useBatchSave();

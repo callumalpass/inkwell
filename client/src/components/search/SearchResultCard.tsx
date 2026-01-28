@@ -3,7 +3,9 @@ import type { SearchResult } from "../../api/search";
 interface SearchResultCardProps {
   result: SearchResult;
   query: string;
+  selected?: boolean;
   onClick: () => void;
+  onMouseEnter?: () => void;
 }
 
 /**
@@ -37,13 +39,21 @@ function HighlightedExcerpt({ text, query }: { text: string; query: string }) {
 export function SearchResultCard({
   result,
   query,
+  selected = false,
   onClick,
+  onMouseEnter,
 }: SearchResultCardProps) {
   return (
     <div
-      className="group cursor-pointer rounded-lg border border-gray-200 bg-white p-4 hover:border-gray-400"
+      className={`group cursor-pointer rounded-lg border bg-white p-4 transition-colors ${
+        selected
+          ? "border-blue-500 ring-1 ring-blue-500"
+          : "border-gray-200 hover:border-gray-400"
+      }`}
       onClick={onClick}
+      onMouseEnter={onMouseEnter}
       data-testid="search-result"
+      data-selected={selected}
     >
       <div className="flex gap-4">
         {/* Thumbnail */}

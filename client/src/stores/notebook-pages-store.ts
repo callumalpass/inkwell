@@ -13,6 +13,7 @@ import {
 
 interface NotebookPagesStore {
   notebookId: string | null;
+  notebookTitle: string | null;
   pages: pagesApi.PageMeta[];
   currentPageIndex: number;
   loading: boolean;
@@ -36,6 +37,7 @@ interface NotebookPagesStore {
 
 export const useNotebookPagesStore = create<NotebookPagesStore>((set, get) => ({
   notebookId: null,
+  notebookTitle: null,
   pages: [],
   currentPageIndex: 0,
   loading: false,
@@ -52,6 +54,7 @@ export const useNotebookPagesStore = create<NotebookPagesStore>((set, get) => ({
       const notebookSettings = notebook.settings ?? {};
       set({
         pages,
+        notebookTitle: notebook.title,
         loading: false,
         currentPageIndex: 0,
         settings: notebookSettings,

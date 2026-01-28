@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { useNotebookPagesStore } from "../../stores/notebook-pages-store";
 import { useViewStore } from "../../stores/view-store";
 import { exportPagePdf, exportPagePng } from "../../api/export";
@@ -7,6 +7,13 @@ import type { NotebookMeta } from "../../api/notebooks";
 import { ConfirmDialog } from "../ui/ConfirmDialog";
 import { showError, showSuccess, showInfo } from "../../stores/toast-store";
 import { triggerTranscription, bulkTranscribe } from "../../api/transcription";
+
+// Number of columns at each breakpoint (matches Tailwind classes)
+const getColumnsForWidth = (width: number): number => {
+  if (width >= 1280) return 4; // xl:grid-cols-4
+  if (width >= 768) return 3;  // md:grid-cols-3
+  return 2;                     // grid-cols-2
+};
 
 type ExportFormat = "pdf" | "png";
 type PageSize = "original" | "a4" | "letter";
@@ -53,6 +60,10 @@ export function OverviewView() {
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [transcribing, setTranscribing] = useState(false);
   const [duplicating, setDuplicating] = useState(false);
+  const [focusedIndex, setFocusedIndex] = useState<number>(-1);
+
+  const containerRef = useRef<HTMLDivElement>(null);
+  const gridRef = useRef<HTMLDivElement>(null);
 
   const selectedIds = useMemo(() => Array.from(selected), [selected]);
   const selectedCount = selectedIds.length;
@@ -69,6 +80,92 @@ export function OverviewView() {
   useEffect(() => {
     setSelected(new Set());
   }, [notebookId]);
+
+  // Reset focus when pages change
+  useEffect(() => {
+    if (focusedIndex >= pages.length) {
+      setFocusedIndex(pages.length > 0 ? pages.length - 1 : -1);
+    }
+  }, [pages.length, focusedIndex]);
+
+  // Keyboard navigation handler
+  const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    // Skip if any dialog is open or if typing in an input
+    if (tagDialogOpen || exportOpen || moveOpen || deleteConfirmOpen) return;
+    const target = e.target as HTMLElement;
+    if (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.tagName === "SELECT") return;
+
+    const gridEl = gridRef.current;
+    if (!gridEl || pages.length === 0) return;
+
+    const columns = getColumnsForWidth(gridEl.clientWidth);
+
+    switch (e.key) {
+      case "ArrowRight": {
+        e.preventDefault();
+        setFocusedIndex((prev) => Math.min(prev + 1, pages.length - 1));
+        break;
+      }
+      case "ArrowLeft": {
+        e.preventDefault();
+        setFocusedIndex((prev) => Math.max(prev - 1, 0));
+        break;
+      }
+      case "ArrowDown": {
+        e.preventDefault();
+        setFocusedIndex((prev) => Math.min(prev + columns, pages.length - 1));
+        break;
+      }
+      case "ArrowUp": {
+        e.preventDefault();
+        setFocusedIndex((prev) => Math.max(prev - columns, 0));
+        break;
+      }
+      case "Enter": {
+        e.preventDefault();
+        if (focusedIndex >= 0 && focusedIndex < pages.length) {
+          handleOpenPage(pages[focusedIndex].id);
+        }
+        break;
+      }
+      case " ": {
+        e.preventDefault();
+        if (focusedIndex >= 0 && focusedIndex < pages.length) {
+          toggleSelect(pages[focusedIndex].id);
+        }
+        break;
+      }
+      case "Home": {
+        e.preventDefault();
+        setFocusedIndex(0);
+        break;
+      }
+      case "End": {
+        e.preventDefault();
+        setFocusedIndex(pages.length - 1);
+        break;
+      }
+    }
+  }, [pages, focusedIndex, tagDialogOpen, exportOpen, moveOpen, deleteConfirmOpen]);
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+    container.addEventListener("keydown", handleKeyDown);
+    return () => container.removeEventListener("keydown", handleKeyDown);
+  }, [handleKeyDown]);
+
+  // Scroll focused item into view
+  useEffect(() => {
+    if (focusedIndex < 0) return;
+    const gridEl = gridRef.current;
+    if (!gridEl) return;
+    const focusedEl = gridEl.children[focusedIndex] as HTMLElement | undefined;
+    // scrollIntoView may not be available in test environments
+    if (focusedEl?.scrollIntoView) {
+      focusedEl.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    }
+  }, [focusedIndex]);
 
   const toggleSelect = (pageId: string) => {
     setSelected((prev) => {
@@ -235,13 +332,26 @@ export function OverviewView() {
 
   return (
     <div
-      className="flex-1 overflow-y-auto bg-gray-50 px-6 py-4"
+      ref={containerRef}
+      className="flex-1 overflow-y-auto bg-gray-50 px-6 py-4 outline-none"
       data-testid="overview-view"
+      tabIndex={0}
+      onFocus={() => {
+        // Set initial focus to first item if none selected
+        if (focusedIndex < 0 && pages.length > 0) {
+          setFocusedIndex(0);
+        }
+      }}
     >
       <div className="mb-3 flex flex-wrap items-center gap-2">
-        <span className="text-sm font-medium text-gray-700">
-          Overview (read-only)
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-medium text-gray-700">
+            Overview (read-only)
+          </span>
+          <span className="hidden text-xs text-gray-400 sm:inline" title="Arrow keys navigate, Enter opens, Space selects">
+            ← → ↑ ↓ navigate · Enter open · Space select
+          </span>
+        </div>
         <div className="ml-auto flex flex-wrap items-center gap-2">
           <span className="text-xs text-gray-500">
             Selected: {selectedCount}
@@ -324,10 +434,11 @@ export function OverviewView() {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-4">
-        {pages.map((page) => {
+      <div ref={gridRef} className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-4">
+        {pages.map((page, index) => {
           const selectedCard = selected.has(page.id);
           const dragOver = dragOverId === page.id;
+          const isFocused = focusedIndex === index;
           return (
             <div
               key={page.id}
@@ -339,9 +450,14 @@ export function OverviewView() {
                 setDraggingId(null);
                 setDragOverId(null);
               }}
-              className={`group relative rounded-lg border bg-white p-2 shadow-sm ${
+              onClick={() => setFocusedIndex(index)}
+              className={`group relative rounded-lg border bg-white p-2 shadow-sm transition-all ${
                 selectedCard ? "border-black" : "border-gray-200"
-              } ${dragOver ? "ring-2 ring-black" : ""}`}
+              } ${dragOver ? "ring-2 ring-black" : ""} ${
+                isFocused ? "ring-2 ring-blue-500 ring-offset-1" : ""
+              }`}
+              data-testid={`overview-page-${index}`}
+              data-focused={isFocused}
             >
               <div className="mb-2 flex items-center justify-between text-xs text-gray-500">
                 <span>Page {page.pageNumber}</span>
