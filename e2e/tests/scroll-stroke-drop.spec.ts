@@ -257,22 +257,26 @@ test.describe("Scroll view – stroke capture reliability", () => {
     const scrollContainer = page.locator(".overflow-y-auto.bg-gray-100");
     await expect(scrollContainer).toBeVisible({ timeout: 5000 });
 
-    // Scroll to expose page 2
+    // Scroll down far enough to put page 2 in view and page 1 out of view.
+    // We need to scroll past the first page entirely.
     const pageHeight = await page
       .locator(".bg-white.shadow-sm")
       .first()
       .evaluate((el) => el.getBoundingClientRect().height);
+    // Scroll down by page height + gap, so page 2 is at the top
     await scrollContainer.evaluate(
       (el, h) => el.scrollTo(0, h + 48),
       pageHeight,
     );
-    await page.waitForTimeout(500);
 
-    // Draw on whatever is the first visible drawing layer now
-    await expect(page.locator(".touch-pan-y").first()).toBeVisible({
+    // Wait for visibility system to update and page 2 to render as PageSurface.
+    // The second drawing layer should become visible after the scroll.
+    await expect(page.locator(".touch-pan-y").nth(1)).toBeVisible({
       timeout: 5000,
     });
-    await drawStroke(page, ".touch-pan-y");
+
+    // Draw on the second page's drawing layer explicitly
+    await drawStroke(page, ".touch-pan-y >> nth=1");
 
     await page.waitForTimeout(4000);
 
