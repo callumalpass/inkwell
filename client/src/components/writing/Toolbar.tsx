@@ -6,7 +6,13 @@ import type { PenStyle } from "../../lib/pen-styles";
 import { TranscriptionIndicator } from "./TranscriptionIndicator";
 import { OfflineIndicator } from "./OfflineIndicator";
 import { useUndoRedo } from "../../hooks/useUndoRedo";
-import { COLOR_PRESETS } from "../../lib/constants";
+import {
+  COLOR_PRESETS,
+  CANVAS_MIN_ZOOM,
+  CANVAS_MAX_ZOOM,
+  VIEW_MIN_ZOOM,
+  VIEW_MAX_ZOOM,
+} from "../../lib/constants";
 import type { GridType } from "./PageBackground";
 
 const WIDTHS = [2, 3, 5, 8];
@@ -41,6 +47,22 @@ export function Toolbar() {
   const { tool, color, width, penStyle, setTool, setColor, setWidth, setPenStyle, debugLastPointCount } =
     useDrawingStore();
   const { viewMode, setViewMode } = useViewStore();
+  const activeTransform = useViewStore((s) =>
+    s.viewMode === "canvas"
+      ? s.canvasTransform
+      : s.viewMode === "scroll"
+        ? s.scrollViewTransform
+        : s.singlePageTransform,
+  );
+  const setActiveTransform = useViewStore((s) =>
+    s.viewMode === "canvas"
+      ? s.setCanvasTransform
+      : s.viewMode === "scroll"
+        ? s.setScrollViewTransform
+        : s.setSinglePageTransform,
+  );
+  const minZoom = viewMode === "canvas" ? CANVAS_MIN_ZOOM : VIEW_MIN_ZOOM;
+  const maxZoom = viewMode === "canvas" ? CANVAS_MAX_ZOOM : VIEW_MAX_ZOOM;
   const { pages, currentPageIndex, goToNextPage, goToPrevPage, addNewPage, settings, updateSettings } =
     useNotebookPagesStore();
   const gridType = (settings.gridType ?? "none") as GridType;
@@ -77,6 +99,26 @@ export function Toolbar() {
       console.error("Failed to create page:", err);
     }
   };
+
+  const ZOOM_FACTOR = 1.2;
+
+  const handleZoomIn = () => {
+    const newScale = Math.min(maxZoom, activeTransform.scale * ZOOM_FACTOR);
+    setActiveTransform({ ...activeTransform, scale: newScale });
+  };
+
+  const handleZoomOut = () => {
+    const newScale = Math.max(minZoom, activeTransform.scale / ZOOM_FACTOR);
+    setActiveTransform({ ...activeTransform, scale: newScale });
+  };
+
+  const handleZoomReset = () => {
+    setActiveTransform({ x: 0, y: 0, scale: 1 });
+  };
+
+  const zoomPercent = Math.round(activeTransform.scale * 100);
+  const canZoomIn = activeTransform.scale < maxZoom;
+  const canZoomOut = activeTransform.scale > minZoom;
 
   return (
     <div className="border-b-2 border-gray-400 bg-white px-4 py-1.5">
@@ -237,6 +279,35 @@ export function Toolbar() {
               {GRID_TYPE_LABELS[gt]}
             </button>
           ))}
+        </div>
+
+        <Divider />
+
+        {/* Zoom controls */}
+        <div className="flex items-center gap-1">
+          <button
+            onClick={handleZoomOut}
+            disabled={!canZoomOut}
+            aria-label="Zoom out"
+            className={`${BTN} ${BTN_INACTIVE} ${!canZoomOut ? BTN_DISABLED : ""}`}
+          >
+            −
+          </button>
+          <button
+            onClick={handleZoomReset}
+            aria-label="Reset zoom"
+            className="min-w-[3.5rem] px-1 py-2 text-center text-sm font-medium text-gray-800"
+          >
+            {zoomPercent}%
+          </button>
+          <button
+            onClick={handleZoomIn}
+            disabled={!canZoomIn}
+            aria-label="Zoom in"
+            className={`${BTN} ${BTN_INACTIVE} ${!canZoomIn ? BTN_DISABLED : ""}`}
+          >
+            +
+          </button>
         </div>
 
         <div className="flex-1" />

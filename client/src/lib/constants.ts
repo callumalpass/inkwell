@@ -15,3 +15,6 @@ export const BATCH_SAVE_INTERVAL_MS = 2000;
 
 export const CANVAS_MIN_ZOOM = 0.1;
 export const CANVAS_MAX_ZOOM = 3.0;
+
+export const VIEW_MIN_ZOOM = 0.5;
+export const VIEW_MAX_ZOOM = 5.0;

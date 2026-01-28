@@ -2,6 +2,7 @@ import { useStrokeCapture } from "../../hooks/useStrokeCapture";
 import { useDrawingStore } from "../../stores/drawing-store";
 import { usePageStore } from "../../stores/page-store";
 import { useUndoRedoStore } from "../../stores/undo-redo-store";
+import { useViewStore } from "../../stores/view-store";
 import * as strokesApi from "../../api/strokes";
 import type { Stroke } from "../../api/strokes";
 import { PAGE_WIDTH, PAGE_HEIGHT } from "../../lib/constants";
@@ -18,6 +19,7 @@ interface DrawingLayerProps {
 export function DrawingLayer({ pageId }: DrawingLayerProps) {
   const { onPointerDown, onPointerMove, onPointerUp, captureRef } = useStrokeCapture(pageId);
   const tool = useDrawingStore((s) => s.tool);
+  const viewMode = useViewStore((s) => s.viewMode);
   const savedStrokes = usePageStore((s) => s.strokesByPage[pageId] ?? EMPTY);
   const removeSavedStroke = usePageStore((s) => s.removeSavedStroke);
   const lastEraseRef = useRef<string | null>(null);
@@ -92,7 +94,7 @@ export function DrawingLayer({ pageId }: DrawingLayerProps) {
   return (
     <div
       ref={captureRef}
-      className="absolute inset-0 touch-none"
+      className={`absolute inset-0 ${viewMode === "scroll" ? "touch-pan-y" : "touch-none"}`}
       style={{ cursor: tool === "eraser" ? "crosshair" : "default" }}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}

@@ -46,7 +46,7 @@ test.describe("Writing - Single page view", () => {
   let notebookTitle: string;
 
   test.beforeEach(async () => {
-    const nb = await createNotebook(`E2E Single ${Date.now()}`);
+    const nb = await createNotebook(`E2E Single ${Date.now()}_${Math.random().toString(36).slice(2, 8)}`);
     notebookId = nb.id;
     notebookTitle = nb.title;
   });
@@ -80,6 +80,42 @@ test.describe("Writing - Single page view", () => {
     await page.waitForURL(/\/notebook\/nb_.*\/page\//);
     await expect(page.locator("svg path")).toBeVisible({ timeout: 10000 });
   });
+
+  test("drawing layer uses touch-none in single page view", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.getByText("Notebooks")).toBeVisible();
+
+    await page.getByText(notebookTitle).click();
+    await page.waitForURL(/\/notebook\/nb_.*\/page\//);
+
+    // In single page mode, the drawing layer should have touch-none (not touch-pan-y)
+    await expect(page.locator(".touch-none").first()).toBeVisible({ timeout: 5000 });
+    const touchAction = await page.locator(".touch-none").first().evaluate(
+      (el) => getComputedStyle(el).touchAction,
+    );
+    expect(touchAction).toBe("none");
+  });
+
+  test("zoom container structure is present in single page view", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.getByText("Notebooks")).toBeVisible();
+
+    await page.getByText(notebookTitle).click();
+    await page.waitForURL(/\/notebook\/nb_.*\/page\//);
+
+    // The single page view should have overflow-hidden for zoom containment
+    const zoomContainer = page.locator(".overflow-hidden.bg-gray-100");
+    await expect(zoomContainer).toBeVisible({ timeout: 5000 });
+
+    // The transform wrapper div should exist inside
+    const transformDiv = zoomContainer.locator("> div").first();
+    await expect(transformDiv).toBeVisible();
+    const transformStyle = await transformDiv.evaluate(
+      (el) => el.style.transform,
+    );
+    // Default transform should have scale(1) and translate(0,0)
+    expect(transformStyle).toContain("scale(1)");
+  });
 });
 
 test.describe("Writing - Undo/Redo", () => {
@@ -87,7 +123,7 @@ test.describe("Writing - Undo/Redo", () => {
   let notebookTitle: string;
 
   test.beforeEach(async () => {
-    const nb = await createNotebook(`E2E Undo ${Date.now()}`);
+    const nb = await createNotebook(`E2E Undo ${Date.now()}_${Math.random().toString(36).slice(2, 8)}`);
     notebookId = nb.id;
     notebookTitle = nb.title;
   });
@@ -168,7 +204,7 @@ test.describe("Writing - Color presets", () => {
   let notebookTitle: string;
 
   test.beforeEach(async () => {
-    const nb = await createNotebook(`E2E Color ${Date.now()}`);
+    const nb = await createNotebook(`E2E Color ${Date.now()}_${Math.random().toString(36).slice(2, 8)}`);
     notebookId = nb.id;
     notebookTitle = nb.title;
   });
@@ -213,7 +249,7 @@ test.describe("Writing - Background templates", () => {
   let notebookTitle: string;
 
   test.beforeEach(async () => {
-    const nb = await createNotebook(`E2E Grid ${Date.now()}`);
+    const nb = await createNotebook(`E2E Grid ${Date.now()}_${Math.random().toString(36).slice(2, 8)}`);
     notebookId = nb.id;
     notebookTitle = nb.title;
   });
@@ -285,7 +321,7 @@ test.describe("Writing - Scroll view", () => {
   let notebookTitle: string;
 
   test.beforeEach(async () => {
-    const nb = await createNotebook(`E2E Scroll ${Date.now()}`);
+    const nb = await createNotebook(`E2E Scroll ${Date.now()}_${Math.random().toString(36).slice(2, 8)}`);
     notebookId = nb.id;
     notebookTitle = nb.title;
     // Create 2 pages so scroll view has content
@@ -330,10 +366,11 @@ test.describe("Writing - Scroll view", () => {
 
     // Wait for the scroll container and a page surface to render
     await expect(page.locator(".overflow-y-auto.bg-gray-100")).toBeVisible({ timeout: 5000 });
-    await expect(page.locator(".touch-none").first()).toBeVisible({ timeout: 5000 });
+    // In scroll mode the drawing layer uses touch-pan-y instead of touch-none
+    await expect(page.locator(".touch-pan-y").first()).toBeVisible({ timeout: 5000 });
 
     // Draw a stroke on the first visible drawing layer
-    await drawStroke(page, ".touch-none");
+    await drawStroke(page, ".touch-pan-y");
 
     // SVG path element should appear (stroke rendered)
     await expect(page.locator("svg path")).toBeVisible({ timeout: 5000 });
@@ -347,6 +384,25 @@ test.describe("Writing - Scroll view", () => {
     await page.getByRole("button", { name: "Scroll" }).click();
     await expect(page.locator("svg path")).toBeVisible({ timeout: 10000 });
   });
+
+  test("drawing layer allows touch scrolling via touch-pan-y", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.getByText("Notebooks")).toBeVisible();
+
+    await page.getByText(notebookTitle).click();
+    await page.waitForURL(/\/notebook\/nb_.*\/page\//);
+
+    // Switch to Scroll view
+    await page.getByRole("button", { name: "Scroll" }).click();
+    await expect(page.locator(".overflow-y-auto.bg-gray-100")).toBeVisible({ timeout: 5000 });
+    await expect(page.locator(".touch-pan-y").first()).toBeVisible({ timeout: 5000 });
+
+    // Verify the drawing layer has touch-action: pan-y (not none)
+    const touchAction = await page.locator(".touch-pan-y").first().evaluate(
+      (el) => getComputedStyle(el).touchAction,
+    );
+    expect(touchAction).toBe("pan-y");
+  });
 });
 
 test.describe("Writing - Canvas view", () => {
@@ -354,7 +410,7 @@ test.describe("Writing - Canvas view", () => {
   let notebookTitle: string;
 
   test.beforeEach(async () => {
-    const nb = await createNotebook(`E2E Canvas ${Date.now()}`);
+    const nb = await createNotebook(`E2E Canvas ${Date.now()}_${Math.random().toString(36).slice(2, 8)}`);
     notebookId = nb.id;
     notebookTitle = nb.title;
     // Create 2 pages for canvas
@@ -385,6 +441,25 @@ test.describe("Writing - Canvas view", () => {
 
     const count = await pageSurfaces.count();
     expect(count).toBeGreaterThanOrEqual(1);
+  });
+
+  test("drawing layer uses touch-none in canvas mode", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.getByText("Notebooks")).toBeVisible();
+
+    await page.getByText(notebookTitle).click();
+    await page.waitForURL(/\/notebook\/nb_.*\/page\//);
+
+    // Switch to Canvas view
+    await page.getByRole("button", { name: "Canvas" }).click();
+    await expect(page.locator(".relative.flex-1.overflow-hidden.bg-gray-200")).toBeVisible();
+
+    // Drawing layers in canvas view should use touch-none
+    await expect(page.locator(".touch-none").first()).toBeVisible({ timeout: 5000 });
+    const touchAction = await page.locator(".touch-none").first().evaluate(
+      (el) => getComputedStyle(el).touchAction,
+    );
+    expect(touchAction).toBe("none");
   });
 
   test("dragging a page in canvas mode does not create strokes", async ({ page }) => {

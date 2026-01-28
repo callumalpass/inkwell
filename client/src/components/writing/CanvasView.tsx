@@ -4,6 +4,7 @@ import { usePageStore } from "../../stores/page-store";
 import { useDrawingStore } from "../../stores/drawing-store";
 import { useUndoRedoStore } from "../../stores/undo-redo-store";
 import { useMultiPageWebSocket } from "../../hooks/useMultiPageWebSocket";
+import { usePinchZoom } from "../../hooks/usePinchZoom";
 import { useViewStore } from "../../stores/view-store";
 import { PageSurface } from "./PageSurface";
 import type { GridType } from "./PageBackground";
@@ -26,6 +27,20 @@ export function CanvasView() {
   const loadPageStrokes = usePageStore((s) => s.loadPageStrokes);
   const containerRef = useRef<HTMLDivElement>(null);
   const [visiblePageIds, setVisiblePageIds] = useState<Set<string>>(new Set());
+
+  const getCanvasTransform = useCallback(
+    () => useViewStore.getState().canvasTransform,
+    [],
+  );
+  const resetCanvasZoom = useCallback(
+    () => setCanvasTransform({ x: 0, y: 0, scale: 1 }),
+    [setCanvasTransform],
+  );
+  const pinchZoomOptions = useMemo(
+    () => ({ minScale: CANVAS_MIN_ZOOM, maxScale: CANVAS_MAX_ZOOM, onDoubleTap: resetCanvasZoom }),
+    [resetCanvasZoom],
+  );
+  usePinchZoom(containerRef, getCanvasTransform, setCanvasTransform, pinchZoomOptions);
 
   // Panning state
   const isPanning = useRef(false);

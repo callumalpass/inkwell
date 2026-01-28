@@ -1000,6 +1000,9 @@ doc.path(pathData).fill(stroke.color);
 - [x] Multiple pen/color presets
 - [x] Background templates (lined, grid, etc.)
 - [x] Performance optimization for large notebooks
+- [x] Pinch-to-zoom for single page, scroll, and canvas views
+- [x] Two-finger double-tap to reset zoom
+- [x] Conditional touch-action (touch-pan-y in scroll mode, touch-none elsewhere)
 
 ---
 
