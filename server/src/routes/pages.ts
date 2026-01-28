@@ -128,6 +128,15 @@ export function pageRoutes(app: FastifyInstance) {
     },
   );
 
+  app.post<{ Params: { pageId: string } }>(
+    "/api/pages/:pageId/duplicate",
+    async (req, reply) => {
+      const duplicated = await pageStore.duplicatePage(req.params.pageId);
+      if (!duplicated) return reply.code(404).send({ error: "Page not found" });
+      return reply.code(201).send(duplicated);
+    },
+  );
+
   app.post<{
     Body: { pageIds: string[]; targetNotebookId: string };
   }>(

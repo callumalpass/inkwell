@@ -32,7 +32,11 @@ test.describe("Notebook management", () => {
     const card = page.getByRole("heading", { name: title }).locator("..");
     await card.getByRole("button", { name: "Delete notebook" }).click();
 
+    // Confirm deletion in the dialog
+    await expect(page.getByTestId("confirm-dialog")).toBeVisible();
+    await page.getByTestId("confirm-dialog-confirm").click();
+
     // Verify it's removed
-    await expect(page.getByText(title)).not.toBeVisible();
+    await expect(page.getByRole("heading", { name: title })).not.toBeVisible();
   });
 });

@@ -105,4 +105,10 @@ export function notebookRoutes(app: FastifyInstance) {
     if (!deleted) return reply.code(404).send({ error: "Notebook not found" });
     return reply.code(204).send();
   });
+
+  app.post<{ Params: { id: string } }>("/api/notebooks/:id/duplicate", async (req, reply) => {
+    const duplicated = await notebookStore.duplicateNotebook(req.params.id);
+    if (!duplicated) return reply.code(404).send({ error: "Notebook not found" });
+    return reply.code(201).send(duplicated);
+  });
 }

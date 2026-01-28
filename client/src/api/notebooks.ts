@@ -46,3 +46,7 @@ export function updateNotebook(
 export function deleteNotebook(id: string) {
   return apiFetch<void>(`/notebooks/${id}`, { method: "DELETE" });
 }
+
+export function duplicateNotebook(id: string) {
+  return apiFetch<NotebookMeta>(`/notebooks/${id}/duplicate`, { method: "POST" });
+}

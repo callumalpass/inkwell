@@ -1,4 +1,5 @@
-import { readdir, rm } from "node:fs/promises";
+import { readdir, rm, cp } from "node:fs/promises";
+import { nanoid } from "nanoid";
 import type { NotebookMeta, PageIndex } from "../types/index.js";
 import { paths } from "./paths.js";
 import { ensureDir, readJson, writeJson, withLock } from "./fs-utils.js";
@@ -67,4 +68,75 @@ export async function deleteNotebook(id: string): Promise<boolean> {
   }
 
   return true;
+}
+
+export async function duplicateNotebook(id: string): Promise<NotebookMeta | null> {
+  const sourceMeta = await getNotebook(id);
+  if (!sourceMeta) return null;
+
+  return withLock(paths.data(), async () => {
+    const now = new Date().toISOString();
+    const newNotebookId = `nb_${nanoid(12)}`;
+
+    // Copy the entire notebook directory
+    const sourceDir = paths.notebook(id);
+    const targetDir = paths.notebook(newNotebookId);
+    await cp(sourceDir, targetDir, { recursive: true });
+
+    // Update notebook metadata
+    const newMeta: NotebookMeta = {
+      ...sourceMeta,
+      id: newNotebookId,
+      title: `${sourceMeta.title} (Copy)`,
+      createdAt: now,
+      updatedAt: now,
+    };
+    await writeJson(paths.notebookMeta(newNotebookId), newMeta);
+
+    // Get all page directories in the new notebook and update their metadata + page index
+    const pagesDir = paths.pages(newNotebookId);
+    const index = (await readJson<PageIndex>(paths.pageIndex())) || {};
+
+    try {
+      const entries = await readdir(pagesDir, { withFileTypes: true });
+      for (const entry of entries) {
+        if (!entry.isDirectory()) continue;
+        const oldPageId = entry.name;
+        const newPageId = `pg_${nanoid(12)}`;
+
+        // Rename the page directory
+        const { rename } = await import("node:fs/promises");
+        await rename(
+          paths.page(newNotebookId, oldPageId),
+          paths.page(newNotebookId, newPageId),
+        );
+
+        // Update page metadata
+        const pageMeta = await readJson<import("../types/index.js").PageMeta>(
+          paths.pageMeta(newNotebookId, newPageId),
+        );
+        if (pageMeta) {
+          const updatedPageMeta = {
+            ...pageMeta,
+            id: newPageId,
+            notebookId: newNotebookId,
+            createdAt: now,
+            updatedAt: now,
+            // Reset transcription status since it's a copy
+            transcription: undefined,
+          };
+          await writeJson(paths.pageMeta(newNotebookId, newPageId), updatedPageMeta);
+        }
+
+        // Add to page index
+        index[newPageId] = newNotebookId;
+      }
+    } catch {
+      // Pages dir may not exist if notebook was empty
+    }
+
+    await writeJson(paths.pageIndex(), index);
+
+    return newMeta;
+  });
 }

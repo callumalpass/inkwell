@@ -9,8 +9,10 @@ import { TranscriptionPanel } from "./TranscriptionPanel";
 import { PageLinksPanel } from "./PageLinksPanel";
 import { PageTagsPanel } from "./PageTagsPanel";
 import { SearchView } from "../search/SearchView";
+import { KeyboardShortcutsDialog } from "../ui/KeyboardShortcutsDialog";
 import { useUndoRedoKeyboard } from "../../hooks/useUndoRedo";
 import { useOfflineSync } from "../../hooks/useOfflineSync";
+import { usePageNavKeyboard } from "../../hooks/usePageNavKeyboard";
 
 export function WritingView() {
   const viewMode = useViewStore((s) => s.viewMode);
@@ -18,15 +20,31 @@ export function WritingView() {
     (s) => s.pages[s.currentPageIndex]?.id ?? "",
   );
   const [searchOpen, setSearchOpen] = useState(false);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
 
   useUndoRedoKeyboard(currentPageId);
   useOfflineSync();
+  usePageNavKeyboard();
 
-  // Global keyboard shortcut: Ctrl+K or Cmd+K to open search
+  // Global keyboard shortcuts
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    // Ctrl+K or Cmd+K to open search
     if ((e.metaKey || e.ctrlKey) && e.key === "k") {
       e.preventDefault();
       setSearchOpen(true);
+      return;
+    }
+
+    // ? to show keyboard shortcuts (but not when typing in an input)
+    const target = e.target as HTMLElement;
+    const isInputField =
+      target.tagName === "INPUT" ||
+      target.tagName === "TEXTAREA" ||
+      target.isContentEditable;
+
+    if (e.key === "?" && !isInputField) {
+      e.preventDefault();
+      setShortcutsOpen(true);
     }
   }, []);
 
@@ -45,6 +63,10 @@ export function WritingView() {
       <PageLinksPanel />
       <PageTagsPanel />
       <SearchView open={searchOpen} onClose={() => setSearchOpen(false)} />
+      <KeyboardShortcutsDialog
+        open={shortcutsOpen}
+        onClose={() => setShortcutsOpen(false)}
+      />
     </div>
   );
 }

@@ -253,12 +253,15 @@ test.describe("Keyboard Shortcuts Help Dialog", () => {
   test("? key opens shortcuts dialog from writing view", async ({ page }) => {
     await openNotebookSingleMode(page, notebookTitle);
 
-    // Press ? key
-    await page.keyboard.press("Shift+?");
+    // Click body to ensure keyboard focus
+    await page.locator("body").click();
+
+    // Press ? key (type it as a character)
+    await page.keyboard.type("?");
 
     // Shortcuts dialog should open
-    await expect(page.getByTestId("shortcuts-dialog")).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Keyboard Shortcuts" })).toBeVisible();
+    await expect(page.getByTestId("shortcuts-dialog").first()).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Keyboard Shortcuts" }).first()).toBeVisible();
   });
 
   test("shortcuts dialog shows all shortcut groups", async ({ page }) => {
@@ -273,7 +276,7 @@ test.describe("Keyboard Shortcuts Help Dialog", () => {
     await expect(page.getByText("Global")).toBeVisible();
     await expect(page.getByText("Drawing")).toBeVisible();
     await expect(page.getByText("Canvas View")).toBeVisible();
-    await expect(page.getByText("Page View")).toBeVisible();
+    await expect(page.getByText("Page Navigation")).toBeVisible();
   });
 
   test("shortcuts dialog shows Cmd+K for search", async ({ page }) => {
@@ -286,8 +289,8 @@ test.describe("Keyboard Shortcuts Help Dialog", () => {
 
     // Check for Cmd+K shortcut
     await expect(page.getByText("Open search")).toBeVisible();
-    await expect(page.locator("kbd", { hasText: "Cmd" })).toBeVisible();
-    await expect(page.locator("kbd", { hasText: "K" })).toBeVisible();
+    await expect(page.locator("kbd", { hasText: "Cmd" }).first()).toBeVisible();
+    await expect(page.locator("kbd", { hasText: "K" }).first()).toBeVisible();
   });
 
   test("shortcuts dialog can be closed with X button", async ({ page }) => {

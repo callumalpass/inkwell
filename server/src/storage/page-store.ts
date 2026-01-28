@@ -1,4 +1,5 @@
-import { readdir, rename, rm } from "node:fs/promises";
+import { readdir, rename, rm, cp } from "node:fs/promises";
+import { nanoid } from "nanoid";
 import type { PageMeta, PageIndex } from "../types/index.js";
 import { paths } from "./paths.js";
 import { ensureDir, readJson, writeJson, withLock } from "./fs-utils.js";
@@ -77,6 +78,48 @@ export async function deletePage(pageId: string): Promise<boolean> {
     delete index[pageId];
     await writePageIndex(index);
     return true;
+  });
+}
+
+export async function duplicatePage(pageId: string): Promise<PageMeta | null> {
+  return withLock(paths.data(), async () => {
+    const index = await readPageIndex();
+    const notebookId = index[pageId];
+    if (!notebookId) return null;
+
+    const sourceMeta = await readJson<PageMeta>(paths.pageMeta(notebookId, pageId));
+    if (!sourceMeta) return null;
+
+    // Get all pages to determine next page number
+    const pages = await listPages(notebookId);
+    const nextPageNumber = pages.length + 1;
+
+    // Create new page ID
+    const newPageId = `pg_${nanoid(12)}`;
+    const now = new Date().toISOString();
+
+    // Copy the page directory
+    const sourceDir = paths.page(notebookId, pageId);
+    const targetDir = paths.page(notebookId, newPageId);
+    await cp(sourceDir, targetDir, { recursive: true });
+
+    // Update the metadata with new ID and page number
+    const newMeta: PageMeta = {
+      ...sourceMeta,
+      id: newPageId,
+      pageNumber: nextPageNumber,
+      createdAt: now,
+      updatedAt: now,
+      // Reset transcription status since it's a copy
+      transcription: undefined,
+    };
+    await writeJson(paths.pageMeta(notebookId, newPageId), newMeta);
+
+    // Update the page index
+    index[newPageId] = notebookId;
+    await writePageIndex(index);
+
+    return newMeta;
   });
 }
 

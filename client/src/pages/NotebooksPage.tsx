@@ -9,7 +9,7 @@ import { useNotebookStore } from "../stores/notebook-store";
 import type { NotebookMeta } from "../api/notebooks";
 
 export function NotebooksPage() {
-  const { notebooks, loading, fetchNotebooks, createNotebook, deleteNotebook } =
+  const { notebooks, loading, fetchNotebooks, createNotebook, duplicateNotebook, deleteNotebook } =
     useNotebookStore();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -64,6 +64,7 @@ export function NotebooksPage() {
         <NotebookList
           notebooks={notebooks}
           onDelete={deleteNotebook}
+          onDuplicate={duplicateNotebook}
           onExport={(nb) => setExportNotebook(nb)}
         />
       )}

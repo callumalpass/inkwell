@@ -7,6 +7,7 @@ interface NotebookStore {
   error: string | null;
   fetchNotebooks: () => Promise<void>;
   createNotebook: (title: string) => Promise<notebooksApi.NotebookMeta>;
+  duplicateNotebook: (id: string) => Promise<notebooksApi.NotebookMeta>;
   deleteNotebook: (id: string) => Promise<void>;
 }
 
@@ -28,6 +29,12 @@ export const useNotebookStore = create<NotebookStore>((set, get) => ({
 
   createNotebook: async (title: string) => {
     const notebook = await notebooksApi.createNotebook(title);
+    set({ notebooks: [notebook, ...get().notebooks] });
+    return notebook;
+  },
+
+  duplicateNotebook: async (id: string) => {
+    const notebook = await notebooksApi.duplicateNotebook(id);
     set({ notebooks: [notebook, ...get().notebooks] });
     return notebook;
   },

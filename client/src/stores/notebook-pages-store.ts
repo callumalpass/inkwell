@@ -24,6 +24,7 @@ interface NotebookPagesStore {
   goToNextPage: () => void;
   goToPrevPage: () => void;
   addNewPage: () => Promise<pagesApi.PageMeta>;
+  duplicatePage: (pageId: string) => Promise<pagesApi.PageMeta>;
   updatePagePosition: (pageId: string, canvasX: number, canvasY: number) => Promise<void>;
   updatePageLinks: (pageId: string, links: string[]) => Promise<void>;
   updatePageTags: (pageId: string, tags: string[]) => Promise<void>;
@@ -129,6 +130,13 @@ export const useNotebookPagesStore = create<NotebookPagesStore>((set, get) => ({
     const { notebookId, pages } = get();
     if (!notebookId) throw new Error("No notebook loaded");
     const page = await pagesApi.createPage(notebookId);
+    set({ pages: [...pages, page] });
+    return page;
+  },
+
+  duplicatePage: async (pageId: string) => {
+    const { pages } = get();
+    const page = await pagesApi.duplicatePage(pageId);
     set({ pages: [...pages, page] });
     return page;
   },
