@@ -1,6 +1,9 @@
+import { readdir, unlink, rename } from "node:fs/promises";
 import { config } from "../config.js";
 import { updatePage } from "../storage/page-store.js";
 import { transcribePage } from "./transcription.js";
+import { paths } from "../storage/paths.js";
+import { ensureDir, readJson, writeJson } from "../storage/fs-utils.js";
 import type { TranscriptionMeta } from "../types/index.js";
 
 export interface TranscriptionJob {
@@ -18,26 +21,140 @@ type JobListener = (
   data: { content?: string; error?: string },
 ) => void;
 
-let queue: TranscriptionJob[] = [];
 let processing = false;
 let pollTimer: ReturnType<typeof setTimeout> | null = null;
 let listener: JobListener | null = null;
+let initialized = false;
 
 export function setTranscriptionListener(fn: JobListener): void {
   listener = fn;
 }
 
-export function enqueueTranscription(
+async function ensureQueueDirs(): Promise<void> {
+  await ensureDir(paths.queuePending());
+  await ensureDir(paths.queueFailed());
+}
+
+function jobFileName(job: TranscriptionJob): string {
+  // Use timestamp + pageId for unique, sortable filename
+  const ts = new Date(job.createdAt).getTime();
+  return `${ts}_${job.pageId}`;
+}
+
+async function writeJob(dir: "pending" | "failed", job: TranscriptionJob): Promise<void> {
+  await ensureQueueDirs();
+  const filePath = paths.queueJob(dir, jobFileName(job));
+  await writeJson(filePath, job);
+}
+
+async function findJobFile(dir: "pending" | "failed", pageId: string): Promise<string | null> {
+  const dirPath = dir === "pending" ? paths.queuePending() : paths.queueFailed();
+  try {
+    const files = await readdir(dirPath);
+    // Find a file ending with _pageId.json
+    const match = files.find(f => f.endsWith(`_${pageId}.json`));
+    return match ? `${dirPath}/${match}` : null;
+  } catch {
+    return null;
+  }
+}
+
+async function removeJob(dir: "pending" | "failed", job: TranscriptionJob): Promise<void> {
+  try {
+    // First try exact path based on job data
+    const exactPath = paths.queueJob(dir, jobFileName(job));
+    try {
+      await unlink(exactPath);
+      return;
+    } catch {
+      // If exact path fails, search by pageId
+    }
+
+    // Fallback: search for file by pageId
+    const foundPath = await findJobFile(dir, job.pageId);
+    if (foundPath) {
+      await unlink(foundPath);
+    }
+  } catch (err) {
+    // Ignore if file doesn't exist
+    if (err instanceof Error && "code" in err && err.code !== "ENOENT") {
+      throw err;
+    }
+  }
+}
+
+async function moveJobToFailed(job: TranscriptionJob): Promise<void> {
+  await ensureQueueDirs();
+  const fileName = jobFileName(job);
+  const pendingPath = paths.queueJob("pending", fileName);
+  const failedPath = paths.queueJob("failed", fileName);
+  try {
+    await rename(pendingPath, failedPath);
+  } catch (err) {
+    // If rename fails (file doesn't exist), write directly to failed
+    if (err instanceof Error && "code" in err && err.code === "ENOENT") {
+      await writeJson(failedPath, job);
+    } else {
+      throw err;
+    }
+  }
+}
+
+async function listPendingJobs(): Promise<TranscriptionJob[]> {
+  await ensureQueueDirs();
+  const dir = paths.queuePending();
+  let files: string[];
+  try {
+    files = await readdir(dir);
+  } catch {
+    return [];
+  }
+
+  const jobs: TranscriptionJob[] = [];
+  for (const file of files.filter(f => f.endsWith(".json")).sort()) {
+    const filePath = `${dir}/${file}`;
+    const job = await readJson<TranscriptionJob>(filePath);
+    if (job) {
+      jobs.push(job);
+    }
+  }
+  return jobs;
+}
+
+async function getNextPendingJob(): Promise<TranscriptionJob | null> {
+  const jobs = await listPendingJobs();
+  return jobs[0] ?? null;
+}
+
+export async function initQueue(): Promise<void> {
+  if (initialized) return;
+  await ensureQueueDirs();
+  initialized = true;
+
+  // Start processing if there are pending jobs
+  const pendingJobs = await listPendingJobs();
+  if (pendingJobs.length > 0 && !processing) {
+    processNext();
+  }
+}
+
+export async function enqueueTranscription(
   pageId: string,
   notebookId: string,
   force = false,
-): string {
-  const existing = queue.find((j) => j.pageId === pageId);
-  if (existing && !force) {
-    return existing.pageId;
+): Promise<string> {
+  await initQueue();
+
+  // Check if job already exists for this page
+  const existing = await listPendingJobs();
+  const existingJob = existing.find((j) => j.pageId === pageId);
+
+  if (existingJob && !force) {
+    return existingJob.pageId;
   }
-  if (existing && force) {
-    queue = queue.filter((j) => j.pageId !== pageId);
+
+  if (existingJob && force) {
+    await removeJob("pending", existingJob);
   }
 
   const job: TranscriptionJob = {
@@ -48,9 +165,10 @@ export function enqueueTranscription(
     lastError: null,
     force,
   };
-  queue.push(job);
 
-  updatePageTranscriptionStatus(pageId, {
+  await writeJob("pending", job);
+
+  await updatePageTranscriptionStatus(pageId, {
     status: "pending",
     lastAttempt: null,
     error: null,
@@ -63,13 +181,14 @@ export function enqueueTranscription(
   return job.pageId;
 }
 
-export function getQueueStatus(): {
+export async function getQueueStatus(): Promise<{
   pending: number;
   jobs: Array<{ pageId: string; attempts: number; status: string }>;
-} {
+}> {
+  const jobs = await listPendingJobs();
   return {
-    pending: queue.length,
-    jobs: queue.map((j) => ({
+    pending: jobs.length,
+    jobs: jobs.map((j) => ({
       pageId: j.pageId,
       attempts: j.attempts,
       status: j.attempts === 0 ? "pending" : "retrying",
@@ -89,13 +208,14 @@ async function updatePageTranscriptionStatus(
 }
 
 async function processNext(): Promise<void> {
-  if (queue.length === 0) {
+  const job = await getNextPendingJob();
+
+  if (!job) {
     processing = false;
     return;
   }
 
   processing = true;
-  const job = queue[0];
 
   await updatePageTranscriptionStatus(job.pageId, {
     status: "processing",
@@ -112,7 +232,7 @@ async function processNext(): Promise<void> {
       error: null,
     });
 
-    queue.shift();
+    await removeJob("pending", job);
 
     if (listener) {
       listener(job.pageId, "complete", { content });
@@ -132,7 +252,7 @@ async function processNext(): Promise<void> {
         error: job.lastError,
       });
 
-      queue.shift();
+      await moveJobToFailed(job);
 
       if (listener) {
         listener(job.pageId, "failed", { error: job.lastError ?? undefined });
@@ -150,9 +270,8 @@ async function processNext(): Promise<void> {
         error: job.lastError,
       });
 
-      // Move to back of queue
-      queue.shift();
-      queue.push(job);
+      // Update the job file with new attempt count
+      await writeJob("pending", job);
 
       pollTimer = setTimeout(() => {
         processNext();
@@ -167,15 +286,23 @@ export function stopQueue(): void {
     pollTimer = null;
   }
   processing = false;
-  queue = [];
   listener = null;
+  initialized = false;
 }
 
-// For testing: expose internal queue
-export function _getQueue(): TranscriptionJob[] {
-  return queue;
+// For testing: expose internal state
+export async function _getQueue(): Promise<TranscriptionJob[]> {
+  return listPendingJobs();
 }
 
 export function _isProcessing(): boolean {
   return processing;
+}
+
+// For testing: clear all queue files
+export async function _clearQueue(): Promise<void> {
+  const jobs = await listPendingJobs();
+  for (const job of jobs) {
+    await removeJob("pending", job);
+  }
 }

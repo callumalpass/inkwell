@@ -6,7 +6,7 @@ import { config } from "./config.js";
 import { registerRoutes } from "./routes/index.js";
 import { registerWebSocket } from "./ws/index.js";
 import { broadcastToPage } from "./ws/handlers.js";
-import { setTranscriptionListener } from "./services/transcription-queue.js";
+import { setTranscriptionListener, initQueue } from "./services/transcription-queue.js";
 import { syncPage, SyncError } from "./services/markdown-sync.js";
 import { getMarkdownConfig } from "./storage/config-store.js";
 
@@ -34,6 +34,9 @@ export async function buildApp() {
 
   registerRoutes(app);
   registerWebSocket(app);
+
+  // Initialize transcription queue (resumes any pending jobs from disk)
+  await initQueue();
 
   // Wire transcription queue events to WebSocket broadcasts
   setTranscriptionListener((pageId, event, data) => {

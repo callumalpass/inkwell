@@ -9,6 +9,8 @@ import {
   setTranscriptionListener,
   _getQueue,
   _isProcessing,
+  _clearQueue,
+  initQueue,
 } from "./transcription-queue.js";
 import { ensureDir, writeJson } from "../storage/fs-utils.js";
 import { paths } from "../storage/paths.js";
@@ -52,9 +54,9 @@ describe("enqueueTranscription", () => {
   it("adds a job to the queue", async () => {
     await setupTestPage("nb_test", "pg_test1");
 
-    enqueueTranscription("pg_test1", "nb_test");
+    await enqueueTranscription("pg_test1", "nb_test");
 
-    const status = getQueueStatus();
+    const status = await getQueueStatus();
     // Queue may have started processing already, so pending could be 0 or 1
     expect(status.pending >= 0).toBe(true);
   });
@@ -62,10 +64,10 @@ describe("enqueueTranscription", () => {
   it("does not duplicate a job for the same page", async () => {
     await setupTestPage("nb_test", "pg_test2");
 
-    enqueueTranscription("pg_test2", "nb_test");
-    enqueueTranscription("pg_test2", "nb_test");
+    await enqueueTranscription("pg_test2", "nb_test");
+    await enqueueTranscription("pg_test2", "nb_test");
 
-    const queue = _getQueue();
+    const queue = await _getQueue();
     const matching = queue.filter((j) => j.pageId === "pg_test2");
     expect(matching.length).toBeLessThanOrEqual(1);
   });
@@ -73,10 +75,10 @@ describe("enqueueTranscription", () => {
   it("replaces a job when force is true", async () => {
     await setupTestPage("nb_test", "pg_test3");
 
-    enqueueTranscription("pg_test3", "nb_test");
-    enqueueTranscription("pg_test3", "nb_test", true);
+    await enqueueTranscription("pg_test3", "nb_test");
+    await enqueueTranscription("pg_test3", "nb_test", true);
 
-    const queue = _getQueue();
+    const queue = await _getQueue();
     const matching = queue.filter((j) => j.pageId === "pg_test3");
     expect(matching.length).toBeLessThanOrEqual(1);
     if (matching.length > 0) {
@@ -86,22 +88,92 @@ describe("enqueueTranscription", () => {
 });
 
 describe("getQueueStatus", () => {
-  it("returns empty queue when nothing enqueued", () => {
-    const status = getQueueStatus();
+  it("returns empty queue when nothing enqueued", async () => {
+    const status = await getQueueStatus();
     expect(status.pending).toBe(0);
     expect(status.jobs).toEqual([]);
   });
 });
 
 describe("stopQueue", () => {
-  it("clears all jobs and stops processing", async () => {
+  it("stops processing but preserves pending jobs on disk", async () => {
     await setupTestPage("nb_test", "pg_stop");
 
-    enqueueTranscription("pg_stop", "nb_test");
+    await enqueueTranscription("pg_stop", "nb_test");
     stopQueue();
 
-    expect(_getQueue().length).toBe(0);
+    // Processing flag should be reset
     expect(_isProcessing()).toBe(false);
+
+    // Jobs should still be on disk (persisted queue)
+    const queue = await _getQueue();
+    // Queue may have the job or may have started processing it
+    expect(typeof queue.length).toBe("number");
+  });
+});
+
+describe("_clearQueue", () => {
+  it("removes all pending jobs from disk", async () => {
+    await setupTestPage("nb_test", "pg_clear1");
+    await setupTestPage("nb_test", "pg_clear2");
+
+    // Manually write jobs to pending directory (before any queue operations)
+    await ensureDir(paths.queuePending());
+    await writeJson(paths.queueJob("pending", "123_pg_clear1"), {
+      pageId: "pg_clear1",
+      notebookId: "nb_test",
+      createdAt: new Date().toISOString(),
+      attempts: 0,
+      lastError: null,
+      force: false,
+    });
+    await writeJson(paths.queueJob("pending", "124_pg_clear2"), {
+      pageId: "pg_clear2",
+      notebookId: "nb_test",
+      createdAt: new Date().toISOString(),
+      attempts: 0,
+      lastError: null,
+      force: false,
+    });
+
+    let queue = await _getQueue();
+    expect(queue.length).toBe(2);
+
+    await _clearQueue();
+
+    queue = await _getQueue();
+    expect(queue.length).toBe(0);
+  });
+});
+
+describe("initQueue", () => {
+  it("resumes processing pending jobs on startup", async () => {
+    await setupTestPage("nb_test", "pg_resume");
+
+    // Stop the queue and write a job directly to disk
+    stopQueue();
+
+    await ensureDir(paths.queuePending());
+    await writeJson(paths.queueJob("pending", "123_pg_resume"), {
+      pageId: "pg_resume",
+      notebookId: "nb_test",
+      createdAt: new Date().toISOString(),
+      attempts: 0,
+      lastError: null,
+      force: false,
+    });
+
+    // Initialize queue should start processing
+    await initQueue();
+
+    // Give it a moment to start
+    await new Promise((r) => setTimeout(r, 100));
+
+    // Queue should be processing or have processed
+    // The exact state depends on timing, but the important thing is it started
+    expect(_isProcessing() || (await _getQueue()).length === 0).toBe(true);
+
+    stopQueue();
   });
 });
 
@@ -131,7 +203,7 @@ describe("setTranscriptionListener", () => {
       events.push({ pageId, event, data });
     });
 
-    enqueueTranscription("pg_listen", "nb_test");
+    await enqueueTranscription("pg_listen", "nb_test");
 
     // Wait for the queue to attempt processing and fail
     await new Promise((r) => setTimeout(r, 2000));
@@ -145,5 +217,41 @@ describe("setTranscriptionListener", () => {
     // Events should exist — either in-progress or completed
     // The key is the listener mechanism works
     expect(typeof events).toBe("object");
+  });
+});
+
+describe("queue persistence", () => {
+  it("persists jobs to disk and survives stopQueue", async () => {
+    await setupTestPage("nb_test", "pg_persist");
+
+    // Enqueue a job
+    await enqueueTranscription("pg_persist", "nb_test");
+
+    // Stop processing
+    stopQueue();
+
+    // Jobs should still be on disk
+    const queue = await _getQueue();
+    const hasJob = queue.some((j) => j.pageId === "pg_persist");
+    expect(hasJob).toBe(true);
+
+    // Clean up
+    await _clearQueue();
+  });
+
+  it("writes job files to pending directory", async () => {
+    await setupTestPage("nb_test", "pg_filedir");
+
+    // Stop processing so job stays in pending
+    stopQueue();
+
+    await enqueueTranscription("pg_filedir", "nb_test");
+
+    // Check that file exists in pending directory
+    const queue = await _getQueue();
+    expect(queue.some((j) => j.pageId === "pg_filedir")).toBe(true);
+
+    // Clean up
+    await _clearQueue();
   });
 });

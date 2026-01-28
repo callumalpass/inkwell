@@ -47,7 +47,7 @@ async function scheduleAutoTranscribe(pageId: string): Promise<void> {
       ) {
         return;
       }
-      enqueueTranscription(pageId, page.notebookId);
+      await enqueueTranscription(pageId, page.notebookId);
     } catch {
       // Best-effort auto-transcribe
     }

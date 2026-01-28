@@ -18,4 +18,10 @@ export const paths = {
   transcription: (notebookId: string, pageId: string) =>
     join(config.dataDir, "notebooks", notebookId, "pages", pageId, "transcription.md"),
   pageIndex: () => join(config.dataDir, "page-index.json"),
+  // Transcription queue directories
+  queueDir: () => join(config.dataDir, "queue"),
+  queuePending: () => join(config.dataDir, "queue", "pending"),
+  queueFailed: () => join(config.dataDir, "queue", "failed"),
+  queueJob: (dir: "pending" | "failed", jobId: string) =>
+    join(config.dataDir, "queue", dir, `${jobId}.json`),
 };

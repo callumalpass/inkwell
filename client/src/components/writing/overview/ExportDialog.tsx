@@ -158,6 +158,22 @@ export function ExportDialog({ open, pageIds, onClose }: ExportDialogProps) {
 
           {error && <p className="text-sm text-red-600">{error}</p>}
 
+          {exporting && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-sm text-gray-600">
+                <span>Exporting pages...</span>
+                <span>{exportProgress} of {pageIds.length}</span>
+              </div>
+              <div className="h-2 w-full overflow-hidden rounded-full bg-gray-200">
+                <div
+                  className="h-full bg-black transition-all duration-200 ease-out"
+                  style={{ width: `${(exportProgress / pageIds.length) * 100}%` }}
+                  data-testid="export-progress-bar"
+                />
+              </div>
+            </div>
+          )}
+
           <div className="flex justify-end gap-2">
             <button
               onClick={onClose}
@@ -172,9 +188,7 @@ export function ExportDialog({ open, pageIds, onClose }: ExportDialogProps) {
               disabled={exporting}
               data-testid="export-submit"
             >
-              {exporting
-                ? `Exporting ${exportProgress}/${pageIds.length}...`
-                : "Export"}
+              {exporting ? "Exporting..." : "Export"}
             </button>
           </div>
         </div>

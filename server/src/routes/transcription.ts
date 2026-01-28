@@ -44,7 +44,7 @@ export function transcriptionRoutes(app: FastifyInstance) {
       return { status: page.transcription.status, message: "Already in queue" };
     }
 
-    enqueueTranscription(page.id, page.notebookId, force);
+    await enqueueTranscription(page.id, page.notebookId, force);
 
     return { status: "pending", pageId: page.id };
   });
@@ -114,7 +114,7 @@ export function transcriptionRoutes(app: FastifyInstance) {
 
       for (const page of pages) {
         if (page.transcription?.status !== "complete") {
-          enqueueTranscription(page.id, page.notebookId);
+          await enqueueTranscription(page.id, page.notebookId);
           queued++;
         }
       }
