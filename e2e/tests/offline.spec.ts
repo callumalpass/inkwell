@@ -1,69 +1,11 @@
 import { test, expect } from "@playwright/test";
-
-const API = "http://localhost:3001";
-
-async function createNotebook(title: string) {
-  const res = await fetch(`${API}/api/notebooks`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ title }),
-  });
-  return (await res.json()) as { id: string; title: string };
-}
-
-async function addPage(notebookId: string) {
-  const res = await fetch(`${API}/api/notebooks/${notebookId}/pages`, {
-    method: "POST",
-  });
-  return (await res.json()) as { id: string };
-}
-
-async function deleteNotebook(id: string) {
-  await fetch(`${API}/api/notebooks/${id}`, { method: "DELETE" });
-}
-
-async function drawStroke(page: import("@playwright/test").Page, selector: string) {
-  const target = page.locator(selector).first();
-  const box = await target.boundingBox();
-  if (!box) throw new Error(`Could not find bounding box for ${selector}`);
-
-  const startX = box.x + box.width * 0.3;
-  const startY = box.y + box.height * 0.3;
-  const endX = box.x + box.width * 0.7;
-  const endY = box.y + box.height * 0.7;
-  const midX = (startX + endX) / 2;
-  const midY = startY + (endY - startY) * 0.3;
-
-  await page.mouse.move(startX, startY);
-  await page.mouse.down();
-  await page.mouse.move(midX, midY, { steps: 5 });
-  await page.mouse.move(endX, endY, { steps: 5 });
-  await page.mouse.up();
-}
-
-async function getStrokes(pageId: string) {
-  const res = await fetch(`${API}/api/pages/${pageId}/strokes`);
-  return (await res.json()) as unknown[];
-}
-
-async function getPages(notebookId: string) {
-  const res = await fetch(`${API}/api/notebooks/${notebookId}/pages`);
-  return (await res.json()) as { id: string }[];
-}
-
-/** Navigate to notebook and switch to single page mode for consistent drawing layer. */
-async function openNotebookSingleMode(
-  page: import("@playwright/test").Page,
-  notebookTitle: string,
-) {
-  await page.goto("/");
-  await expect(page.getByText("Notebooks")).toBeVisible();
-  await page.getByText(notebookTitle).first().click();
-  await page.waitForURL(/\/notebook\/nb_.*\/page\//);
-  // Switch to single page mode (global default may be different)
-  await page.getByRole("button", { name: "Single" }).click();
-  await expect(page.locator(".touch-none").first()).toBeVisible({ timeout: 5000 });
-}
+import {
+  createNotebook,
+  deleteNotebook,
+  drawStroke,
+  getStrokes,
+  openNotebookSingleMode,
+} from "../helpers";
 
 test.describe("Offline support", () => {
   let notebookId: string;
@@ -79,7 +21,7 @@ test.describe("Offline support", () => {
     await deleteNotebook(notebookId);
   });
 
-  test("shows syncing indicator when strokes are queued offline", async ({ page, context }) => {
+  test("shows syncing indicator when strokes are queued offline", async ({ page }) => {
     await openNotebookSingleMode(page, notebookTitle);
 
     // Should NOT show offline indicator when online

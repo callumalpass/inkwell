@@ -83,6 +83,7 @@ export function strokeRoutes(app: FastifyInstance) {
                   id: { type: "string" },
                   points: {
                     type: "array",
+                    minItems: 2,
                     items: {
                       type: "object",
                       required: ["x", "y", "pressure"],

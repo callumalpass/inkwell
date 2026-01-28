@@ -1,49 +1,11 @@
 import { test, expect } from "@playwright/test";
-
-const API = "http://localhost:3001";
-
-async function createNotebook(title: string) {
-  const res = await fetch(`${API}/api/notebooks`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ title }),
-  });
-  return (await res.json()) as { id: string; title: string };
-}
-
-async function addPage(notebookId: string) {
-  const res = await fetch(`${API}/api/notebooks/${notebookId}/pages`, {
-    method: "POST",
-  });
-  return (await res.json()) as { id: string };
-}
-
-async function addStroke(pageId: string) {
-  await fetch(`${API}/api/pages/${pageId}/strokes`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      strokes: [
-        {
-          id: `st_e2e_${Date.now()}`,
-          timestamp: Date.now(),
-          tool: "pen",
-          color: "#000000",
-          width: 2,
-          points: [
-            [100, 200, 0.8, Date.now()],
-            [150, 250, 0.85, Date.now() + 5],
-            [200, 300, 0.9, Date.now() + 10],
-          ],
-        },
-      ],
-    }),
-  });
-}
-
-async function deleteNotebook(id: string) {
-  await fetch(`${API}/api/notebooks/${id}`, { method: "DELETE" });
-}
+import {
+  createNotebook,
+  addPage,
+  addStroke,
+  deleteNotebook,
+  uniqueTitle,
+} from "../helpers";
 
 test.describe("Export - Page export from toolbar", () => {
   let notebookId: string;
@@ -51,9 +13,7 @@ test.describe("Export - Page export from toolbar", () => {
   let pageId: string;
 
   test.beforeEach(async () => {
-    const nb = await createNotebook(
-      `E2E Export ${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
-    );
+    const nb = await createNotebook(uniqueTitle("E2E Export"));
     notebookId = nb.id;
     notebookTitle = nb.title;
     const pg = await addPage(notebookId);
@@ -160,9 +120,7 @@ test.describe("Export - Notebook export from notebook list", () => {
   let notebookTitle: string;
 
   test.beforeEach(async () => {
-    const nb = await createNotebook(
-      `E2E NB Export ${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
-    );
+    const nb = await createNotebook(uniqueTitle("E2E NB Export"));
     notebookId = nb.id;
     notebookTitle = nb.title;
     // Create a page with strokes so the PDF is non-empty

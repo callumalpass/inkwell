@@ -83,10 +83,23 @@ export function useOfflineSync() {
       }
     }
 
-    // Drain immediately when coming online
-    drain();
+    // Drain immediately when coming online, then schedule subsequent
+    // drains using setTimeout so each iteration uses the current backoff.
+    let timerId: ReturnType<typeof setTimeout>;
+    let cancelled = false;
 
-    const id = setInterval(drain, BASE_SYNC_INTERVAL_MS + backoffRef.current);
-    return () => clearInterval(id);
+    async function drainLoop() {
+      await drain();
+      if (!cancelled) {
+        timerId = setTimeout(drainLoop, BASE_SYNC_INTERVAL_MS + backoffRef.current);
+      }
+    }
+
+    drainLoop();
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timerId);
+    };
   }, [online]);
 }

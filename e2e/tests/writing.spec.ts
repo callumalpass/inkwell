@@ -1,76 +1,21 @@
 import { test, expect } from "@playwright/test";
-
-const API = "http://localhost:3001";
-
-async function createNotebook(title: string) {
-  const res = await fetch(`${API}/api/notebooks`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ title }),
-  });
-  return (await res.json()) as { id: string; title: string };
-}
-
-async function addPage(notebookId: string) {
-  const res = await fetch(`${API}/api/notebooks/${notebookId}/pages`, {
-    method: "POST",
-  });
-  return (await res.json()) as { id: string };
-}
-
-async function deleteNotebook(id: string) {
-  await fetch(`${API}/api/notebooks/${id}`, { method: "DELETE" });
-}
-
-async function updateNotebook(id: string, updates: Record<string, unknown>) {
-  await fetch(`${API}/api/notebooks/${id}`, {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(updates),
-  });
-}
-
-/** Find the drawing layer regardless of view mode (touch-none or touch-pan-y). */
-const DRAWING_LAYER = "[class*='touch-']";
-
-async function drawStroke(page: import("@playwright/test").Page, selector: string) {
-  const target = page.locator(selector).first();
-  const box = await target.boundingBox();
-  if (!box) throw new Error(`Could not find bounding box for ${selector}`);
-
-  const startX = box.x + box.width * 0.3;
-  const startY = box.y + box.height * 0.3;
-  const endX = box.x + box.width * 0.7;
-  const endY = box.y + box.height * 0.7;
-  const midX = (startX + endX) / 2;
-  const midY = startY + (endY - startY) * 0.3;
-
-  await page.mouse.move(startX, startY);
-  await page.mouse.down();
-  await page.mouse.move(midX, midY, { steps: 5 });
-  await page.mouse.move(endX, endY, { steps: 5 });
-  await page.mouse.up();
-}
-
-/** Navigate to a notebook's writing page and wait for toolbar + drawing surface. */
-async function openNotebook(
-  page: import("@playwright/test").Page,
-  notebookTitle: string,
-) {
-  await page.goto("/");
-  await expect(page.getByText("Notebooks")).toBeVisible();
-  await page.getByText(notebookTitle).click();
-  await page.waitForURL(/\/notebook\/nb_.*\/page\//);
-  // Wait for toolbar
-  await expect(page.getByRole("button", { name: "pen" })).toBeVisible();
-}
+import {
+  createNotebook,
+  addPage,
+  deleteNotebook,
+  updateNotebook,
+  drawStroke,
+  openNotebook,
+  uniqueTitle,
+  API,
+} from "../helpers";
 
 test.describe("Writing - Single page view", () => {
   let notebookId: string;
   let notebookTitle: string;
 
   test.beforeEach(async () => {
-    const nb = await createNotebook(`E2E Single ${Date.now()}_${Math.random().toString(36).slice(2, 8)}`);
+    const nb = await createNotebook(uniqueTitle("E2E Single"));
     notebookId = nb.id;
     notebookTitle = nb.title;
     await addPage(notebookId);
@@ -143,7 +88,7 @@ test.describe("Writing - Undo/Redo", () => {
   let notebookTitle: string;
 
   test.beforeEach(async () => {
-    const nb = await createNotebook(`E2E Undo ${Date.now()}_${Math.random().toString(36).slice(2, 8)}`);
+    const nb = await createNotebook(uniqueTitle("E2E Undo"));
     notebookId = nb.id;
     notebookTitle = nb.title;
     await addPage(notebookId);
@@ -223,7 +168,7 @@ test.describe("Writing - Color presets", () => {
   let notebookTitle: string;
 
   test.beforeEach(async () => {
-    const nb = await createNotebook(`E2E Color ${Date.now()}_${Math.random().toString(36).slice(2, 8)}`);
+    const nb = await createNotebook(uniqueTitle("E2E Color"));
     notebookId = nb.id;
     notebookTitle = nb.title;
     await addPage(notebookId);
@@ -269,7 +214,7 @@ test.describe("Writing - Background templates", () => {
   let notebookTitle: string;
 
   test.beforeEach(async () => {
-    const nb = await createNotebook(`E2E Grid ${Date.now()}_${Math.random().toString(36).slice(2, 8)}`);
+    const nb = await createNotebook(uniqueTitle("E2E Grid"));
     notebookId = nb.id;
     notebookTitle = nb.title;
     await addPage(notebookId);
@@ -348,7 +293,7 @@ test.describe("Writing - Scroll view", () => {
   let notebookTitle: string;
 
   test.beforeEach(async () => {
-    const nb = await createNotebook(`E2E Scroll ${Date.now()}_${Math.random().toString(36).slice(2, 8)}`);
+    const nb = await createNotebook(uniqueTitle("E2E Scroll"));
     notebookId = nb.id;
     notebookTitle = nb.title;
     // Create 2 pages so scroll view has content
@@ -425,7 +370,7 @@ test.describe("Writing - Canvas view", () => {
   let notebookTitle: string;
 
   test.beforeEach(async () => {
-    const nb = await createNotebook(`E2E Canvas ${Date.now()}_${Math.random().toString(36).slice(2, 8)}`);
+    const nb = await createNotebook(uniqueTitle("E2E Canvas"));
     notebookId = nb.id;
     notebookTitle = nb.title;
     // Create 2 pages for canvas

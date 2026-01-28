@@ -1,34 +1,10 @@
 import { test, expect } from "@playwright/test";
-
-const API = "http://localhost:3001";
-
-async function createNotebook(title: string) {
-  const res = await fetch(`${API}/api/notebooks`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ title }),
-  });
-  return (await res.json()) as { id: string; title: string };
-}
-
-async function addPage(notebookId: string) {
-  const res = await fetch(`${API}/api/notebooks/${notebookId}/pages`, {
-    method: "POST",
-  });
-  return (await res.json()) as { id: string };
-}
-
-async function writeTranscription(pageId: string, content: string) {
-  await fetch(`${API}/api/pages/${pageId}/transcription`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ content }),
-  });
-}
-
-async function deleteNotebook(id: string) {
-  await fetch(`${API}/api/notebooks/${id}`, { method: "DELETE" });
-}
+import {
+  createNotebook,
+  addPage,
+  deleteNotebook,
+  writeTranscription,
+} from "../helpers";
 
 test.describe("Search", () => {
   let notebookId: string;
