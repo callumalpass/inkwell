@@ -9,6 +9,7 @@ import { useViewStore } from "../../stores/view-store";
 import { postStrokes } from "../../api/strokes";
 import { enqueueStrokes } from "../../lib/offline-queue";
 import { PageSurface } from "./PageSurface";
+import { Minimap } from "./Minimap";
 import type { GridType } from "./PageBackground";
 import {
   PAGE_WIDTH,
@@ -35,6 +36,7 @@ export function CanvasView() {
   const activeTool = useDrawingStore((s) => s.tool);
   const containerRef = useRef<HTMLDivElement>(null);
   const [visiblePageIds, setVisiblePageIds] = useState<Set<string>>(new Set());
+  const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
 
   const getCanvasTransform = useCallback(
     () => useViewStore.getState().canvasTransform,
@@ -54,6 +56,21 @@ export function CanvasView() {
     [isZoomLocked, resetCanvasZoom],
   );
   usePinchZoom(containerRef, getCanvasTransform, setCanvasTransform, pinchZoomOptions);
+
+  // Track container size for minimap
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const ro = new ResizeObserver(([entry]) => {
+      setContainerSize({
+        width: entry.contentRect.width,
+        height: entry.contentRect.height,
+      });
+    });
+    ro.observe(container);
+    return () => ro.disconnect();
+  }, []);
 
   // Panning state
   const isPanning = useRef(false);
@@ -462,6 +479,13 @@ export function CanvasView() {
           );
         })}
       </div>
+
+      {/* Minimap for navigation */}
+      <Minimap
+        pagePositions={pagePositions}
+        containerWidth={containerSize.width}
+        containerHeight={containerSize.height}
+      />
     </div>
   );
 }
