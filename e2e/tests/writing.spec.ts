@@ -411,3 +411,93 @@ test.describe("Writing - Canvas view", () => {
     expect(strokes.length).toBe(0);
   });
 });
+
+test.describe("Writing - Eraser Cursor", () => {
+  let notebookId: string;
+  let notebookTitle: string;
+
+  test.beforeEach(async () => {
+    const nb = await createNotebook(uniqueTitle("E2E Eraser"));
+    notebookId = nb.id;
+    notebookTitle = nb.title;
+    await addPage(notebookId);
+  });
+
+  test.afterEach(async () => {
+    await deleteNotebook(notebookId);
+  });
+
+  test("eraser cursor appears when eraser tool is selected and mouse is over page", async ({ page }) => {
+    await openNotebook(page, notebookTitle);
+
+    // Switch to single page mode
+    await page.getByRole("button", { name: "Single" }).click();
+    await expect(page.locator(".touch-none").first()).toBeVisible({ timeout: 5000 });
+
+    // No eraser cursor initially (pen tool is default)
+    await expect(page.getByTestId("eraser-cursor")).not.toBeVisible();
+
+    // Select eraser tool
+    await page.getByRole("button", { name: "eraser" }).click();
+
+    // Move mouse over the page surface
+    const pageSurface = page.locator(".bg-white.shadow-sm");
+    const box = await pageSurface.boundingBox();
+    if (!box) throw new Error("No bounding box for page surface");
+
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+
+    // Eraser cursor should now be visible
+    await expect(page.getByTestId("eraser-cursor")).toBeVisible();
+  });
+
+  test("eraser cursor disappears when switching to pen tool", async ({ page }) => {
+    await openNotebook(page, notebookTitle);
+
+    // Switch to single page mode
+    await page.getByRole("button", { name: "Single" }).click();
+    await expect(page.locator(".touch-none").first()).toBeVisible({ timeout: 5000 });
+
+    // Select eraser tool
+    await page.getByRole("button", { name: "eraser" }).click();
+
+    // Move mouse over page to show cursor
+    const pageSurface = page.locator(".bg-white.shadow-sm");
+    const box = await pageSurface.boundingBox();
+    if (!box) throw new Error("No bounding box for page surface");
+
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await expect(page.getByTestId("eraser-cursor")).toBeVisible();
+
+    // Switch back to pen tool
+    await page.getByRole("button", { name: "pen", exact: true }).click();
+
+    // Eraser cursor should disappear
+    await expect(page.getByTestId("eraser-cursor")).not.toBeVisible();
+  });
+
+  test("eraser cursor disappears when mouse leaves page", async ({ page }) => {
+    await openNotebook(page, notebookTitle);
+
+    // Switch to single page mode
+    await page.getByRole("button", { name: "Single" }).click();
+    await expect(page.locator(".touch-none").first()).toBeVisible({ timeout: 5000 });
+
+    // Select eraser tool
+    await page.getByRole("button", { name: "eraser" }).click();
+
+    // Move mouse over page to show cursor
+    const pageSurface = page.locator(".bg-white.shadow-sm");
+    const box = await pageSurface.boundingBox();
+    if (!box) throw new Error("No bounding box for page surface");
+
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await expect(page.getByTestId("eraser-cursor")).toBeVisible();
+
+    // Move mouse outside the page
+    await page.mouse.move(box.x - 50, box.y - 50);
+
+    // Eraser cursor should disappear
+    await expect(page.getByTestId("eraser-cursor")).not.toBeVisible();
+  });
+});
