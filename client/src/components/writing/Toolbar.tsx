@@ -9,6 +9,7 @@ import { OfflineIndicator } from "./OfflineIndicator";
 import { ExportDialog } from "../export/ExportDialog";
 import { useUndoRedo } from "../../hooks/useUndoRedo";
 import { useLinksPanelStore } from "../../stores/links-panel-store";
+import { useTagsPanelStore } from "../../stores/tags-panel-store";
 import { NotebookSettingsDialog } from "../settings/NotebookSettingsDialog";
 import {
   COLOR_PRESETS,
@@ -83,6 +84,28 @@ export function Toolbar() {
   const linksPanelOpen = useLinksPanelStore((s) => s.panelOpen);
   const openLinksPanel = useLinksPanelStore((s) => s.openPanel);
   const closeLinksPanel = useLinksPanelStore((s) => s.closePanel);
+
+  const tagsPanelOpen = useTagsPanelStore((s) => s.panelOpen);
+  const openTagsPanel = useTagsPanelStore((s) => s.openPanel);
+  const closeTagsPanel = useTagsPanelStore((s) => s.closePanel);
+
+  const handleToggleLinks = (pageId: string) => {
+    if (linksPanelOpen) {
+      closeLinksPanel();
+    } else {
+      closeTagsPanel();
+      openLinksPanel(pageId);
+    }
+  };
+
+  const handleToggleTags = (pageId: string) => {
+    if (tagsPanelOpen) {
+      closeTagsPanel();
+    } else {
+      closeLinksPanel();
+      openTagsPanel(pageId);
+    }
+  };
 
   const [expanded, setExpanded] = useState(false);
   const [isCompact, setIsCompact] = useState(false);
@@ -393,14 +416,27 @@ export function Toolbar() {
                 {currentPage && (
                   <>
                     <button
-                      onClick={() =>
-                        linksPanelOpen ? closeLinksPanel() : openLinksPanel(currentPage.id)
-                      }
+                      onClick={() => handleToggleLinks(currentPage.id)}
                       className={`${BTN} ${linksPanelOpen ? BTN_ACTIVE : BTN_INACTIVE}`}
                       aria-label="Page links"
                       data-testid="toolbar-links-compact"
                     >
                       Links
+                    </button>
+                    <Divider />
+                  </>
+                )}
+
+                {/* Tags button */}
+                {currentPage && (
+                  <>
+                    <button
+                      onClick={() => handleToggleTags(currentPage.id)}
+                      className={`${BTN} ${tagsPanelOpen ? BTN_ACTIVE : BTN_INACTIVE}`}
+                      aria-label="Page tags"
+                      data-testid="toolbar-tags-compact"
+                    >
+                      Tags
                     </button>
                     <Divider />
                   </>
@@ -623,14 +659,27 @@ export function Toolbar() {
             {currentPage && (
               <>
                 <button
-                  onClick={() =>
-                    linksPanelOpen ? closeLinksPanel() : openLinksPanel(currentPage.id)
-                  }
+                  onClick={() => handleToggleLinks(currentPage.id)}
                   className={`${BTN} ${linksPanelOpen ? BTN_ACTIVE : BTN_INACTIVE}`}
                   aria-label="Page links"
                   data-testid="toolbar-links"
                 >
                   Links
+                </button>
+                <Divider />
+              </>
+            )}
+
+            {/* Tags button */}
+            {currentPage && (
+              <>
+                <button
+                  onClick={() => handleToggleTags(currentPage.id)}
+                  className={`${BTN} ${tagsPanelOpen ? BTN_ACTIVE : BTN_INACTIVE}`}
+                  aria-label="Page tags"
+                  data-testid="toolbar-tags"
+                >
+                  Tags
                 </button>
                 <Divider />
               </>

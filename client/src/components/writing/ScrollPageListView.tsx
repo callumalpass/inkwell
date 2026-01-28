@@ -4,6 +4,8 @@ import { usePageStore } from "../../stores/page-store";
 import { useDrawingStore } from "../../stores/drawing-store";
 import { useUndoRedoStore } from "../../stores/undo-redo-store";
 import { useMultiPageWebSocket } from "../../hooks/useMultiPageWebSocket";
+import { postStrokes } from "../../api/strokes";
+import { enqueueStrokes } from "../../lib/offline-queue";
 import { useVisiblePages } from "../../hooks/useVisiblePages";
 import { usePinchZoom } from "../../hooks/usePinchZoom";
 import { useViewStore } from "../../stores/view-store";
@@ -37,8 +39,13 @@ export function ScrollPageListView() {
       if (!visiblePageIds.has(pid)) {
         unloadPageStrokes(pid);
         useUndoRedoStore.getState().clearPage(pid);
-        // Flush any pending strokes so they aren't leaked in memory
-        useDrawingStore.getState().flushPendingForPage(pid);
+        // Save any pending strokes to the server before unloading
+        const flushed = useDrawingStore.getState().flushPendingForPage(pid);
+        if (flushed.length > 0) {
+          postStrokes(pid, flushed).catch(() => {
+            enqueueStrokes(pid, flushed).catch(console.error);
+          });
+        }
       }
     }
     prevVisibleRef.current = new Set(visiblePageIds);
