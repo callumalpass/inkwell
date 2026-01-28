@@ -28,8 +28,8 @@ async function buildContext(
     );
     // Strip any existing frontmatter so template variables resolve against the body
     transcriptionContent = stripFrontmatter(raw);
-  } catch (err: any) {
-    if (err.code !== "ENOENT") throw err;
+  } catch (err) {
+    if (!(err instanceof Error && "code" in err && err.code === "ENOENT")) throw err;
   }
 
   return {
@@ -221,8 +221,8 @@ export async function regenerateFrontmatter(pageId: string): Promise<void> {
   try {
     const fileContent = await readFile(filePath, "utf-8");
     rawContent = stripFrontmatter(fileContent);
-  } catch (err: any) {
-    if (err.code === "ENOENT") return; // No transcription file yet
+  } catch (err) {
+    if (err instanceof Error && "code" in err && err.code === "ENOENT") return; // No transcription file yet
     throw err;
   }
 

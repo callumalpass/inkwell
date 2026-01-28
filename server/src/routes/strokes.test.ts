@@ -101,7 +101,7 @@ describe("POST /api/pages/:pageId/strokes", () => {
       url: `/api/pages/${pageId}/strokes`,
     });
     expect(res.json()).toHaveLength(2);
-    expect(res.json().map((s: any) => s.id)).toEqual(["st_1", "st_2"]);
+    expect(res.json().map((s: { id: string }) => s.id)).toEqual(["st_1", "st_2"]);
   });
 
   it("returns 404 for non-existent page", async () => {

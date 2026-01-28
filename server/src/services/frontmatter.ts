@@ -188,23 +188,11 @@ export function buildMarkdownWithFrontmatter(
  * Strip YAML frontmatter from markdown content, returning only the body.
  */
 export function stripFrontmatter(content: string): string {
-  if (!content.startsWith("---\n") && !content.startsWith("---\r\n")) {
-    return content;
-  }
+  if (!content.startsWith("---")) return content;
 
-  // Find the closing ---
-  const endIndex = content.indexOf("\n---\n", 4);
-  if (endIndex === -1) {
-    // Check for --- at very end
-    const endIndex2 = content.indexOf("\n---", 4);
-    if (endIndex2 !== -1 && endIndex2 + 4 >= content.length) {
-      return "";
-    }
-    return content;
-  }
-
-  // Return everything after the closing ---\n
-  return content.substring(endIndex + 5);
+  const match = content.match(/^---\s*\r?\n[\s\S]*?\r?\n---\s*\r?\n?/);
+  if (!match) return content;
+  return content.slice(match[0].length);
 }
 
 /**

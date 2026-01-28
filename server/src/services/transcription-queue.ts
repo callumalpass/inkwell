@@ -82,7 +82,7 @@ async function updatePageTranscriptionStatus(
   transcription: TranscriptionMeta,
 ): Promise<void> {
   try {
-    await updatePage(pageId, { transcription } as any);
+    await updatePage(pageId, { transcription });
   } catch {
     // Best-effort status update — page may have been deleted
   }
@@ -120,9 +120,9 @@ async function processNext(): Promise<void> {
 
     // Process next job immediately
     processNext();
-  } catch (err: any) {
+  } catch (err) {
     job.attempts++;
-    job.lastError = err.message || "Unknown error";
+    job.lastError = err instanceof Error ? err.message : "Unknown error";
     const now = new Date().toISOString();
 
     if (job.attempts >= config.transcription.maxRetries) {

@@ -11,6 +11,8 @@ interface PinchZoomOptions {
   maxScale?: number;
   /** If provided, a two-finger double-tap calls this to reset the transform. */
   onDoubleTap?: () => void;
+  /** When false, prevent browser pinch zoom but don't change the transform. */
+  enabled?: boolean;
 }
 
 /** Maximum time (ms) between two taps to count as a double-tap. */
@@ -35,6 +37,7 @@ export function usePinchZoom(
 ): void {
   const minScale = options?.minScale ?? 0.1;
   const maxScale = options?.maxScale ?? 5.0;
+  const enabled = options?.enabled ?? true;
 
   useEffect(() => {
     const el = containerRef.current;
@@ -58,6 +61,7 @@ export function usePinchZoom(
 
     function handleTouchStart(e: TouchEvent) {
       if (e.touches.length !== 2) return;
+      if (!enabled) return;
 
       const [a, b] = [e.touches[0], e.touches[1]];
       initialDist = distance(a, b);
@@ -69,10 +73,12 @@ export function usePinchZoom(
     }
 
     function handleTouchMove(e: TouchEvent) {
-      if (!active || e.touches.length !== 2) return;
+      if (e.touches.length !== 2) return;
 
-      // Prevent browser zoom / scroll while pinching
+      // Prevent browser zoom / scroll while pinching or when locked.
       e.preventDefault();
+
+      if (!active || !enabled) return;
 
       const [a, b] = [e.touches[0], e.touches[1]];
       const newDist = distance(a, b);
@@ -104,7 +110,7 @@ export function usePinchZoom(
     function handleTouchEnd(e: TouchEvent) {
       if (e.touches.length < 2) {
         // Detect two-finger double-tap (quick tap without drag)
-        if (active && !twoFingerMoved && options?.onDoubleTap) {
+        if (active && enabled && !twoFingerMoved && options?.onDoubleTap) {
           const now = Date.now();
           if (now - lastTwoFingerTapTime < DOUBLE_TAP_DELAY) {
             options.onDoubleTap();
@@ -128,5 +134,13 @@ export function usePinchZoom(
     };
     // Re-attach if the callbacks or bounds change
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [containerRef, getTransform, setTransform, minScale, maxScale, options?.onDoubleTap]);
+  }, [
+    containerRef,
+    getTransform,
+    setTransform,
+    minScale,
+    maxScale,
+    enabled,
+    options?.onDoubleTap,
+  ]);
 }

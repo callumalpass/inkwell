@@ -74,7 +74,8 @@ describe("POST /api/pages/:pageId/transcribe", () => {
     // Directly write the page meta with pending status to simulate queue state
     const { readJson, writeJson } = await import("../storage/fs-utils.js");
     const { paths } = await import("../storage/paths.js");
-    const meta = await readJson(paths.pageMeta(notebook.id, page.id)) as any;
+    const meta = await readJson<{ transcription?: { status: string; lastAttempt: string | null; error: string | null } }>(paths.pageMeta(notebook.id, page.id));
+    if (!meta) throw new Error("Page meta not found");
     meta.transcription = { status: "pending", lastAttempt: null, error: null };
     await writeJson(paths.pageMeta(notebook.id, page.id), meta);
 
@@ -202,9 +203,9 @@ describe("POST /api/notebooks/:notebookId/transcribe", () => {
     // Mark page1 as complete by updating its meta
     const { readJson, writeJson } = await import("../storage/fs-utils.js");
     const { paths } = await import("../storage/paths.js");
-    const meta = await readJson(paths.pageMeta(notebook.id, page1.id));
+    const meta = await readJson<{ transcription?: { status: string; lastAttempt: string | null; error: string | null } }>(paths.pageMeta(notebook.id, page1.id));
     if (meta) {
-      (meta as any).transcription = { status: "complete", lastAttempt: new Date().toISOString(), error: null };
+      meta.transcription = { status: "complete", lastAttempt: new Date().toISOString(), error: null };
       await writeJson(paths.pageMeta(notebook.id, page1.id), meta);
     }
 

@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-export function useVisiblePages(pageIds: string[]) {
+export function useVisiblePages(pageIds: string[], root?: Element | null) {
   const [visiblePageIds, setVisiblePageIds] = useState<Set<string>>(new Set());
   const elementMapRef = useRef<Map<string, Element>>(new Map());
   const refCallbackMapRef = useRef<Map<string, (el: HTMLElement | null) => void>>(new Map());
   const observerRef = useRef<IntersectionObserver | null>(null);
+  const observerRoot = useMemo(() => root ?? null, [root]);
 
   const createObserver = useCallback(() => {
     return new IntersectionObserver(
@@ -24,9 +25,9 @@ export function useVisiblePages(pageIds: string[]) {
           return changed ? next : prev;
         });
       },
-      { rootMargin: "200px" },
+      { root: observerRoot, rootMargin: "200px" },
     );
-  }, []);
+  }, [observerRoot]);
 
   // Lazily get-or-create the observer (used by ref callbacks that may fire
   // before the effect).
@@ -41,18 +42,25 @@ export function useVisiblePages(pageIds: string[]) {
   // cleanup/remount cycle: if the cleanup disconnected the previous observer
   // we create a fresh one and re-observe every tracked element.
   useEffect(() => {
-    if (!observerRef.current) {
-      const obs = createObserver();
-      observerRef.current = obs;
-      for (const [, el] of elementMapRef.current) {
-        obs.observe(el);
-      }
+    const existing = observerRef.current;
+    if (existing) {
+      if (existing.root === observerRoot) return;
+      existing.disconnect();
+      observerRef.current = null;
+    }
+
+    const obs = createObserver();
+    observerRef.current = obs;
+    for (const [, el] of elementMapRef.current) {
+      obs.observe(el);
     }
     return () => {
-      observerRef.current?.disconnect();
-      observerRef.current = null;
+      obs.disconnect();
+      if (observerRef.current === obs) {
+        observerRef.current = null;
+      }
     };
-  }, [createObserver]);
+  }, [createObserver, observerRoot]);
 
   const observeRef = useCallback((pageId: string) => {
     let cb = refCallbackMapRef.current.get(pageId);

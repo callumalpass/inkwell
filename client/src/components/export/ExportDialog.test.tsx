@@ -202,13 +202,19 @@ describe("ExportDialog", () => {
       }),
     );
     const user = userEvent.setup();
-    render(<ExportDialog open={true} onClose={() => {}} pageId="pg_1" />);
+    const onClose = vi.fn();
+    render(<ExportDialog open={true} onClose={onClose} pageId="pg_1" />);
 
     await user.click(screen.getByTestId("export-submit"));
     expect(screen.getByTestId("export-submit")).toBeDisabled();
     expect(screen.getByTestId("export-submit")).toHaveTextContent("Exporting\u2026");
 
+    // Resolve the promise and wait for state to settle
     resolve!();
+    // Wait for the export to complete and dialog to close
+    await vi.waitFor(() => {
+      expect(onClose).toHaveBeenCalled();
+    });
   });
 
   it("closes on Escape key press", async () => {

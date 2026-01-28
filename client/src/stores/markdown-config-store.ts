@@ -24,8 +24,8 @@ export const useMarkdownConfigStore = create<MarkdownConfigStore>((set, get) => 
     try {
       const config = await getMarkdownConfig();
       set({ config, loading: false });
-    } catch (err: any) {
-      set({ error: err.message || "Failed to load config", loading: false });
+    } catch (err) {
+      set({ error: err instanceof Error ? err.message : "Failed to load config", loading: false });
     }
   },
 
@@ -49,8 +49,8 @@ export const useMarkdownConfigStore = create<MarkdownConfigStore>((set, get) => 
     try {
       const saved = await updateMarkdownConfig({ frontmatter: updates });
       set({ config: saved });
-    } catch (err: any) {
-      set({ config, error: err.message || "Failed to save" });
+    } catch (err) {
+      set({ config, error: err instanceof Error ? err.message : "Failed to save" });
     }
   },
 
@@ -65,8 +65,8 @@ export const useMarkdownConfigStore = create<MarkdownConfigStore>((set, get) => 
     try {
       const saved = await updateMarkdownConfig({ sync: updates });
       set({ config: saved });
-    } catch (err: any) {
-      set({ config, error: err.message || "Failed to save" });
+    } catch (err) {
+      set({ config, error: err instanceof Error ? err.message : "Failed to save" });
     }
   },
 }));

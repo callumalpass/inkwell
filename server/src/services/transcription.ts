@@ -8,7 +8,11 @@ import { getNotebook } from "../storage/notebook-store.js";
 import { getStrokes } from "../storage/stroke-store.js";
 import { renderStrokeToCanvas } from "./stroke-rendering.js";
 import { getMarkdownConfig } from "../storage/config-store.js";
-import { buildMarkdownWithFrontmatter, type TemplateContext } from "./frontmatter.js";
+import {
+  buildMarkdownWithFrontmatter,
+  stripFrontmatter,
+  type TemplateContext,
+} from "./frontmatter.js";
 
 const PAGE_WIDTH = 1404;
 const PAGE_HEIGHT = 1872;
@@ -114,33 +118,11 @@ export async function getTranscriptionContent(
   try {
     const raw = await readFile(paths.transcription(notebookId, pageId), "utf-8");
     // Strip frontmatter if present, return only the transcription body
-    return stripFrontmatterFromContent(raw);
-  } catch (err: any) {
-    if (err.code === "ENOENT") return null;
+    return stripFrontmatter(raw);
+  } catch (err) {
+    if (err instanceof Error && "code" in err && err.code === "ENOENT") return null;
     throw err;
   }
-}
-
-/**
- * Strip YAML frontmatter (---...---) from the beginning of markdown content.
- */
-function stripFrontmatterFromContent(content: string): string {
-  if (!content.startsWith("---\n") && !content.startsWith("---\r\n")) {
-    return content;
-  }
-
-  const endIndex = content.indexOf("\n---\n", 4);
-  if (endIndex !== -1) {
-    return content.substring(endIndex + 5);
-  }
-
-  // Check for --- at very end of file
-  const endIndex2 = content.indexOf("\n---", 4);
-  if (endIndex2 !== -1 && endIndex2 + 4 >= content.length) {
-    return "";
-  }
-
-  return content;
 }
 
 export async function transcribePage(pageId: string): Promise<string> {

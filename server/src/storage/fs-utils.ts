@@ -10,8 +10,8 @@ export async function readJson<T>(filePath: string): Promise<T | null> {
   try {
     const data = await readFile(filePath, "utf-8");
     return JSON.parse(data) as T;
-  } catch (err: any) {
-    if (err.code === "ENOENT") return null;
+  } catch (err) {
+    if (err instanceof Error && "code" in err && err.code === "ENOENT") return null;
     if (err instanceof SyntaxError) {
       // Corrupted JSON — log and treat as missing rather than crashing
       console.error(`Corrupted JSON in ${filePath}: ${err.message}`);

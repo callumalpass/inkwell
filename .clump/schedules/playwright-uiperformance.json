@@ -1,0 +1,19 @@
+{
+  "id": "playwright-uiperformance",
+  "name": "playwright ui/performance",
+  "description": null,
+  "status": "active",
+  "cron_expression": "0 9 * * 1-5",
+  "timezone": "Australia/Melbourne",
+  "target_type": "custom",
+  "filter_query": "state:open",
+  "command_id": null,
+  "custom_prompt": "Use Playwright to explore this app's UI/UX and performance, identify areas for improvement, and implement fixes. commit when done",
+  "max_items": 10,
+  "only_new": false,
+  "permission_mode": "bypassPermissions",
+  "allowed_tools": null,
+  "max_turns": null,
+  "model": null,
+  "cli_type": null
+}

@@ -1,0 +1,19 @@
+{
+  "id": "ralph",
+  "name": "Ralph",
+  "description": null,
+  "status": "active",
+  "cron_expression": "*/15 * * * *",
+  "timezone": "Australia/Melbourne",
+  "target_type": "custom",
+  "filter_query": "state:open",
+  "command_id": null,
+  "custom_prompt": "please go through the plan (@PLAN.md). implement the next task. be obssessive about details. add tests. let's get this good. if everything is done, use playwright to test. look for opportunities for improvement and implement them.  (update plan, commit). ",
+  "max_items": 10,
+  "only_new": false,
+  "permission_mode": "bypassPermissions",
+  "allowed_tools": null,
+  "max_turns": null,
+  "model": null,
+  "cli_type": null
+}

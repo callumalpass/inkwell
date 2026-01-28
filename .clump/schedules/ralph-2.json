@@ -1,0 +1,19 @@
+{
+  "id": "ralph-2",
+  "name": "ralph 2",
+  "description": null,
+  "status": "active",
+  "cron_expression": "*/15 * * * *",
+  "timezone": "Australia/Melbourne",
+  "target_type": "custom",
+  "filter_query": "state:open",
+  "command_id": null,
+  "custom_prompt": "Have a look at this project. Find something that needs improving, and make improvements. Don't be afraid to be ambitious. But if there are minor changes that need addressing, or refactors needed, feel free to fix those too. add tests, use playwright, commit your work",
+  "max_items": 10,
+  "only_new": false,
+  "permission_mode": "bypassPermissions",
+  "allowed_tools": null,
+  "max_turns": null,
+  "model": null,
+  "cli_type": null
+}

@@ -1,0 +1,19 @@
+{
+  "id": "testing",
+  "name": "testing",
+  "description": null,
+  "status": "active",
+  "cron_expression": "*/30 * * * *",
+  "timezone": "Australia/Melbourne",
+  "target_type": "custom",
+  "filter_query": "state:open",
+  "command_id": null,
+  "custom_prompt": "\n## Your Task\n\n1. **Analyze Current State:**\n   - Check if test directories exist\n   - Identify the testing framework in use (playwright, pytest, Jest, Vitest, etc.)\n   - Run existing tests to verify their health\n   - Identify high-value untested components\n\n2. **Select ONE Target:**\n   Choose a specific file to test. Priority order:\n   - Core business logic / services\n   - API endpoints / routes\n   - Utility functions\n   - UI components with complex logic\n\n3. **Create or Improve Tests:**\n\n   **Write comprehensive tests covering:**\n   - **Happy Path:** Standard usage works as expected\n   - **Edge Cases:** Boundaries, null/undefined inputs, empty states\n   - **Error Handling:** Errors are thrown or handled gracefully\n\n   **Best practices:**\n   - Mock external dependencies to keep tests fast and isolated\n   - Use descriptive test names\n   - Follow existing test patterns in the codebase\n\n4. **Bug Handling:**\n   If tests reveal bugs in source code:\n   - Verify the test is correct\n   - Fix the bug in the source\n   - Validate the fix with tests\n\n5. **Verify:**\n   - Run the test suite to ensure all tests pass\n   - Check for any regressions\n\n6. **Commit:**\n   - `test: Add tests for [component]`\n   - If bug fixed: `fix: [description]` with test info in body\n\n## Guidelines\n- Fix bugs when found - don't just skip failing tests\n- Verification is mandatory before committing\n- Start with the test infrastructure if it doesn't exist\n- One test file per run for focused improvements\n\nBegin by checking what test infrastructure exists.",
+  "max_items": 10,
+  "only_new": false,
+  "permission_mode": "bypassPermissions",
+  "allowed_tools": null,
+  "max_turns": null,
+  "model": null,
+  "cli_type": null
+}

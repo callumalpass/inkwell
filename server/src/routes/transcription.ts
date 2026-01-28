@@ -75,6 +75,7 @@ export function transcriptionRoutes(app: FastifyInstance) {
         transcription: {
           status: "complete",
           lastAttempt: new Date().toISOString(),
+          error: null,
         },
       });
 

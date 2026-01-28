@@ -5,12 +5,14 @@ import {
   VIEW_MIN_ZOOM,
   VIEW_MAX_ZOOM,
 } from "../../../lib/constants";
-import { BTN, BTN_INACTIVE, BTN_DISABLED } from "./ToolbarPrimitives";
+import { BTN, BTN_INACTIVE, BTN_DISABLED, ToolbarButton } from "./ToolbarPrimitives";
 
 const ZOOM_FACTOR = 1.2;
 
 export function ZoomControls() {
   const viewMode = useViewStore((s) => s.viewMode);
+  const isZoomLocked = useViewStore((s) => s.isZoomLocked);
+  const toggleZoomLocked = useViewStore((s) => s.toggleZoomLocked);
   const activeTransform = useViewStore((s) =>
     s.viewMode === "canvas"
       ? s.canvasTransform
@@ -72,6 +74,13 @@ export function ZoomControls() {
       >
         +
       </button>
+      <ToolbarButton
+        onClick={toggleZoomLocked}
+        active={isZoomLocked}
+        aria-label={isZoomLocked ? "Unlock pinch zoom" : "Lock pinch zoom"}
+      >
+        Zoom lock
+      </ToolbarButton>
     </div>
   );
 }

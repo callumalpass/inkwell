@@ -10,7 +10,7 @@ export const config = {
   },
   transcription: {
     autoTranscribe: process.env.AUTO_TRANSCRIBE !== "false",
-    idleDelayMs: parseInt(process.env.TRANSCRIBE_DELAY_MS || "5000", 10),
+    idleDelayMs: parseInt(process.env.TRANSCRIBE_DELAY_MS || "30000", 10),
     maxRetries: 3,
     pollIntervalMs: 5000,
   },

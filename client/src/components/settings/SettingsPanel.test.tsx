@@ -60,6 +60,9 @@ beforeEach(() => {
     },
     loading: false,
     error: null,
+    // Stub async functions to prevent unhandled state updates
+    fetchConfig: vi.fn(),
+    fetchSyncStatus: vi.fn(),
   });
   vi.clearAllMocks();
 });
