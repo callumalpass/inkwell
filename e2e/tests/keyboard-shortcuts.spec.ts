@@ -232,6 +232,81 @@ test.describe("Keyboard Shortcuts - Navigation", () => {
   });
 });
 
+test.describe("Keyboard Shortcuts - Search Navigation", () => {
+  let notebookId: string;
+
+  test.beforeEach(async () => {
+    const nb = await createNotebook(uniqueTitle("E2E SearchNav"));
+    notebookId = nb.id;
+    // Create pages with distinct transcriptions
+    const page1 = await addPage(notebookId);
+    const page2 = await addPage(notebookId);
+    await writeTranscription(page1.id, "Apple banana cherry");
+    await writeTranscription(page2.id, "Apple dragonfruit elderberry");
+  });
+
+  test.afterEach(async () => {
+    await deleteNotebook(notebookId);
+  });
+
+  test("arrow keys navigate search results", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.getByText("Notebooks")).toBeVisible();
+
+    // Open search
+    await page.keyboard.press("Control+k");
+    await expect(page.getByTestId("search-dialog")).toBeVisible();
+
+    // Search for "Apple" which should match 2 results
+    await page.getByTestId("search-input").fill("Apple");
+    await expect(page.getByTestId("search-count")).toBeVisible({ timeout: 5000 });
+
+    // Arrow down to first result
+    await page.keyboard.press("ArrowDown");
+
+    // First result should be highlighted (has ring-2 class)
+    const firstResult = page.getByTestId("search-result").first();
+    await expect(firstResult).toHaveClass(/ring-2/);
+
+    // Arrow down to second result
+    await page.keyboard.press("ArrowDown");
+
+    // Second result should be highlighted
+    const secondResult = page.getByTestId("search-result").nth(1);
+    await expect(secondResult).toHaveClass(/ring-2/);
+  });
+
+  test("Enter opens selected search result", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.getByText("Notebooks")).toBeVisible();
+
+    // Open search
+    await page.keyboard.press("Control+k");
+
+    // Search for "Apple"
+    await page.getByTestId("search-input").fill("Apple");
+    await expect(page.getByTestId("search-result").first()).toBeVisible({ timeout: 5000 });
+
+    // Select first result
+    await page.keyboard.press("ArrowDown");
+
+    // Press Enter to open
+    await page.keyboard.press("Enter");
+
+    // Should navigate to the page
+    await page.waitForURL(/\/page\/pg_/);
+  });
+
+  test("search button shows keyboard hint", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.getByText("Notebooks")).toBeVisible();
+
+    // The search button should show ⌘K hint
+    const searchButton = page.getByTestId("search-button");
+    await expect(searchButton).toContainText("⌘K");
+  });
+});
+
 test.describe("Keyboard Shortcuts - Focus Management", () => {
   let notebookId: string;
   let notebookTitle: string;

@@ -597,6 +597,7 @@ function MultiExportDialog({
   const [includeTranscription, setIncludeTranscription] = useState(false);
   const [pngScale, setPngScale] = useState<PngScale>(2);
   const [exporting, setExporting] = useState(false);
+  const [exportProgress, setExportProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -606,6 +607,7 @@ function MultiExportDialog({
       setIncludeTranscription(false);
       setPngScale(2);
       setExporting(false);
+      setExportProgress(0);
       setError(null);
     }
   }, [open]);
@@ -614,14 +616,17 @@ function MultiExportDialog({
 
   const handleExport = async () => {
     setExporting(true);
+    setExportProgress(0);
     setError(null);
     try {
-      for (const pageId of pageIds) {
+      for (let i = 0; i < pageIds.length; i++) {
+        const pageId = pageIds[i];
         if (format === "pdf") {
           await exportPagePdf(pageId, { includeTranscription, pageSize });
         } else {
           await exportPagePng(pageId, { scale: pngScale });
         }
+        setExportProgress(i + 1);
       }
       showSuccess(`Exported ${pageIds.length} page${pageIds.length > 1 ? "s" : ""}`);
       onClose();
@@ -728,8 +733,11 @@ function MultiExportDialog({
               onClick={handleExport}
               className={`${BTN} ${BTN_ACTIVE}`}
               disabled={exporting}
+              data-testid="export-submit"
             >
-              {exporting ? "Exporting..." : "Export"}
+              {exporting
+                ? `Exporting ${exportProgress}/${pageIds.length}...`
+                : "Export"}
             </button>
           </div>
         </div>

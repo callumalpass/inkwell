@@ -5,6 +5,7 @@ import { useNotebookPagesStore } from "../../../stores/notebook-pages-store";
 import { useNavigate, useParams } from "react-router-dom";
 import { TranscriptionIndicator } from "../TranscriptionIndicator";
 import { OfflineIndicator } from "../OfflineIndicator";
+import { SyncIndicator } from "../SyncIndicator";
 import { Divider, ToolbarButton } from "./ToolbarPrimitives";
 import { ToolSelector } from "./ToolSelector";
 import { WidthPicker } from "./WidthPicker";
@@ -149,6 +150,7 @@ function CompactLayout({
           {expanded ? "\u25B2" : "\u22EF"}
         </ToolbarButton>
 
+        <SyncIndicator />
         <OfflineIndicator />
       </div>
 
@@ -280,6 +282,7 @@ function FullLayout({
 
         <ViewModePicker />
 
+        <SyncIndicator />
         <OfflineIndicator />
         {debugLastPointCount > 0 && (
           <span className="text-xs text-gray-600">{debugLastPointCount}pts</span>

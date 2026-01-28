@@ -2,6 +2,7 @@ import { useStrokeCapture } from "../../hooks/useStrokeCapture";
 import { useDrawingStore } from "../../stores/drawing-store";
 import { usePageStore } from "../../stores/page-store";
 import { useUndoRedoStore } from "../../stores/undo-redo-store";
+import { showError } from "../../stores/toast-store";
 import * as strokesApi from "../../api/strokes";
 import type { Stroke } from "../../api/strokes";
 import { PAGE_WIDTH, PAGE_HEIGHT } from "../../lib/constants";
@@ -97,7 +98,10 @@ export function DrawingLayer({ pageId }: DrawingLayerProps) {
       stroke: hit,
     });
     removeSavedStroke(pageId, hit.id);
-    strokesApi.deleteStroke(pageId, hit.id).catch(console.error);
+    strokesApi.deleteStroke(pageId, hit.id).catch((err) => {
+      console.error("Failed to delete stroke:", err);
+      showError("Failed to delete stroke from server");
+    });
   }
 
   return (

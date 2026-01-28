@@ -106,10 +106,12 @@ export function NotebooksPage() {
           <RecentPagesMenu />
           <button
             onClick={() => setSearchOpen(true)}
-            className="rounded border border-gray-300 px-4 py-2 text-sm text-gray-800 hover:bg-gray-100"
+            className="flex items-center gap-2 rounded border border-gray-300 px-4 py-2 text-sm text-gray-800 hover:bg-gray-100"
             data-testid="search-button"
+            title="Search (⌘K)"
           >
-            Search
+            <span>Search</span>
+            <kbd className="hidden rounded bg-gray-100 px-1.5 py-0.5 text-xs text-gray-500 sm:inline">⌘K</kbd>
           </button>
           <button
             onClick={() => setSettingsOpen(true)}
