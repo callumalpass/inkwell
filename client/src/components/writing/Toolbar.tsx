@@ -9,6 +9,7 @@ import { OfflineIndicator } from "./OfflineIndicator";
 import { ExportDialog } from "../export/ExportDialog";
 import { useUndoRedo } from "../../hooks/useUndoRedo";
 import { useLinksPanelStore } from "../../stores/links-panel-store";
+import { NotebookSettingsDialog } from "../settings/NotebookSettingsDialog";
 import {
   COLOR_PRESETS,
   CANVAS_MIN_ZOOM,
@@ -83,13 +84,10 @@ export function Toolbar() {
   const openLinksPanel = useLinksPanelStore((s) => s.openPanel);
   const closeLinksPanel = useLinksPanelStore((s) => s.closePanel);
 
-  const tagsPanelOpen = useTagsPanelStore((s) => s.panelOpen);
-  const openTagsPanel = useTagsPanelStore((s) => s.openPanel);
-  const closeTagsPanel = useTagsPanelStore((s) => s.closePanel);
-
   const [expanded, setExpanded] = useState(false);
   const [isCompact, setIsCompact] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
+  const [notebookSettingsOpen, setNotebookSettingsOpen] = useState(false);
   const toolbarRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -327,6 +325,17 @@ export function Toolbar() {
                     {VIEW_MODE_LABELS[vm]}
                   </button>
                 ))}
+              </ToolbarRow>
+
+              {/* Notebook Settings */}
+              <ToolbarRow label="Setup">
+                <button
+                  onClick={() => setNotebookSettingsOpen(true)}
+                  className={`${BTN} ${BTN_INACTIVE}`}
+                  data-testid="toolbar-notebook-settings-compact"
+                >
+                  Notebook Settings
+                </button>
               </ToolbarRow>
 
               {/* Page navigation, add page, zoom */}
@@ -689,6 +698,18 @@ export function Toolbar() {
               ))}
             </div>
 
+            <Divider />
+
+            {/* Notebook Settings */}
+            <button
+              onClick={() => setNotebookSettingsOpen(true)}
+              className={`${BTN} ${BTN_INACTIVE}`}
+              aria-label="Notebook settings"
+              data-testid="toolbar-notebook-settings"
+            >
+              Settings
+            </button>
+
             <OfflineIndicator />
             {debugLastPointCount > 0 && (
               <span className="text-xs text-gray-600">{debugLastPointCount}pts</span>
@@ -705,6 +726,11 @@ export function Toolbar() {
           notebookId={notebookId}
         />
       )}
+
+      <NotebookSettingsDialog
+        open={notebookSettingsOpen}
+        onClose={() => setNotebookSettingsOpen(false)}
+      />
     </div>
   );
 }
