@@ -76,7 +76,16 @@ export const useSyncStore = create<SyncStore>((set) => ({
     })),
 
   endWsReconnect: () =>
-    set((state) => ({
-      wsReconnecting: Math.max(0, state.wsReconnecting - 1),
-    })),
+    set((state) => {
+      const nextReconnecting = Math.max(0, state.wsReconnecting - 1);
+      // If no more reconnect attempts and no connections, status should be disconnected
+      const wsStatus =
+        nextReconnecting === 0 && state.wsConnections === 0
+          ? "disconnected"
+          : state.wsStatus;
+      return {
+        wsReconnecting: nextReconnecting,
+        wsStatus,
+      };
+    }),
 }));
