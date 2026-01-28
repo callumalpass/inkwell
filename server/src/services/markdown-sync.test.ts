@@ -383,6 +383,162 @@ describe("regenerateFrontmatter", () => {
   });
 });
 
+describe("frontmatter duplication", () => {
+  it("regenerateFrontmatter called twice does not duplicate frontmatter", async () => {
+    const { notebookId, pageId } = await setupNotebookAndPage({
+      tags: ["alpha"],
+      transcriptionContent: "First line of content\n\nMore text",
+    });
+
+    await updateMarkdownConfig({
+      frontmatter: {
+        enabled: true,
+        template: {
+          title: "{{transcription.firstLine}}",
+          tags: "{{page.tags}}",
+        },
+      },
+    });
+
+    // Call regenerate twice
+    await regenerateFrontmatter(pageId);
+    await regenerateFrontmatter(pageId);
+
+    const content = await readFile(
+      paths.transcription(notebookId, pageId),
+      "utf-8",
+    );
+
+    // Count frontmatter delimiters — should be exactly 2
+    const delimiterCount = content
+      .split("\n")
+      .filter((line) => line.trim() === "---").length;
+    expect(delimiterCount).toBe(2);
+
+    // Body (after frontmatter) must contain the content exactly once
+    const body = stripFrontmatter(content);
+    const bodyOccurrences = body.split("First line of content").length - 1;
+    expect(bodyOccurrences).toBe(1);
+  });
+
+  it("syncPage does not duplicate frontmatter after regenerateFrontmatter", async () => {
+    const { notebookId, pageId } = await setupNotebookAndPage({
+      tags: ["sync-test"],
+      transcriptionContent: "Sync content here\n\nParagraph two",
+    });
+
+    await updateMarkdownConfig({
+      frontmatter: {
+        enabled: true,
+        template: {
+          title: "{{transcription.firstLine}}",
+          tags: "{{page.tags}}",
+        },
+      },
+      sync: {
+        enabled: true,
+        destination: syncDir,
+        filenameTemplate: "{{page.id}}.md",
+      },
+    });
+
+    // First regenerate frontmatter (writes frontmatter into transcription file)
+    await regenerateFrontmatter(pageId);
+
+    // Then sync — should NOT produce double frontmatter
+    const result = await syncPage(pageId);
+    const synced = await readFile(result.destination, "utf-8");
+
+    const delimiterCount = synced
+      .split("\n")
+      .filter((line) => line.trim() === "---").length;
+    expect(delimiterCount).toBe(2);
+
+    // Body (after frontmatter) should contain the content exactly once
+    const body = stripFrontmatter(synced);
+    const bodyOccurrences = body.split("Sync content here").length - 1;
+    expect(bodyOccurrences).toBe(1);
+  });
+
+  it("syncPage produces consistent output on repeated calls", async () => {
+    const { pageId } = await setupNotebookAndPage({
+      transcriptionContent: "Repeatable content\n\nBody",
+    });
+
+    await updateMarkdownConfig({
+      frontmatter: {
+        enabled: true,
+        template: { title: "{{transcription.firstLine}}" },
+      },
+      sync: {
+        enabled: true,
+        destination: syncDir,
+        filenameTemplate: "{{page.id}}.md",
+      },
+    });
+
+    const result1 = await syncPage(pageId);
+    const content1 = await readFile(result1.destination, "utf-8");
+
+    // Sync again — the transcription file itself hasn't changed,
+    // but if generatePageMarkdown doesn't strip, regenerateFrontmatter
+    // could have made the source file carry frontmatter
+    await regenerateFrontmatter(pageId);
+    const result2 = await syncPage(pageId);
+    const content2 = await readFile(result2.destination, "utf-8");
+
+    // Both outputs should have exactly one frontmatter block
+    for (const content of [content1, content2]) {
+      const delimiterCount = content
+        .split("\n")
+        .filter((line) => line.trim() === "---").length;
+      expect(delimiterCount).toBe(2);
+    }
+  });
+
+  it("syncNotebook does not duplicate frontmatter after regeneration", async () => {
+    const { notebookId, pageId } = await setupNotebookAndPage({
+      tags: ["bulk"],
+      transcriptionContent: "Notebook page content\n\nDetails",
+    });
+
+    await updateMarkdownConfig({
+      frontmatter: {
+        enabled: true,
+        template: {
+          title: "{{transcription.firstLine}}",
+          tags: "{{page.tags}}",
+        },
+      },
+      sync: {
+        enabled: true,
+        destination: syncDir,
+        filenameTemplate: "{{notebook.name}}/{{page.id}}.md",
+      },
+    });
+
+    // Regenerate frontmatter first
+    await regenerateFrontmatter(pageId);
+
+    // Then bulk sync
+    const result = await syncNotebook(notebookId);
+    expect(result.synced).toBe(1);
+
+    const synced = await readFile(
+      join(syncDir, "Test Notebook", "pg_test1.md"),
+      "utf-8",
+    );
+
+    const delimiterCount = synced
+      .split("\n")
+      .filter((line) => line.trim() === "---").length;
+    expect(delimiterCount).toBe(2);
+
+    const body = stripFrontmatter(synced);
+    expect(body.split("Notebook page content").length - 1).toBe(1);
+  });
+});
+
 describe("stripFrontmatter", () => {
   it("strips YAML frontmatter from content", () => {
     const input = "---\ntitle: Test\ntags:\n  - a\n---\nBody content here";

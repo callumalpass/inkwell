@@ -270,6 +270,58 @@ describe("buildMarkdownWithFrontmatter", () => {
     const result = buildMarkdownWithFrontmatter(config, ctx, "Just content");
     expect(result).toBe("Just content");
   });
+
+  it("should not contain duplicate frontmatter delimiters", () => {
+    const ctx = makeContext();
+    const config = makeConfig({
+      frontmatter: {
+        enabled: true,
+        template: { title: "{{transcription.firstLine}}" },
+      },
+    });
+    const result = buildMarkdownWithFrontmatter(
+      config,
+      ctx,
+      "Hello world\n\nSome content",
+    );
+
+    // Count occurrences of "---" lines
+    const delimiterCount = result
+      .split("\n")
+      .filter((line) => line.trim() === "---").length;
+    expect(delimiterCount).toBe(2);
+  });
+
+  it("should only have one frontmatter block when content already has frontmatter", () => {
+    const ctx = makeContext();
+    const config = makeConfig({
+      frontmatter: {
+        enabled: true,
+        template: { title: "{{transcription.firstLine}}" },
+      },
+    });
+
+    // Simulate content that already includes frontmatter (from a prior write)
+    const contentWithExistingFrontmatter =
+      "---\ntitle: Old Title\n---\nHello world\n\nSome content";
+
+    const result = buildMarkdownWithFrontmatter(
+      config,
+      ctx,
+      contentWithExistingFrontmatter,
+    );
+
+    // Should have exactly 2 "---" delimiters, not 4
+    const delimiterCount = result
+      .split("\n")
+      .filter((line) => line.trim() === "---").length;
+    expect(delimiterCount).toBe(2);
+
+    // The body should not contain the old frontmatter
+    const body = result.split("---").slice(2).join("---").trim();
+    expect(body).not.toContain("title: Old Title");
+    expect(body).toContain("Hello world");
+  });
 });
 
 describe("resolveFilenameTemplate", () => {

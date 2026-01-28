@@ -9,6 +9,7 @@ import { paths } from "../storage/paths.js";
 import {
   buildMarkdownWithFrontmatter,
   resolveFilenameTemplate,
+  stripFrontmatter,
   type TemplateContext,
 } from "./frontmatter.js";
 
@@ -21,10 +22,12 @@ async function buildContext(
 ): Promise<TemplateContext> {
   let transcriptionContent: string | null = null;
   try {
-    transcriptionContent = await readFile(
+    const raw = await readFile(
       paths.transcription(notebook.id, page.id),
       "utf-8",
     );
+    // Strip any existing frontmatter so template variables resolve against the body
+    transcriptionContent = stripFrontmatter(raw);
   } catch (err: any) {
     if (err.code !== "ENOENT") throw err;
   }
@@ -233,28 +236,8 @@ export async function regenerateFrontmatter(pageId: string): Promise<void> {
   await writeFile(filePath, newContent, "utf-8");
 }
 
-/**
- * Strip YAML frontmatter from markdown content, returning only the body.
- */
-export function stripFrontmatter(content: string): string {
-  if (!content.startsWith("---\n") && !content.startsWith("---\r\n")) {
-    return content;
-  }
-
-  // Find the closing ---
-  const endIndex = content.indexOf("\n---\n", 4);
-  if (endIndex === -1) {
-    // Check for --- at very end
-    const endIndex2 = content.indexOf("\n---", 4);
-    if (endIndex2 !== -1 && endIndex2 + 4 >= content.length) {
-      return "";
-    }
-    return content;
-  }
-
-  // Return everything after the closing ---\n
-  return content.substring(endIndex + 5);
-}
+// Re-export stripFrontmatter so existing imports from this module continue to work.
+export { stripFrontmatter } from "./frontmatter.js";
 
 export class SyncError extends Error {
   code: string;

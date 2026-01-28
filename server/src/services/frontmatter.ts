@@ -171,6 +171,7 @@ export function generateFrontmatter(
 
 /**
  * Combines frontmatter with transcription content into a complete markdown file.
+ * Strips any existing frontmatter from the content before prepending new frontmatter.
  */
 export function buildMarkdownWithFrontmatter(
   config: MarkdownConfig,
@@ -178,8 +179,32 @@ export function buildMarkdownWithFrontmatter(
   transcriptionContent: string,
 ): string {
   const frontmatter = generateFrontmatter(config, context);
-  if (!frontmatter) return transcriptionContent;
-  return frontmatter + "\n" + transcriptionContent;
+  const body = stripFrontmatter(transcriptionContent);
+  if (!frontmatter) return body;
+  return frontmatter + "\n" + body;
+}
+
+/**
+ * Strip YAML frontmatter from markdown content, returning only the body.
+ */
+export function stripFrontmatter(content: string): string {
+  if (!content.startsWith("---\n") && !content.startsWith("---\r\n")) {
+    return content;
+  }
+
+  // Find the closing ---
+  const endIndex = content.indexOf("\n---\n", 4);
+  if (endIndex === -1) {
+    // Check for --- at very end
+    const endIndex2 = content.indexOf("\n---", 4);
+    if (endIndex2 !== -1 && endIndex2 + 4 >= content.length) {
+      return "";
+    }
+    return content;
+  }
+
+  // Return everything after the closing ---\n
+  return content.substring(endIndex + 5);
 }
 
 /**
