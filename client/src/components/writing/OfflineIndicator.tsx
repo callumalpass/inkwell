@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
 import { useNetworkStatus } from "../../hooks/useNetworkStatus";
+import { useSyncStore } from "../../stores/sync-store";
 import { pendingCount } from "../../lib/offline-queue";
 
 export function OfflineIndicator() {
   const online = useNetworkStatus();
+  const wsStatus = useSyncStore((s) => s.wsStatus);
   const [queued, setQueued] = useState(0);
 
   useEffect(() => {
@@ -26,7 +28,9 @@ export function OfflineIndicator() {
     };
   }, [online]);
 
-  if (online && queued === 0) return null;
+  // Show indicator if offline, syncing, or WebSocket is reconnecting
+  const showWsReconnecting = online && wsStatus === "reconnecting";
+  if (online && queued === 0 && !showWsReconnecting) return null;
 
   return (
     <div
@@ -35,10 +39,17 @@ export function OfflineIndicator() {
     >
       <span
         className={`inline-block h-2 w-2 rounded-full ${
-          online ? "bg-yellow-500" : "bg-red-500"
+          !online
+            ? "bg-red-500"
+            : showWsReconnecting
+            ? "animate-pulse bg-orange-500"
+            : "bg-yellow-500"
         }`}
       />
       {!online && <span className="text-red-700">Offline</span>}
+      {online && showWsReconnecting && queued === 0 && (
+        <span className="text-orange-700">Reconnecting...</span>
+      )}
       {online && queued > 0 && (
         <span className="text-yellow-700">
           Syncing {queued} {queued === 1 ? "batch" : "batches"}...

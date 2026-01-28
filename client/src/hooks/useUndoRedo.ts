@@ -1,6 +1,7 @@
 import { useCallback, useEffect } from "react";
 import { useUndoRedoStore } from "../stores/undo-redo-store";
 import { usePageStore } from "../stores/page-store";
+import { showError } from "../stores/toast-store";
 import * as strokesApi from "../api/strokes";
 
 /**
@@ -25,12 +26,16 @@ export function useUndoRedo(pageId: string) {
       case "add-stroke":
         // Undo drawing → remove the stroke
         pageStore.removeSavedStroke(pageId, command.stroke.id);
-        strokesApi.deleteStroke(pageId, command.stroke.id).catch(console.error);
+        strokesApi.deleteStroke(pageId, command.stroke.id).catch(() => {
+          showError("Failed to sync undo. Your changes may not be saved.");
+        });
         break;
       case "remove-stroke":
         // Undo erasing → re-add the stroke
         pageStore.addSavedStrokes(pageId, [command.stroke]);
-        strokesApi.postStrokes(pageId, [command.stroke]).catch(console.error);
+        strokesApi.postStrokes(pageId, [command.stroke]).catch(() => {
+          showError("Failed to sync undo. Your changes may not be saved.");
+        });
         break;
     }
   }, [pageId]);
@@ -45,12 +50,16 @@ export function useUndoRedo(pageId: string) {
       case "add-stroke":
         // Redo drawing → re-add the stroke
         pageStore.addSavedStrokes(pageId, [command.stroke]);
-        strokesApi.postStrokes(pageId, [command.stroke]).catch(console.error);
+        strokesApi.postStrokes(pageId, [command.stroke]).catch(() => {
+          showError("Failed to sync redo. Your changes may not be saved.");
+        });
         break;
       case "remove-stroke":
         // Redo erasing → remove the stroke again
         pageStore.removeSavedStroke(pageId, command.stroke.id);
-        strokesApi.deleteStroke(pageId, command.stroke.id).catch(console.error);
+        strokesApi.deleteStroke(pageId, command.stroke.id).catch(() => {
+          showError("Failed to sync redo. Your changes may not be saved.");
+        });
         break;
     }
   }, [pageId]);

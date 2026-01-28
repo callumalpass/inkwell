@@ -1,6 +1,7 @@
 import { useEffect, useRef, useMemo } from "react";
 import { usePageStore } from "../stores/page-store";
 import { useTranscriptionStore } from "../stores/transcription-store";
+import { useSyncStore } from "../stores/sync-store";
 import { showSuccess, showError } from "../stores/toast-store";
 
 export function useMultiPageWebSocket(pageIds: string[]) {
@@ -10,6 +11,9 @@ export function useMultiPageWebSocket(pageIds: string[]) {
   const removeSavedStroke = usePageStore((s) => s.removeSavedStroke);
   const clearSavedStrokes = usePageStore((s) => s.clearSavedStrokes);
   const updateTranscriptionStatus = useTranscriptionStore((s) => s.updateStatus);
+  const setWsConnected = useSyncStore((s) => s.setWsConnected);
+  const startWsReconnect = useSyncStore((s) => s.startWsReconnect);
+  const endWsReconnect = useSyncStore((s) => s.endWsReconnect);
 
   // Memoize the page IDs to prevent unnecessary effect runs
   const pageIdsKey = useMemo(() => pageIds.join(","), [pageIds]);
@@ -53,6 +57,8 @@ export function useMultiPageWebSocket(pageIds: string[]) {
         ws.onopen = () => {
           // Reset retry count on successful connection
           retryCount.set(pageId, 0);
+          setWsConnected(true);
+          endWsReconnect();
         };
 
         ws.onmessage = (event) => {
@@ -103,11 +109,13 @@ export function useMultiPageWebSocket(pageIds: string[]) {
 
         ws.onclose = () => {
           wsMap.delete(pageId);
+          setWsConnected(false);
           if (shouldReconnect.get(pageId)) {
             const attempt = retryCount.get(pageId) ?? 0;
             // Exponential backoff: 1s, 2s, 4s, 8s, capped at 30s
             const delay = Math.min(1000 * Math.pow(2, attempt), 30000);
             retryCount.set(pageId, attempt + 1);
+            startWsReconnect();
             // Track the timer so we can clear it on cleanup
             const timer = setTimeout(() => {
               timers.delete(pageId);
@@ -141,5 +149,5 @@ export function useMultiPageWebSocket(pageIds: string[]) {
       }
       wsMap.clear();
     };
-  }, [pageIdsKey, addSavedStrokes, removeSavedStroke, clearSavedStrokes, updateTranscriptionStatus]);
+  }, [pageIdsKey, addSavedStrokes, removeSavedStroke, clearSavedStrokes, updateTranscriptionStatus, setWsConnected, startWsReconnect, endWsReconnect]);
 }

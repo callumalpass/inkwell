@@ -60,7 +60,7 @@ export function NotebookCard({ notebook, onClick, onDelete, onDuplicate, onExpor
         {thumbnailUrl ? (
           <img
             src={thumbnailUrl}
-            alt=""
+            alt={`Preview of ${notebook.title}`}
             className="h-full w-full object-contain"
             loading="lazy"
           />
@@ -82,12 +82,24 @@ export function NotebookCard({ notebook, onClick, onDelete, onDuplicate, onExpor
               onClick={(e) => e.stopPropagation()}
               className="flex-1 rounded border border-gray-300 px-2 py-1 text-sm font-medium text-gray-900 focus:border-gray-500 focus:outline-none"
               data-testid="notebook-rename-input"
+              aria-label="Notebook name. Press Enter to save, Escape to cancel"
             />
           ) : (
             <h3
               className="font-medium text-gray-900"
               onDoubleClick={handleDoubleClick}
-              title="Double-click to rename"
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === "F2") {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setEditValue(notebook.title);
+                  setIsEditing(true);
+                }
+              }}
+              tabIndex={0}
+              role="button"
+              aria-label={`${notebook.title}. Press Enter or F2 to rename`}
+              title="Double-click or press Enter to rename"
             >
               {notebook.title}
             </h3>

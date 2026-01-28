@@ -1,8 +1,10 @@
+import { useState } from "react";
 import { useNotebookPagesStore } from "../../../stores/notebook-pages-store";
 import { useViewStore } from "../../../stores/view-store";
 import { useUIStore } from "../../../stores/ui-store";
 import { useNavigate, useParams } from "react-router-dom";
 import { ToolbarButton, Divider } from "./ToolbarPrimitives";
+import { showError } from "../../../stores/toast-store";
 
 export function PageNavControls() {
   const setPageJumpOpen = useUIStore((s) => s.setPageJumpOpen);
@@ -14,6 +16,7 @@ export function PageNavControls() {
   const addNewPage = useNotebookPagesStore((s) => s.addNewPage);
   const navigate = useNavigate();
   const { notebookId } = useParams<{ notebookId: string }>();
+  const [creating, setCreating] = useState(false);
 
   const handlePageNav = (direction: "prev" | "next") => {
     if (direction === "prev") {
@@ -32,13 +35,18 @@ export function PageNavControls() {
   };
 
   const handleAddPage = async () => {
+    if (creating) return;
+    setCreating(true);
     try {
       const page = await addNewPage();
       if (notebookId) {
         navigate(`/notebook/${notebookId}/page/${page.id}`, { replace: true });
       }
     } catch (err) {
-      console.error("Failed to create page:", err);
+      const message = err instanceof Error ? err.message : "Failed to create page";
+      showError(message);
+    } finally {
+      setCreating(false);
     }
   };
 
@@ -75,9 +83,11 @@ export function PageNavControls() {
 
       <button
         onClick={handleAddPage}
-        className="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-gray-800"
+        disabled={creating}
+        className={`rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-gray-800 ${creating ? "opacity-50" : ""}`}
+        aria-label="Add new page"
       >
-        + Page
+        {creating ? "..." : "+ Page"}
       </button>
     </>
   );

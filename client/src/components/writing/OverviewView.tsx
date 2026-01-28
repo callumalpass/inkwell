@@ -60,6 +60,8 @@ export function OverviewView() {
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [transcribing, setTranscribing] = useState(false);
   const [duplicating, setDuplicating] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [moving, setMoving] = useState(false);
   const [focusedIndex, setFocusedIndex] = useState<number>(-1);
 
   const containerRef = useRef<HTMLDivElement>(null);
@@ -247,6 +249,7 @@ export function OverviewView() {
 
   const handleDeleteConfirm = async () => {
     setDeleteConfirmOpen(false);
+    setDeleting(true);
     try {
       await removePages(selectedIds);
       showSuccess(
@@ -255,11 +258,14 @@ export function OverviewView() {
       setSelected(new Set());
     } catch (err: unknown) {
       showError(err instanceof Error ? err.message : "Failed to delete pages");
+    } finally {
+      setDeleting(false);
     }
   };
 
   const handleMove = async (targetNotebookId: string) => {
     if (!targetNotebookId || selectedCount === 0) return;
+    setMoving(true);
     try {
       await movePages(selectedIds, targetNotebookId);
       showSuccess(
@@ -269,6 +275,8 @@ export function OverviewView() {
       setMoveOpen(false);
     } catch (err: unknown) {
       showError(err instanceof Error ? err.message : "Failed to move pages");
+    } finally {
+      setMoving(false);
     }
   };
 
@@ -404,10 +412,10 @@ export function OverviewView() {
           </button>
           <button
             onClick={() => setMoveOpen(true)}
-            className={`${BTN} ${selectedCount ? BTN_INACTIVE : `${BTN_INACTIVE} ${BTN_DISABLED}`}`}
-            disabled={!selectedCount}
+            className={`${BTN} ${selectedCount && !moving ? BTN_INACTIVE : `${BTN_INACTIVE} ${BTN_DISABLED}`}`}
+            disabled={!selectedCount || moving}
           >
-            Move
+            {moving ? "Moving..." : "Move"}
           </button>
           <button
             onClick={handleTranscribeSelected}
@@ -426,10 +434,10 @@ export function OverviewView() {
           </button>
           <button
             onClick={handleDeleteClick}
-            className={`${BTN} ${selectedCount ? "bg-red-600 text-white" : `${BTN_INACTIVE} ${BTN_DISABLED}`}`}
-            disabled={!selectedCount}
+            className={`${BTN} ${selectedCount && !deleting ? "bg-red-600 text-white" : `${BTN_INACTIVE} ${BTN_DISABLED}`}`}
+            disabled={!selectedCount || deleting}
           >
-            Delete
+            {deleting ? "Deleting..." : "Delete"}
           </button>
         </div>
       </div>
@@ -466,6 +474,7 @@ export function OverviewView() {
                     type="checkbox"
                     checked={selectedCard}
                     onChange={() => toggleSelect(page.id)}
+                    aria-label={`Select page ${page.pageNumber}`}
                   />
                   Select
                 </label>
