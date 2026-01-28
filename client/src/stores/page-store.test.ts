@@ -21,7 +21,8 @@ beforeEach(() => {
 });
 
 describe("addSavedStrokes", () => {
-  it("appends strokes to a page", () => {
+  it("appends strokes to a loaded page", () => {
+    usePageStore.setState({ strokesByPage: { page1: [] } });
     const s1 = makeStroke("s1");
     const s2 = makeStroke("s2");
 
@@ -31,13 +32,14 @@ describe("addSavedStrokes", () => {
     expect(usePageStore.getState().strokesByPage["page1"]).toEqual([s1, s2]);
   });
 
-  it("creates entry for new page", () => {
+  it("skips when page is not loaded (prevents partial entries from late WS echoes)", () => {
     const s = makeStroke("s1");
     usePageStore.getState().addSavedStrokes("newPage", [s]);
-    expect(usePageStore.getState().strokesByPage["newPage"]).toHaveLength(1);
+    expect(usePageStore.getState().strokesByPage["newPage"]).toBeUndefined();
   });
 
   it("deduplicates strokes by id (WebSocket echo)", () => {
+    usePageStore.setState({ strokesByPage: { page1: [] } });
     const s1 = makeStroke("s1");
     const s2 = makeStroke("s2");
 
@@ -52,6 +54,7 @@ describe("addSavedStrokes", () => {
   });
 
   it("adds novel strokes while skipping duplicates", () => {
+    usePageStore.setState({ strokesByPage: { page1: [] } });
     const s1 = makeStroke("s1");
     const s2 = makeStroke("s2");
     const s3 = makeStroke("s3");
@@ -66,6 +69,7 @@ describe("addSavedStrokes", () => {
   });
 
   it("returns unchanged state when all strokes are duplicates", () => {
+    usePageStore.setState({ strokesByPage: { page1: [] } });
     const s1 = makeStroke("s1");
     usePageStore.getState().addSavedStrokes("page1", [s1]);
 
@@ -82,7 +86,7 @@ describe("removeSavedStroke", () => {
   it("removes a specific stroke by id", () => {
     const s1 = makeStroke("s1");
     const s2 = makeStroke("s2");
-    usePageStore.getState().addSavedStrokes("page1", [s1, s2]);
+    usePageStore.setState({ strokesByPage: { page1: [s1, s2] } });
 
     usePageStore.getState().removeSavedStroke("page1", "s1");
 
@@ -93,7 +97,7 @@ describe("removeSavedStroke", () => {
 
   it("does nothing if stroke id not found", () => {
     const s1 = makeStroke("s1");
-    usePageStore.getState().addSavedStrokes("page1", [s1]);
+    usePageStore.setState({ strokesByPage: { page1: [s1] } });
     usePageStore.getState().removeSavedStroke("page1", "missing");
     expect(usePageStore.getState().strokesByPage["page1"]).toHaveLength(1);
   });
@@ -101,7 +105,7 @@ describe("removeSavedStroke", () => {
 
 describe("clearSavedStrokes", () => {
   it("empties strokes for a page", () => {
-    usePageStore.getState().addSavedStrokes("page1", [makeStroke("s1"), makeStroke("s2")]);
+    usePageStore.setState({ strokesByPage: { page1: [makeStroke("s1"), makeStroke("s2")] } });
     usePageStore.getState().clearSavedStrokes("page1");
     expect(usePageStore.getState().strokesByPage["page1"]).toEqual([]);
   });
@@ -109,14 +113,15 @@ describe("clearSavedStrokes", () => {
 
 describe("unloadPageStrokes", () => {
   it("removes page entry entirely", () => {
-    usePageStore.getState().addSavedStrokes("page1", [makeStroke("s1")]);
+    usePageStore.setState({ strokesByPage: { page1: [makeStroke("s1")] } });
     usePageStore.getState().unloadPageStrokes("page1");
     expect(usePageStore.getState().strokesByPage["page1"]).toBeUndefined();
   });
 
   it("preserves other pages", () => {
-    usePageStore.getState().addSavedStrokes("page1", [makeStroke("s1")]);
-    usePageStore.getState().addSavedStrokes("page2", [makeStroke("s2")]);
+    usePageStore.setState({
+      strokesByPage: { page1: [makeStroke("s1")], page2: [makeStroke("s2")] },
+    });
     usePageStore.getState().unloadPageStrokes("page1");
     expect(usePageStore.getState().strokesByPage["page1"]).toBeUndefined();
     expect(usePageStore.getState().strokesByPage["page2"]).toHaveLength(1);

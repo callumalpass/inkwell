@@ -1186,6 +1186,17 @@ Frontend:
 
 **Milestone**: Transcription markdown files include configurable frontmatter and are automatically synced to an external directory (e.g., an Obsidian vault).
 
+### Post-release fixes
+
+- [x] Fix CanvasView discarding flushed strokes on page unload (strokes saved to server now)
+- [x] Fix stroke duplication from WebSocket echo — `addSavedStrokes` now deduplicates by stroke ID
+- [x] Fix page unload ordering in ScrollPageListView and CanvasView (flush + optimistic save before unload)
+- [x] Guard `addSavedStrokes` against unloaded pages to prevent partial entries from late WebSocket echoes
+- [x] Track in-flight saves so `loadPageStrokes` waits for pending POSTs before fetching from server
+- [x] Add `aria-label` to width picker buttons for accessibility and testability
+- [x] Fix e2e test selectors: pen button exact match, width button aria-label, eraser drag path, compact mode resize ordering
+- [x] Add comprehensive scroll-stroke-drop e2e tests (7 tests covering stroke survival, duplication, rapid drawing, wheel scroll, multi-page)
+
 ---
 
 

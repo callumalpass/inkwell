@@ -40,6 +40,14 @@ function seedPending(pageId: string, strokes: Stroke[]) {
       [pageId]: strokes,
     },
   });
+  // Ensure the page is initialized in the page store (as loadPageStrokes would
+  // in real usage) so addSavedStrokes doesn't skip the unloaded-page guard.
+  const current = usePageStore.getState().strokesByPage;
+  if (!(pageId in current)) {
+    usePageStore.setState({
+      strokesByPage: { ...current, [pageId]: [] },
+    });
+  }
 }
 
 /** Wait for at least one batch interval to fire. */

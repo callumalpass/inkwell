@@ -12,6 +12,7 @@ export function WidthPicker({ showLabel }: { showLabel?: boolean }) {
     <button
       key={w}
       onClick={() => setWidth(w)}
+      aria-label={`Width ${w}`}
       className={`flex h-9 w-9 items-center justify-center rounded-md border ${
         width === w ? "border-black bg-gray-100" : "border-gray-300 bg-white"
       }`}

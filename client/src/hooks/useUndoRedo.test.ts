@@ -22,7 +22,8 @@ const makeStroke = (id: string): Stroke => ({
 
 beforeEach(() => {
   useUndoRedoStore.setState({ historyByPage: {} });
-  usePageStore.setState({ strokesByPage: {}, loadingPages: new Set() });
+  // Initialize page1 entry so addSavedStrokes recognises the page as loaded.
+  usePageStore.setState({ strokesByPage: { page1: [] }, loadingPages: new Set() });
   vi.clearAllMocks();
 });
 

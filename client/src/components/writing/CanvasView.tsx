@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { useNotebookPagesStore } from "../../stores/notebook-pages-store";
-import { usePageStore } from "../../stores/page-store";
+import { usePageStore, trackSave } from "../../stores/page-store";
 import { useDrawingStore } from "../../stores/drawing-store";
 import { useUndoRedoStore } from "../../stores/undo-redo-store";
 import { useMultiPageWebSocket } from "../../hooks/useMultiPageWebSocket";
@@ -119,9 +119,10 @@ export function CanvasView() {
         const flushed = useDrawingStore.getState().flushPendingForPage(pid);
         if (flushed.length > 0) {
           usePageStore.getState().addSavedStrokes(pid, flushed);
-          postStrokes(pid, flushed).catch(() => {
+          const savePromise = postStrokes(pid, flushed).catch(() => {
             enqueueStrokes(pid, flushed).catch(console.error);
           });
+          trackSave(pid, savePromise);
         }
         unload(pid);
         useUndoRedoStore.getState().clearPage(pid);

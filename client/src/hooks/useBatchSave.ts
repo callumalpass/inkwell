@@ -1,13 +1,13 @@
 import { useEffect, useRef } from "react";
 import { useDrawingStore } from "../stores/drawing-store";
-import { usePageStore } from "../stores/page-store";
+import { usePageStore, trackSave } from "../stores/page-store";
 import { useUndoRedoStore } from "../stores/undo-redo-store";
 import { postStrokes } from "../api/strokes";
 import { enqueueStrokes } from "../lib/offline-queue";
 import { BATCH_SAVE_INTERVAL_MS } from "../lib/constants";
 import type { Stroke } from "../api/strokes";
 
-async function saveStrokes(pid: string, strokes: Stroke[]) {
+function saveStrokes(pid: string, strokes: Stroke[]) {
   const pageStore = usePageStore.getState();
   const undoStore = useUndoRedoStore.getState();
 
@@ -18,14 +18,14 @@ async function saveStrokes(pid: string, strokes: Stroke[]) {
     undoStore.record({ type: "add-stroke", pageId: pid, stroke });
   }
 
-  try {
-    await postStrokes(pid, strokes);
-  } catch {
+  const savePromise = postStrokes(pid, strokes).catch(async () => {
     // Network failure — persist to IndexedDB for later sync
     await enqueueStrokes(pid, strokes).catch((err) =>
       console.error(`Failed to enqueue strokes offline for ${pid}:`, err),
     );
-  }
+  });
+  // Register so loadPageStrokes waits for the server to have this data.
+  trackSave(pid, savePromise);
 }
 
 function flushAndSave(pageId?: string) {

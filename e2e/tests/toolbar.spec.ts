@@ -28,7 +28,7 @@ test.describe("Toolbar - Eraser tool", () => {
   test("selecting eraser changes active tool and hides pen-only options", async ({ page }) => {
     await openNotebookSingleMode(page, notebookTitle);
 
-    const penBtn = page.getByRole("button", { name: "pen" });
+    const penBtn = page.getByRole("button", { name: "pen", exact: true });
     const eraserBtn = page.getByRole("button", { name: "eraser" });
 
     // Pen should be active by default
@@ -65,7 +65,7 @@ test.describe("Toolbar - Eraser tool", () => {
     expect(cursor).toBe("crosshair");
 
     // Switch back to pen — cursor should be default
-    await page.getByRole("button", { name: "pen" }).click();
+    await page.getByRole("button", { name: "pen", exact: true }).click();
     const penCursor = await page.locator(".touch-none").first().evaluate(
       (el) => getComputedStyle(el).cursor,
     );
@@ -85,16 +85,21 @@ test.describe("Toolbar - Eraser tool", () => {
     // Switch to eraser
     await page.getByRole("button", { name: "eraser" }).click();
 
-    // Click on the stroke area to erase it
+    // Drag the eraser along the same diagonal path as the drawn stroke.
+    // The stroke was drawn from (30%, 30%) to (70%, 70%) of the drawing layer.
+    // The eraser hit-tests against individual stroke points, so we need to
+    // follow the same path to pass close enough to an actual stored point.
     const drawingLayer = page.locator(".touch-none").first();
     const box = await drawingLayer.boundingBox();
     if (!box) throw new Error("No bounding box");
 
-    // Click in the middle of the drawn stroke area (stroke goes from 30% to 70%)
-    const midX = box.x + box.width * 0.5;
-    const midY = box.y + box.height * 0.5;
-    await page.mouse.move(midX, midY);
+    const startX = box.x + box.width * 0.3;
+    const startY = box.y + box.height * 0.3;
+    const endX = box.x + box.width * 0.7;
+    const endY = box.y + box.height * 0.7;
+    await page.mouse.move(startX, startY);
     await page.mouse.down();
+    await page.mouse.move(endX, endY, { steps: 20 });
     await page.mouse.up();
 
     // The stroke should be removed
@@ -307,10 +312,12 @@ test.describe("Toolbar - Compact mode", () => {
   });
 
   test("compact mode expansion shows color and style options", async ({ page }) => {
-    // Start with narrow viewport
-    await page.setViewportSize({ width: 600, height: 800 });
-
+    // Open notebook at default width, then switch to single mode before resizing.
+    // The "Single" button may be hidden in the compact expanded panel at 600px.
     await openNotebookSingleMode(page, notebookTitle);
+
+    // Resize to narrow viewport to trigger compact mode
+    await page.setViewportSize({ width: 600, height: 800 });
 
     // Click expand
     const expandBtn = page.getByRole("button", { name: "Expand toolbar" });
@@ -348,11 +355,8 @@ test.describe("Toolbar - Stroke width", () => {
   test("stroke width affects saved stroke data", async ({ page }) => {
     await openNotebookSingleMode(page, notebookTitle);
 
-    // Find width buttons — they should be in the toolbar
-    // The width buttons use the ToolbarButton component with width values
-    // Click a wider width (8)
-    const widthButtons = page.locator("button").filter({ hasText: /^[2358]$/ });
-    const wideBtn = widthButtons.last();
+    // Click the widest width preset (8)
+    const wideBtn = page.getByRole("button", { name: "Width 8" });
     await wideBtn.click();
 
     // Draw a stroke

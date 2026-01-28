@@ -117,8 +117,8 @@ export async function openNotebook(page: Page, notebookTitle: string) {
   await expect(page.getByText("Notebooks")).toBeVisible();
   await page.getByText(notebookTitle).first().click();
   await page.waitForURL(/\/notebook\/nb_.*\/page\//);
-  // Wait for toolbar
-  await expect(page.getByRole("button", { name: "pen" })).toBeVisible();
+  // Wait for toolbar — use exact match to avoid matching "Pen settings" in compact mode
+  await expect(page.getByRole("button", { name: "pen", exact: true })).toBeVisible();
 }
 
 /** Navigate to notebook and switch to single page mode for consistent drawing layer. */

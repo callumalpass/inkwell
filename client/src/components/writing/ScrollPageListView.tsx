@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useCallback } from "react";
 import { useNotebookPagesStore } from "../../stores/notebook-pages-store";
-import { usePageStore } from "../../stores/page-store";
+import { usePageStore, trackSave } from "../../stores/page-store";
 import { useDrawingStore } from "../../stores/drawing-store";
 import { useUndoRedoStore } from "../../stores/undo-redo-store";
 import { useMultiPageWebSocket } from "../../hooks/useMultiPageWebSocket";
@@ -44,9 +44,10 @@ export function ScrollPageListView() {
           // Optimistically add to saved state so they aren't absent during the
           // network call (addSavedStrokes deduplicates by ID).
           usePageStore.getState().addSavedStrokes(pid, flushed);
-          postStrokes(pid, flushed).catch(() => {
+          const savePromise = postStrokes(pid, flushed).catch(() => {
             enqueueStrokes(pid, flushed).catch(console.error);
           });
+          trackSave(pid, savePromise);
         }
         unloadPageStrokes(pid);
         useUndoRedoStore.getState().clearPage(pid);
