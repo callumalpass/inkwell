@@ -1,9 +1,12 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { useNotebookPagesStore } from "../../stores/notebook-pages-store";
 import { usePageStore } from "../../stores/page-store";
+import { useDrawingStore } from "../../stores/drawing-store";
+import { useUndoRedoStore } from "../../stores/undo-redo-store";
 import { useMultiPageWebSocket } from "../../hooks/useMultiPageWebSocket";
 import { useViewStore } from "../../stores/view-store";
 import { PageSurface } from "./PageSurface";
+import type { GridType } from "./PageBackground";
 import {
   PAGE_WIDTH,
   PAGE_HEIGHT,
@@ -16,6 +19,7 @@ const PAGE_RENDER_HEIGHT = PAGE_RENDER_WIDTH * (PAGE_HEIGHT / PAGE_WIDTH);
 
 export function CanvasView() {
   const pages = useNotebookPagesStore((s) => s.pages);
+  const gridType = useNotebookPagesStore((s) => (s.settings.gridType ?? "none") as GridType);
   const updatePagePosition = useNotebookPagesStore((s) => s.updatePagePosition);
   const canvasTransform = useViewStore((s) => s.canvasTransform);
   const setCanvasTransform = useViewStore((s) => s.setCanvasTransform);
@@ -27,13 +31,15 @@ export function CanvasView() {
   const isPanning = useRef(false);
   const lastPointer = useRef({ x: 0, y: 0 });
 
-  // Dragging state
+  // Dragging state — offset stored in ref to avoid stale closures in pointerUp
   const dragState = useRef<{
     pageId: string;
     startX: number;
     startY: number;
     origCanvasX: number;
     origCanvasY: number;
+    dx: number;
+    dy: number;
   } | null>(null);
   const [dragPageId, setDragPageId] = useState<string | null>(null);
   const [dragOffset, setDragOffset] = useState({ dx: 0, dy: 0 });
@@ -77,10 +83,22 @@ export function CanvasView() {
 
   useMultiPageWebSocket(visibleArray);
 
+  const prevCanvasVisibleRef = useRef<Set<string>>(new Set());
+
   useEffect(() => {
     for (const pid of visiblePageIds) {
       loadPageStrokes(pid);
     }
+    // Unload strokes and associated state for pages that left the canvas viewport
+    const unload = usePageStore.getState().unloadPageStrokes;
+    for (const pid of prevCanvasVisibleRef.current) {
+      if (!visiblePageIds.has(pid)) {
+        unload(pid);
+        useUndoRedoStore.getState().clearPage(pid);
+        useDrawingStore.getState().flushPendingForPage(pid);
+      }
+    }
+    prevCanvasVisibleRef.current = new Set(visiblePageIds);
   }, [visiblePageIds, loadPageStrokes]);
 
   const handleWheel = useCallback(
@@ -140,6 +158,8 @@ export function CanvasView() {
         startY: e.clientY,
         origCanvasX: canvasX,
         origCanvasY: canvasY,
+        dx: 0,
+        dy: 0,
       };
       setDragPageId(pageId);
       setDragOffset({ dx: 0, dy: 0 });
@@ -165,6 +185,8 @@ export function CanvasView() {
       if (dragState.current) {
         const dx = (e.clientX - dragState.current.startX) / canvasTransform.scale;
         const dy = (e.clientY - dragState.current.startY) / canvasTransform.scale;
+        dragState.current.dx = dx;
+        dragState.current.dy = dy;
         setDragOffset({ dx, dy });
       }
     },
@@ -173,12 +195,12 @@ export function CanvasView() {
 
   const handlePointerUp = useCallback(() => {
     if (dragState.current) {
-      const { pageId, origCanvasX, origCanvasY } = dragState.current;
-      const newX = origCanvasX + dragOffset.dx;
-      const newY = origCanvasY + dragOffset.dy;
+      const { pageId, origCanvasX, origCanvasY, dx, dy } = dragState.current;
+      const newX = origCanvasX + dx;
+      const newY = origCanvasY + dy;
 
       // Only persist if the page actually moved
-      if (Math.abs(dragOffset.dx) > 2 || Math.abs(dragOffset.dy) > 2) {
+      if (Math.abs(dx) > 2 || Math.abs(dy) > 2) {
         updatePagePosition(pageId, Math.round(newX), Math.round(newY));
       }
 
@@ -187,7 +209,7 @@ export function CanvasView() {
       setDragOffset({ dx: 0, dy: 0 });
     }
     isPanning.current = false;
-  }, [dragOffset, updatePagePosition]);
+  }, [updatePagePosition]);
 
   return (
     <div
@@ -222,12 +244,12 @@ export function CanvasView() {
                 zIndex: isDragging ? 10 : 0,
                 boxShadow: isDragging ? "0 4px 16px rgba(0,0,0,0.2)" : undefined,
               }}
-              onPointerDown={(e) =>
+              onPointerDownCapture={(e) =>
                 handlePagePointerDown(e, pos.id, pos.x, pos.y)
               }
             >
               {visiblePageIds.has(pos.id) ? (
-                <PageSurface pageId={pos.id} />
+                <PageSurface pageId={pos.id} gridType={gridType} />
               ) : (
                 <div className="h-full w-full bg-gray-50" />
               )}

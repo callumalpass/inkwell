@@ -1,12 +1,15 @@
 import { useStrokeCapture } from "../../hooks/useStrokeCapture";
 import { useDrawingStore } from "../../stores/drawing-store";
 import { usePageStore } from "../../stores/page-store";
+import { useUndoRedoStore } from "../../stores/undo-redo-store";
 import * as strokesApi from "../../api/strokes";
 import type { Stroke } from "../../api/strokes";
 import { PAGE_WIDTH, PAGE_HEIGHT } from "../../lib/constants";
-import { useCallback, useRef } from "react";
+import { StrokeSpatialIndex } from "../../lib/spatial-index";
+import { useCallback, useRef, useMemo } from "react";
 
 const EMPTY: Stroke[] = [];
+const ERASE_THRESHOLD = 20;
 
 interface DrawingLayerProps {
   pageId: string;
@@ -19,12 +22,19 @@ export function DrawingLayer({ pageId }: DrawingLayerProps) {
   const removeSavedStroke = usePageStore((s) => s.removeSavedStroke);
   const lastEraseRef = useRef<string | null>(null);
 
+  // Build spatial index for fast eraser hit-testing (rebuilt when strokes change)
+  const spatialIndex = useMemo(
+    () => StrokeSpatialIndex.fromStrokes(savedStrokes),
+    [savedStrokes],
+  );
+
   const isPenOrMouse = (e: React.PointerEvent) =>
     e.pointerType === "pen" || e.pointerType === "mouse";
 
   const handlePointerDown = useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
       if (!isPenOrMouse(e)) return;
+      e.preventDefault();
       if (tool === "eraser") {
         eraseAt(e);
       } else {
@@ -62,21 +72,21 @@ export function DrawingLayer({ pageId }: DrawingLayerProps) {
     const rect = e.currentTarget.getBoundingClientRect();
     const x = ((e.clientX - rect.left) / rect.width) * PAGE_WIDTH;
     const y = ((e.clientY - rect.top) / rect.height) * PAGE_HEIGHT;
-    const threshold = 20;
 
-    for (const stroke of savedStrokes) {
-      if (stroke.id === lastEraseRef.current) continue;
-      for (const pt of stroke.points) {
-        const dx = pt.x - x;
-        const dy = pt.y - y;
-        if (dx * dx + dy * dy < threshold * threshold) {
-          lastEraseRef.current = stroke.id;
-          removeSavedStroke(pageId, stroke.id);
-          strokesApi.deleteStroke(pageId, stroke.id).catch(console.error);
-          return;
-        }
-      }
-    }
+    const hit = spatialIndex.queryPoint(x, y, ERASE_THRESHOLD);
+    if (!hit || hit.id === lastEraseRef.current) return;
+
+    lastEraseRef.current = hit.id;
+    spatialIndex.removeStroke(hit.id);
+
+    // Record undo command before removing (captures full stroke data)
+    useUndoRedoStore.getState().record({
+      type: "remove-stroke",
+      pageId,
+      stroke: hit,
+    });
+    removeSavedStroke(pageId, hit.id);
+    strokesApi.deleteStroke(pageId, hit.id).catch(console.error);
   }
 
   return (

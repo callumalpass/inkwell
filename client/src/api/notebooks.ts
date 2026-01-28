@@ -1,5 +1,12 @@
 import { apiFetch } from "./client";
 
+export interface NotebookSettings {
+  defaultTool?: "pen" | "highlighter" | "eraser";
+  defaultColor?: string;
+  defaultStrokeWidth?: number;
+  gridType?: "none" | "lined" | "grid" | "dotgrid";
+}
+
 export interface NotebookMeta {
   id: string;
   title: string;
@@ -7,6 +14,7 @@ export interface NotebookMeta {
   updatedAt: string;
   pageCount?: number;
   coverPageId?: string | null;
+  settings?: NotebookSettings;
 }
 
 export function listNotebooks() {
@@ -24,10 +32,13 @@ export function createNotebook(title: string) {
   });
 }
 
-export function updateNotebook(id: string, title: string) {
+export function updateNotebook(
+  id: string,
+  updates: { title?: string; settings?: NotebookSettings },
+) {
   return apiFetch<NotebookMeta>(`/notebooks/${id}`, {
     method: "PATCH",
-    body: JSON.stringify({ title }),
+    body: JSON.stringify(updates),
   });
 }
 

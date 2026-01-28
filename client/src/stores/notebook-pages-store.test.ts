@@ -7,6 +7,16 @@ vi.mock("../api/pages", () => ({
   updatePage: vi.fn(),
 }));
 
+vi.mock("../api/notebooks", () => ({
+  getNotebook: vi.fn().mockResolvedValue({
+    id: "nb_test",
+    title: "Test Notebook",
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  }),
+  updateNotebook: vi.fn().mockResolvedValue({}),
+}));
+
 const makePage = (id: string, pageNumber: number): PageMeta => ({
   id,
   notebookId: "nb_test",
@@ -26,7 +36,9 @@ beforeEach(() => {
     currentPageIndex: 0,
     loading: false,
     error: null,
+    settings: {},
   });
+  vi.clearAllMocks();
 });
 
 describe("defaults", () => {
@@ -89,9 +101,17 @@ describe("goToNextPage / goToPrevPage", () => {
 });
 
 describe("loadNotebookPages", () => {
-  it("loads pages from API and resets currentPageIndex", async () => {
+  it("loads pages and notebook settings from API", async () => {
     const { listPages } = await import("../api/pages");
+    const { getNotebook } = await import("../api/notebooks");
     vi.mocked(listPages).mockResolvedValue(threePages);
+    vi.mocked(getNotebook).mockResolvedValue({
+      id: "nb_test",
+      title: "Test Notebook",
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      settings: { gridType: "lined", defaultColor: "#1e40af" },
+    });
 
     useNotebookPagesStore.setState({ currentPageIndex: 2 });
     await useNotebookPagesStore.getState().loadNotebookPages("nb_test");
@@ -102,6 +122,22 @@ describe("loadNotebookPages", () => {
     expect(state.currentPageIndex).toBe(0);
     expect(state.loading).toBe(false);
     expect(state.error).toBeNull();
+    expect(state.settings).toEqual({ gridType: "lined", defaultColor: "#1e40af" });
+  });
+
+  it("defaults settings to empty object when notebook has none", async () => {
+    const { listPages } = await import("../api/pages");
+    const { getNotebook } = await import("../api/notebooks");
+    vi.mocked(listPages).mockResolvedValue(threePages);
+    vi.mocked(getNotebook).mockResolvedValue({
+      id: "nb_test",
+      title: "Test Notebook",
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
+
+    await useNotebookPagesStore.getState().loadNotebookPages("nb_test");
+    expect(useNotebookPagesStore.getState().settings).toEqual({});
   });
 
   it("sets error on API failure", async () => {
@@ -133,5 +169,47 @@ describe("addNewPage", () => {
     await expect(useNotebookPagesStore.getState().addNewPage()).rejects.toThrow(
       "No notebook loaded",
     );
+  });
+});
+
+describe("updateSettings", () => {
+  it("merges new settings and persists via API", async () => {
+    const { updateNotebook } = await import("../api/notebooks");
+    vi.mocked(updateNotebook).mockResolvedValue({} as any);
+
+    useNotebookPagesStore.setState({
+      notebookId: "nb_test",
+      settings: { gridType: "none" },
+    });
+
+    await useNotebookPagesStore.getState().updateSettings({ gridType: "grid" });
+
+    expect(useNotebookPagesStore.getState().settings).toEqual({ gridType: "grid" });
+    expect(updateNotebook).toHaveBeenCalledWith("nb_test", {
+      settings: { gridType: "grid" },
+    });
+  });
+
+  it("merges with existing settings without overwriting other fields", async () => {
+    const { updateNotebook } = await import("../api/notebooks");
+    vi.mocked(updateNotebook).mockResolvedValue({} as any);
+
+    useNotebookPagesStore.setState({
+      notebookId: "nb_test",
+      settings: { gridType: "lined", defaultColor: "#000000" },
+    });
+
+    await useNotebookPagesStore.getState().updateSettings({ defaultColor: "#1e40af" });
+
+    expect(useNotebookPagesStore.getState().settings).toEqual({
+      gridType: "lined",
+      defaultColor: "#1e40af",
+    });
+  });
+
+  it("throws when no notebook loaded", async () => {
+    await expect(
+      useNotebookPagesStore.getState().updateSettings({ gridType: "grid" }),
+    ).rejects.toThrow("No notebook loaded");
   });
 });

@@ -1,5 +1,7 @@
 import { create } from "zustand";
 import * as pagesApi from "../api/pages";
+import * as notebooksApi from "../api/notebooks";
+import type { NotebookSettings } from "../api/notebooks";
 
 interface NotebookPagesStore {
   notebookId: string | null;
@@ -7,6 +9,7 @@ interface NotebookPagesStore {
   currentPageIndex: number;
   loading: boolean;
   error: string | null;
+  settings: NotebookSettings;
 
   loadNotebookPages: (notebookId: string) => Promise<void>;
   setCurrentPageIndex: (index: number) => void;
@@ -14,6 +17,7 @@ interface NotebookPagesStore {
   goToPrevPage: () => void;
   addNewPage: () => Promise<pagesApi.PageMeta>;
   updatePagePosition: (pageId: string, canvasX: number, canvasY: number) => Promise<void>;
+  updateSettings: (settings: NotebookSettings) => Promise<void>;
 }
 
 export const useNotebookPagesStore = create<NotebookPagesStore>((set, get) => ({
@@ -22,12 +26,21 @@ export const useNotebookPagesStore = create<NotebookPagesStore>((set, get) => ({
   currentPageIndex: 0,
   loading: false,
   error: null,
+  settings: {},
 
   loadNotebookPages: async (notebookId: string) => {
     set({ loading: true, error: null, notebookId });
     try {
-      const pages = await pagesApi.listPages(notebookId);
-      set({ pages, loading: false, currentPageIndex: 0 });
+      const [pages, notebook] = await Promise.all([
+        pagesApi.listPages(notebookId),
+        notebooksApi.getNotebook(notebookId),
+      ]);
+      set({
+        pages,
+        loading: false,
+        currentPageIndex: 0,
+        settings: notebook.settings ?? {},
+      });
     } catch (err: any) {
       set({ error: err.message, loading: false });
     }
@@ -68,5 +81,13 @@ export const useNotebookPagesStore = create<NotebookPagesStore>((set, get) => ({
     set({
       pages: pages.map((p) => (p.id === pageId ? updated : p)),
     });
+  },
+
+  updateSettings: async (newSettings) => {
+    const { notebookId, settings } = get();
+    if (!notebookId) throw new Error("No notebook loaded");
+    const merged = { ...settings, ...newSettings };
+    await notebooksApi.updateNotebook(notebookId, { settings: merged });
+    set({ settings: merged });
   },
 }));

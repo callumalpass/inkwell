@@ -5,22 +5,35 @@ import {
   getSvgPathFromStrokeFilled,
   type StrokeData,
 } from "../../lib/stroke-renderer";
+import { pathCache } from "../../lib/path-cache";
 
 interface StrokeCanvasProps {
   strokes: StrokeData[];
 }
 
+function computePath(stroke: StrokeData): string | null {
+  const cached = pathCache.get(stroke.id);
+  if (cached !== undefined) return cached || null;
+
+  const useFilled = stroke.penStyle === "pressure" || !stroke.penStyle;
+  const d = useFilled
+    ? getSvgPathFromStrokeFilled(stroke)
+    : getSvgPathFromStroke(stroke);
+
+  // Cache the result (empty string for null so we don't recompute)
+  pathCache.set(stroke.id, d ?? "");
+  return d;
+}
+
 const StrokePath = memo(function StrokePath({ stroke }: { stroke: StrokeData }) {
   const useFilled = stroke.penStyle === "pressure" || !stroke.penStyle;
+  const d = computePath(stroke);
+  if (!d) return null;
 
   if (useFilled) {
-    const d = getSvgPathFromStrokeFilled(stroke);
-    if (!d) return null;
     return <path d={d} fill={stroke.color} />;
   }
 
-  const d = getSvgPathFromStroke(stroke);
-  if (!d) return null;
   return (
     <path
       d={d}

@@ -58,6 +58,7 @@ export default defineConfig({
   server: {
     port: 5173,
     host: true,
+    allowedHosts: ["minipc.tail2b6cde.ts.net"],
     proxy: {
       "/api": {
         target: "http://localhost:3001",

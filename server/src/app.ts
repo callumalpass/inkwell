@@ -1,5 +1,6 @@
 import Fastify from "fastify";
 import cors from "@fastify/cors";
+import compress from "@fastify/compress";
 import websocket from "@fastify/websocket";
 import { config } from "./config.js";
 import { registerRoutes } from "./routes/index.js";
@@ -15,6 +16,7 @@ export async function buildApp() {
   const app = Fastify({ logger: true });
 
   await app.register(cors, { origin: true });
+  await app.register(compress, { threshold: 1024 });
   await app.register(websocket);
 
   // Validate route ID params to prevent path traversal
