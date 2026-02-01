@@ -32,6 +32,12 @@ Grid-based page management. Select multiple pages for bulk operations (tagging, 
 
 ![Overview view](screenshots/04-overview-view.png)
 
+### Search
+
+Full-text search across transcriptions. Open with the Search button or Cmd+K.
+
+![Search](screenshots/05-search.png)
+
 ## Features
 
 - Notebooks containing pages on a 2D canvas
