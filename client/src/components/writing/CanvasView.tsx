@@ -87,6 +87,7 @@ export function CanvasView() {
   // Dragging state — offset stored in ref to avoid stale closures in pointerUp
   const dragState = useRef<{
     pageId: string;
+    pointerId: number;
     startX: number;
     startY: number;
     origCanvasX: number;
@@ -261,6 +262,7 @@ export function CanvasView() {
         e.preventDefault();
         dragState.current = {
           pageId,
+          pointerId: e.pointerId,
           startX: e.clientX,
           startY: e.clientY,
           origCanvasX: canvasX,
@@ -286,6 +288,7 @@ export function CanvasView() {
       e.preventDefault();
       dragState.current = {
         pageId,
+        pointerId: e.pointerId,
         startX: e.clientX,
         startY: e.clientY,
         origCanvasX: canvasX,
@@ -317,6 +320,7 @@ export function CanvasView() {
       e.preventDefault();
       dragState.current = {
         pageId,
+        pointerId: e.pointerId,
         startX: e.clientX,
         startY: e.clientY,
         origCanvasX: canvasX,
@@ -356,7 +360,7 @@ export function CanvasView() {
         return;
       }
 
-      if (dragState.current) {
+      if (dragState.current && e.pointerId === dragState.current.pointerId) {
         const dx = (e.clientX - dragState.current.startX) / canvasTransform.scale;
         const dy = (e.clientY - dragState.current.startY) / canvasTransform.scale;
         dragState.current.dx = dx;
@@ -375,7 +379,7 @@ export function CanvasView() {
       }
     }
 
-    if (dragState.current) {
+    if (dragState.current && e.pointerId === dragState.current.pointerId) {
       const { pageId, origCanvasX, origCanvasY, dx, dy } = dragState.current;
       const newX = origCanvasX + dx;
       const newY = origCanvasY + dy;
@@ -404,6 +408,7 @@ export function CanvasView() {
       ref={containerRef}
       className="relative flex-1 overflow-hidden bg-gray-200"
       style={{ touchAction: "none" }}
+      onContextMenu={(e) => e.preventDefault()}
       onWheel={handleWheel}
       onPointerDown={handleBackgroundPointerDown}
       onPointerMove={handlePointerMove}
