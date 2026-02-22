@@ -2,7 +2,7 @@
   "id": "playwright-uiperformance",
   "name": "playwright ui/performance",
   "description": null,
-  "status": "active",
+  "status": "paused",
   "cron_expression": "0 9 * * 1-5",
   "timezone": "Australia/Melbourne",
   "target_type": "custom",

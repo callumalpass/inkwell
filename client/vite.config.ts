@@ -56,7 +56,8 @@ export default defineConfig({
     }),
   ],
   server: {
-    port: 5173,
+    port: 5175,
+    strictPort: true,
     host: true,
     allowedHosts: ["minipc.tail2b6cde.ts.net"],
     proxy: {

@@ -2,7 +2,7 @@
   "id": "ralph-2",
   "name": "ralph 2",
   "description": null,
-  "status": "active",
+  "status": "paused",
   "cron_expression": "*/15 * * * *",
   "timezone": "Australia/Melbourne",
   "target_type": "custom",

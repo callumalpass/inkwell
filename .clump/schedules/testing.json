@@ -2,7 +2,7 @@
   "id": "testing",
   "name": "testing",
   "description": null,
-  "status": "active",
+  "status": "paused",
   "cron_expression": "*/30 * * * *",
   "timezone": "Australia/Melbourne",
   "target_type": "custom",
