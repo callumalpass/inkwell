@@ -240,6 +240,71 @@ describe("PATCH /api/notebooks/:id (settings)", () => {
     });
     expect(res.statusCode).toBe(400);
   });
+
+  it("accepts nested bookmarks in settings", async () => {
+    const create = await app.inject({
+      method: "POST",
+      url: "/api/notebooks",
+      payload: { title: "Bookmarks" },
+    });
+    const { id } = create.json();
+
+    const res = await app.inject({
+      method: "PATCH",
+      url: `/api/notebooks/${id}`,
+      payload: {
+        settings: {
+          bookmarks: [
+            {
+              id: "bm_root",
+              pageId: "pg_1",
+              createdAt: new Date().toISOString(),
+              order: 0,
+            },
+            {
+              id: "bm_child",
+              pageId: "pg_2",
+              parentId: "bm_root",
+              label: "Child",
+              createdAt: new Date().toISOString(),
+              order: 1,
+            },
+          ],
+        },
+      },
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(res.json().settings.bookmarks).toHaveLength(2);
+    expect(res.json().settings.bookmarks[1].parentId).toBe("bm_root");
+  });
+
+  it("rejects invalid bookmark payload", async () => {
+    const create = await app.inject({
+      method: "POST",
+      url: "/api/notebooks",
+      payload: { title: "Invalid Bookmark" },
+    });
+    const { id } = create.json();
+
+    const res = await app.inject({
+      method: "PATCH",
+      url: `/api/notebooks/${id}`,
+      payload: {
+        settings: {
+          bookmarks: [
+            {
+              id: "bm_1",
+              createdAt: new Date().toISOString(),
+              order: 0,
+            },
+          ],
+        },
+      },
+    });
+
+    expect(res.statusCode).toBe(400);
+  });
 });
 
 describe("DELETE /api/notebooks/:id", () => {

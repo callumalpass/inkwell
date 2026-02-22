@@ -72,18 +72,18 @@ describe("POST /api/notebooks/:notebookId/pages", () => {
     expect(body.canvasY).toBe(0);
   });
 
-  it("positions second page in next column", async () => {
+  it("positions second page in next row (single column)", async () => {
     const nb = await createNotebook();
     await createPage(nb.id);
     const { body } = await createPage(nb.id);
 
     expect(body.pageNumber).toBe(2);
-    // Second page: col=1, row=0 → x = 1 * (400 + 60) = 460
-    expect(body.canvasX).toBe(460);
-    expect(body.canvasY).toBe(0);
+    expect(body.canvasX).toBe(0);
+    // Second page: row=1 → y = 1 * (533 + 60) = 593
+    expect(body.canvasY).toBe(533 + 60);
   });
 
-  it("wraps to next row after 3 columns", async () => {
+  it("stacks fourth page in same single column", async () => {
     const nb = await createNotebook();
     await createPage(nb.id);
     await createPage(nb.id);
@@ -91,11 +91,27 @@ describe("POST /api/notebooks/:notebookId/pages", () => {
     const { body } = await createPage(nb.id);
 
     expect(body.pageNumber).toBe(4);
-    // Fourth page: col=0, row=1
     expect(body.canvasX).toBe(0);
-    // canvasY = 1 * (round(400 * 1872/1404) + 60) = 1 * (533 + 60) = 593
-    // Actually: round(400 * 1872 / 1404) = round(533.333) = 533
-    expect(body.canvasY).toBe(533 + 60);
+    // Fourth page: row=3 → y = 3 * (533 + 60) = 1779
+    expect(body.canvasY).toBe(3 * (533 + 60));
+  });
+
+  it("adds new page below the lowest existing page after manual repositioning", async () => {
+    const nb = await createNotebook();
+    const { body: page1 } = await createPage(nb.id);
+    await createPage(nb.id);
+    await createPage(nb.id);
+
+    await app.inject({
+      method: "PATCH",
+      url: `/api/pages/${page1.id}`,
+      payload: { canvasY: 5000 },
+    });
+
+    const { body } = await createPage(nb.id);
+    expect(body.pageNumber).toBe(4);
+    expect(body.canvasX).toBe(0);
+    expect(body.canvasY).toBe(5000 + 533 + 60);
   });
 
   it("returns 404 for non-existent notebook", async () => {

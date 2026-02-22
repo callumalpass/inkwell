@@ -35,6 +35,7 @@ export const DEFAULT_MARKDOWN_CONFIG: MarkdownConfig = {
       date: "{{page.created}}",
       modified: "{{page.modified}}",
       tags: "{{page.tags}}",
+      links: "{{page.links}}",
       notebook: "{{notebook.name}}",
       page_id: "{{page.id}}",
     },

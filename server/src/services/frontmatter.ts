@@ -42,6 +42,8 @@ function resolvePageVariable(
       return String(page.pageNumber);
     case "tags":
       return page.tags ?? [];
+    case "links":
+      return page.links ?? [];
     default:
       return undefined;
   }

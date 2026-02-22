@@ -76,6 +76,17 @@ describe("resolveTemplateString", () => {
     expect(result).toEqual(["meeting", "project-x"]);
   });
 
+  it("resolves page.links as array", () => {
+    const ctx2 = makeContext({
+      page: {
+        ...makeContext().page,
+        links: ["pg_target1", "pg_target2"],
+      },
+    });
+    const result = resolveTemplateString("{{page.links}}", ctx2);
+    expect(result).toEqual(["pg_target1", "pg_target2"]);
+  });
+
   it("resolves notebook.id", () => {
     expect(resolveTemplateString("{{notebook.id}}", ctx)).toBe("nb_xyz789");
   });
@@ -137,6 +148,17 @@ describe("resolveTemplateString", () => {
     expect(result).toEqual([]);
   });
 
+  it("handles empty links array", () => {
+    const ctx2 = makeContext({
+      page: {
+        ...makeContext().page,
+        links: [],
+      },
+    });
+    const result = resolveTemplateString("{{page.links}}", ctx2);
+    expect(result).toEqual([]);
+  });
+
   it("joins arrays in mixed templates", () => {
     const result = resolveTemplateString("Tags: {{page.tags}}", ctx);
     expect(result).toBe("Tags: meeting, project-x");
@@ -157,6 +179,7 @@ describe("generateFrontmatter", () => {
     expect(result).toContain("tags:");
     expect(result).toContain("  - meeting");
     expect(result).toContain("  - project-x");
+    expect(result).toContain("links: []");
     expect(result).toContain("notebook: Project Notes");
     expect(result).toContain("page_id: pg_abc123");
   });
@@ -197,6 +220,22 @@ describe("generateFrontmatter", () => {
     });
     const result = generateFrontmatter(config, ctx);
     expect(result).toContain("tags: []");
+  });
+
+  it("handles links array in frontmatter", () => {
+    const ctx = makeContext({
+      page: { ...makeContext().page, links: ["pg_a", "pg_b"] },
+    });
+    const config = makeConfig({
+      frontmatter: {
+        enabled: true,
+        template: { links: "{{page.links}}" },
+      },
+    });
+    const result = generateFrontmatter(config, ctx);
+    expect(result).toContain("links:");
+    expect(result).toContain("  - pg_a");
+    expect(result).toContain("  - pg_b");
   });
 
   it("properly quotes YAML special characters", () => {

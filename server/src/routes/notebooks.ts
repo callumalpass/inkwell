@@ -81,6 +81,27 @@ export function notebookRoutes(app: FastifyInstance) {
                   type: "number",
                   enum: [32, 40, 48, 56, 64],
                 },
+                bookmarks: {
+                  type: "array",
+                  items: {
+                    type: "object",
+                    required: ["id", "pageId", "createdAt", "order"],
+                    properties: {
+                      id: { type: "string", minLength: 1, maxLength: 100 },
+                      pageId: { type: "string", minLength: 1, maxLength: 100 },
+                      label: { type: "string", maxLength: 120 },
+                      parentId: {
+                        anyOf: [
+                          { type: "string", minLength: 1, maxLength: 100 },
+                          { type: "null" },
+                        ],
+                      },
+                      createdAt: { type: "string", format: "date-time" },
+                      order: { type: "number" },
+                    },
+                    additionalProperties: false,
+                  },
+                },
               },
               additionalProperties: false,
             },

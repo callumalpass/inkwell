@@ -9,14 +9,16 @@ import { regenerateFrontmatter } from "../services/markdown-sync.js";
 const CANVAS_PAGE_WIDTH = 400;
 const CANVAS_PAGE_HEIGHT = Math.round(CANVAS_PAGE_WIDTH * (1872 / 1404));
 const CANVAS_GAP = 60;
-const CANVAS_COLS = 3;
 
-function autoPosition(pageIndex: number): { canvasX: number; canvasY: number } {
-  const col = pageIndex % CANVAS_COLS;
-  const row = Math.floor(pageIndex / CANVAS_COLS);
+function autoPosition(pages: PageMeta[]): { canvasX: number; canvasY: number } {
+  if (pages.length === 0) {
+    return { canvasX: 0, canvasY: 0 };
+  }
+
+  const lowestY = Math.max(...pages.map((page) => page.canvasY));
   return {
-    canvasX: col * (CANVAS_PAGE_WIDTH + CANVAS_GAP),
-    canvasY: row * (CANVAS_PAGE_HEIGHT + CANVAS_GAP),
+    canvasX: 0,
+    canvasY: lowestY + CANVAS_PAGE_HEIGHT + CANVAS_GAP,
   };
 }
 
@@ -38,7 +40,7 @@ export function pageRoutes(app: FastifyInstance) {
 
       const pages = await pageStore.listPages(req.params.notebookId);
       const pageIndex = pages.length;
-      const pos = autoPosition(pageIndex);
+      const pos = autoPosition(pages);
       const now = new Date().toISOString();
       const meta: PageMeta = {
         id: `pg_${nanoid(12)}`,
@@ -107,8 +109,8 @@ export function pageRoutes(app: FastifyInstance) {
       const updated = await pageStore.updatePage(req.params.pageId, updates);
       if (!updated) return reply.code(404).send({ error: "Page not found" });
 
-      // Regenerate frontmatter when tags or metadata change
-      if (tags !== undefined) {
+      // Regenerate frontmatter when tags/links metadata changes
+      if (tags !== undefined || links !== undefined) {
         regenerateFrontmatter(req.params.pageId).catch(() => {
           // Best-effort: frontmatter regeneration failure is non-fatal
         });
