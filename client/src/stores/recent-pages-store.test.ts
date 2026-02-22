@@ -1,4 +1,8 @@
-import { useRecentPagesStore, type RecentPage } from "./recent-pages-store";
+import {
+  useRecentPagesStore,
+  type RecentPage,
+  getLastVisitedPageIdForNotebook,
+} from "./recent-pages-store";
 
 const makeRecentPage = (
   overrides: Partial<Omit<RecentPage, "visitedAt">> = {},
@@ -378,5 +382,43 @@ describe("edge cases", () => {
     expect(state.recentPages[0].pageId).toBe("pg_2");
     expect(state.recentPages[0].visitedAt).toBe(4000);
     expect(state.recentPages[1].pageId).toBe("pg_3");
+  });
+});
+
+describe("getLastVisitedPageIdForNotebook", () => {
+  it("returns most recently visited page for a notebook", () => {
+    vi.setSystemTime(1000);
+    useRecentPagesStore.getState().addRecentPage(
+      makeRecentPage({ notebookId: "nb_a", pageId: "pg_a1" }),
+    );
+    vi.setSystemTime(2000);
+    useRecentPagesStore.getState().addRecentPage(
+      makeRecentPage({ notebookId: "nb_b", pageId: "pg_b1" }),
+    );
+    vi.setSystemTime(3000);
+    useRecentPagesStore.getState().addRecentPage(
+      makeRecentPage({ notebookId: "nb_a", pageId: "pg_a2" }),
+    );
+
+    expect(getLastVisitedPageIdForNotebook("nb_a")).toBe("pg_a2");
+  });
+
+  it("returns null when notebook has no recent pages", () => {
+    useRecentPagesStore.getState().addRecentPage(makeRecentPage({ notebookId: "nb_a" }));
+    expect(getLastVisitedPageIdForNotebook("nb_missing")).toBeNull();
+  });
+
+  it("filters to existing page IDs when provided", () => {
+    vi.setSystemTime(1000);
+    useRecentPagesStore.getState().addRecentPage(
+      makeRecentPage({ notebookId: "nb_a", pageId: "pg_old" }),
+    );
+    vi.setSystemTime(2000);
+    useRecentPagesStore.getState().addRecentPage(
+      makeRecentPage({ notebookId: "nb_a", pageId: "pg_new" }),
+    );
+
+    expect(getLastVisitedPageIdForNotebook("nb_a", ["pg_old"])).toBe("pg_old");
+    expect(getLastVisitedPageIdForNotebook("nb_a", ["pg_missing"])).toBeNull();
   });
 });

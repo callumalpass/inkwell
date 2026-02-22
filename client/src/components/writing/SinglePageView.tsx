@@ -66,6 +66,8 @@ export function SinglePageView() {
     <div
       ref={containerRef}
       className="flex min-h-0 flex-1 items-center justify-center overflow-hidden bg-gray-100 p-4"
+      style={{ touchAction: "none" }}
+      onContextMenu={(e) => e.preventDefault()}
     >
       <div
         style={{

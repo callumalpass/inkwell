@@ -19,6 +19,26 @@ interface RecentPagesStore {
 
 const MAX_RECENT_PAGES = 10;
 
+/**
+ * Returns the most recently visited page ID for a notebook.
+ * Optionally validates against a set/list of currently-existing page IDs.
+ */
+export function getLastVisitedPageIdForNotebook(
+  notebookId: string,
+  existingPageIds?: Iterable<string>,
+): string | null {
+  const recentPages = useRecentPagesStore.getState().recentPages;
+  const validIds = existingPageIds ? new Set(existingPageIds) : null;
+
+  for (const page of recentPages) {
+    if (page.notebookId !== notebookId) continue;
+    if (validIds && !validIds.has(page.pageId)) continue;
+    return page.pageId;
+  }
+
+  return null;
+}
+
 export const useRecentPagesStore = create<RecentPagesStore>()(
   persist(
     (set) => ({

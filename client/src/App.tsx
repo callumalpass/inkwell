@@ -10,6 +10,7 @@ import { KeyboardShortcutsDialog } from "./components/ui/KeyboardShortcutsDialog
 import { ErrorBoundary } from "./components/ui/ErrorBoundary";
 import { setQuotaExceededCallback } from "./lib/offline-queue";
 import { showError } from "./stores/toast-store";
+import { getLastVisitedPageIdForNotebook } from "./stores/recent-pages-store";
 
 function NotebookRedirect() {
   const { notebookId } = useParams<{ notebookId: string }>();
@@ -22,7 +23,9 @@ function NotebookRedirect() {
     listPages(notebookId)
       .then(async (pages) => {
         if (pages.length > 0) {
-          setTargetPageId(pages[0].id);
+          const existingPageIds = pages.map((p) => p.id);
+          const lastVisited = getLastVisitedPageIdForNotebook(notebookId, existingPageIds);
+          setTargetPageId(lastVisited ?? pages[0].id);
         } else {
           const page = await createPage(notebookId);
           setTargetPageId(page.id);

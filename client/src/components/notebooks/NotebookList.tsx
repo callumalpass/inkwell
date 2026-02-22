@@ -4,6 +4,7 @@ import type { NotebookMeta } from "../../api/notebooks";
 import { NotebookCard } from "./NotebookCard";
 import { ConfirmDialog } from "../ui/ConfirmDialog";
 import * as pagesApi from "../../api/pages";
+import { getLastVisitedPageIdForNotebook } from "../../stores/recent-pages-store";
 
 interface NotebookListProps {
   notebooks: NotebookMeta[];
@@ -21,7 +22,8 @@ export function NotebookList({ notebooks, onDelete, onDuplicate, onRename, onExp
     const pages = await pagesApi.listPages(notebook.id);
     let pageId: string;
     if (pages.length > 0) {
-      pageId = pages[0].id;
+      const existingPageIds = pages.map((p) => p.id);
+      pageId = getLastVisitedPageIdForNotebook(notebook.id, existingPageIds) ?? pages[0].id;
     } else {
       const page = await pagesApi.createPage(notebook.id);
       pageId = page.id;

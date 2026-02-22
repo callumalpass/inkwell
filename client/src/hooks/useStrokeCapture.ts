@@ -18,6 +18,7 @@ function toPagePoint(
 
 export function useStrokeCapture(pageId: string) {
   const isDrawing = useRef(false);
+  const activePointerId = useRef<number | null>(null);
   const cachedRect = useRef<DOMRect | null>(null);
   const pointBuffer = useRef<StrokePoint[]>([]);
   const rafId = useRef<number>(0);
@@ -41,6 +42,9 @@ export function useStrokeCapture(pageId: string) {
   const handleRawUpdate = useCallback(
     (e: PointerEvent) => {
       if (!isDrawing.current || !cachedRect.current) return;
+      if (activePointerId.current !== null && e.pointerId !== activePointerId.current) {
+        return;
+      }
       const rect = cachedRect.current;
 
       const coalesced = e.getCoalescedEvents?.();
@@ -65,6 +69,7 @@ export function useStrokeCapture(pageId: string) {
   const finalizeStroke = useCallback(() => {
     if (!isDrawing.current) return;
     isDrawing.current = false;
+    activePointerId.current = null;
     cachedRect.current = null;
     if (rafId.current) {
       cancelAnimationFrame(rafId.current);
@@ -100,6 +105,7 @@ export function useStrokeCapture(pageId: string) {
     (e: React.PointerEvent<HTMLElement>) => {
       e.currentTarget.setPointerCapture(e.pointerId);
       isDrawing.current = true;
+      activePointerId.current = e.pointerId;
       cachedRect.current = e.currentTarget.getBoundingClientRect();
       elementRef.current = e.currentTarget;
       pointBuffer.current = [];
