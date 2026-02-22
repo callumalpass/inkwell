@@ -9,6 +9,7 @@ import { broadcastToPage } from "./ws/handlers.js";
 import { setTranscriptionListener, initQueue } from "./services/transcription-queue.js";
 import { syncPage, SyncError } from "./services/markdown-sync.js";
 import { getMarkdownConfig } from "./storage/config-store.js";
+import { buildSearchIndex, updatePageIndex } from "./services/search-index.js";
 
 // Route params that must match safe ID format (nanoid with prefix)
 const ID_PARAM_PATTERN = /^[a-zA-Z0-9_-]+$/;
@@ -35,12 +36,26 @@ export async function buildApp() {
   registerRoutes(app);
   registerWebSocket(app);
 
+  // Build search index for fast search (reads all notebooks/pages into memory)
+  await buildSearchIndex();
+
   // Initialize transcription queue (resumes any pending jobs from disk)
   await initQueue();
 
-  // Wire transcription queue events to WebSocket broadcasts
-  setTranscriptionListener((pageId, event, data) => {
+  // Wire transcription queue events to WebSocket broadcasts and search index updates
+  setTranscriptionListener(async (pageId, event, data) => {
     if (event === "complete") {
+      // Update search index with new transcription content
+      try {
+        const { getNotebookIdForPage } = await import("./storage/page-store.js");
+        const notebookId = await getNotebookIdForPage(pageId);
+        if (notebookId) {
+          await updatePageIndex(pageId, notebookId);
+        }
+      } catch (err) {
+        app.log.error({ err, pageId }, "Failed to update search index after transcription");
+      }
+
       broadcastToPage(app, pageId, {
         type: "transcription:complete",
         pageId,

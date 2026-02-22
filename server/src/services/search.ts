@@ -2,6 +2,12 @@ import { readFile, readdir } from "node:fs/promises";
 import { paths } from "../storage/paths.js";
 import { readJson } from "../storage/fs-utils.js";
 import type { NotebookMeta, PageMeta } from "../types/index.js";
+import {
+  getIndexedPages,
+  getIndexedNotebook,
+  isIndexInitialized,
+  type IndexedPage,
+} from "./search-index.js";
 
 export interface SearchResult {
   pageId: string;
@@ -144,14 +150,108 @@ function matchesTag(tags: string[] | undefined, lowerQuery: string): string | nu
 export type MatchType = "transcription" | "tag" | "notebook"; // Filter types
 
 /**
- * Search across all notebooks (or a specific notebook).
- * Matches on:
- * - Transcription content (full-text search)
- * - Page tags
- * - Notebook name
- * Uses simple case-insensitive substring matching.
+ * Search using the in-memory index (fast path).
  */
-export async function searchTranscriptions(
+function searchWithIndex(
+  query: string,
+  options: {
+    notebook?: string;
+    limit?: number;
+    offset?: number;
+    matchType?: MatchType[];
+  } = {},
+): SearchResponse {
+  const limit = options.limit ?? 20;
+  const offset = options.offset ?? 0;
+  const matchTypeFilter = options.matchType;
+  const lowerQuery = query.toLowerCase();
+  const results: SearchResult[] = [];
+  const seenPages = new Set<string>();
+
+  const pages = getIndexedPages(options.notebook);
+
+  for (const page of pages) {
+    if (seenPages.has(page.pageId)) continue;
+
+    const notebookMeta = getIndexedNotebook(page.notebookId);
+    const notebookNameMatches = page.notebookName.toLowerCase().includes(lowerQuery);
+
+    // Check for tag match
+    const matchedTag = matchesTag(page.tags, lowerQuery);
+
+    // Check transcription match using pre-lowercased content
+    const transcriptionMatches = page.contentLower?.includes(lowerQuery) ?? false;
+
+    // Determine if this page should be included and why
+    let matchType: "transcription" | "tag" | "notebook" | null = null;
+    let excerpt = "";
+
+    if (transcriptionMatches && page.content) {
+      matchType = "transcription";
+      excerpt = extractExcerpt(page.content, query);
+    } else if (matchedTag) {
+      matchType = "tag";
+      excerpt = `Tagged with "${matchedTag}"`;
+    } else if (notebookNameMatches) {
+      matchType = "notebook";
+      excerpt = page.content
+        ? page.content.slice(0, EXCERPT_CONTEXT_CHARS * 2).replace(/\n+/g, " ").trim()
+        : `Page in "${page.notebookName}"`;
+      if (page.content && page.content.length > EXCERPT_CONTEXT_CHARS * 2) {
+        excerpt += "...";
+      }
+    }
+
+    if (!matchType) continue;
+
+    // Apply matchType filter if specified
+    if (matchTypeFilter && matchTypeFilter.length > 0) {
+      if (!matchTypeFilter.includes(matchType)) continue;
+    }
+
+    const score = calculateRelevanceScore(
+      page.content,
+      query,
+      matchType,
+      matchedTag,
+      page.modified,
+    );
+
+    seenPages.add(page.pageId);
+    results.push({
+      pageId: page.pageId,
+      notebookId: page.notebookId,
+      notebookName: page.notebookName,
+      excerpt,
+      modified: page.modified,
+      thumbnailUrl: `/api/pages/${page.pageId}/thumbnail`,
+      tags: page.tags.length > 0 ? page.tags : undefined,
+      matchType,
+      score,
+    });
+  }
+
+  // Sort by relevance score (highest first), then by modified date as tiebreaker
+  results.sort((a, b) => {
+    if (b.score !== a.score) return b.score - a.score;
+    return b.modified.localeCompare(a.modified);
+  });
+
+  const total = results.length;
+  const paginatedResults = results.slice(offset, offset + limit);
+  const hasMore = offset + paginatedResults.length < total;
+
+  return {
+    results: paginatedResults,
+    total,
+    hasMore,
+  };
+}
+
+/**
+ * Search by reading files directly (slow path, fallback).
+ */
+async function searchFromFiles(
   query: string,
   options: {
     notebook?: string;
@@ -290,4 +390,33 @@ export async function searchTranscriptions(
     total,
     hasMore,
   };
+}
+
+/**
+ * Search across all notebooks (or a specific notebook).
+ * Matches on:
+ * - Transcription content (full-text search)
+ * - Page tags
+ * - Notebook name
+ * Uses simple case-insensitive substring matching.
+ *
+ * Uses the in-memory index when available for fast search,
+ * falls back to file-based search if index is not initialized.
+ */
+export async function searchTranscriptions(
+  query: string,
+  options: {
+    notebook?: string;
+    limit?: number;
+    offset?: number;
+    matchType?: MatchType[];
+  } = {},
+): Promise<SearchResponse> {
+  // Use index if available
+  if (isIndexInitialized()) {
+    return searchWithIndex(query, options);
+  }
+
+  // Fall back to file-based search
+  return searchFromFiles(query, options);
 }
