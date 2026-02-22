@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useDrawingStore } from "../../../stores/drawing-store";
 import { useViewStore } from "../../../stores/view-store";
 import { useNotebookPagesStore } from "../../../stores/notebook-pages-store";
@@ -36,25 +36,24 @@ export function Toolbar() {
   const { notebookId } = useParams<{ notebookId: string }>();
 
   const [expanded, setExpanded] = useState(false);
-  const [isCompact, setIsCompact] = useState(false);
-  const toolbarRef = useRef<HTMLDivElement>(null);
+  const [isCompact, setIsCompact] = useState(
+    typeof window !== "undefined" && window.innerWidth < COMPACT_BREAKPOINT,
+  );
 
   useEffect(() => {
-    const el = toolbarRef.current;
-    if (!el) return;
-    const ro = new ResizeObserver(([entry]) => {
-      const compact = entry.contentRect.width < COMPACT_BREAKPOINT;
+    const check = () => {
+      const compact = window.innerWidth < COMPACT_BREAKPOINT;
       setIsCompact(compact);
       if (!compact) setExpanded(false);
-    });
-    ro.observe(el);
-    return () => ro.disconnect();
+    };
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
   }, []);
 
   return (
     <div
-      ref={toolbarRef}
-      className={`border-b-2 border-gray-400 bg-white ${isCompact ? "px-3" : "px-4"} py-1.5`}
+      className={`border-b-2 border-gray-400 bg-white ${isCompact ? "px-3" : "px-4"} overflow-x-auto py-1.5`}
     >
       {isCompact ? (
         <CompactLayout
@@ -71,6 +70,8 @@ export function Toolbar() {
       ) : (
         <FullLayout
           isDrawingTool={isDrawingTool}
+          expanded={expanded}
+          toggleExpanded={() => setExpanded((e) => !e)}
           currentPageId={currentPageId}
           currentPage={currentPage}
           notebookId={notebookId}
@@ -110,11 +111,13 @@ function CompactLayout({
 }: CompactLayoutProps) {
   return (
     <>
-      {/* Primary row: essential tools always visible */}
-      <div className="flex items-center gap-1.5">
+      {/* Primary row: always single-line; advanced controls are in explicit expand panel */}
+      <div className="flex flex-nowrap items-center gap-1">
         <ToolbarButton onClick={() => navigate("/")} aria-label="Home">
           Home
         </ToolbarButton>
+
+        <PageNavControls showNavigation={false} addPageFirst />
 
         <Divider />
 
@@ -130,10 +133,6 @@ function CompactLayout({
         >
           <StrokePreview />
         </button>
-
-        <Divider />
-
-        <PageNavControls />
 
         <div className="flex-1" />
 
@@ -158,6 +157,11 @@ function CompactLayout({
       {/* Expanded panel */}
       {expanded && (
         <div className="mt-1.5 space-y-1.5 border-t border-gray-200 pt-1.5">
+          {/* Page nav row */}
+          <div className="flex flex-wrap items-center gap-1.5">
+            <PageNavControls showAddPage={false} />
+          </div>
+
           <WidthPicker showLabel />
           {isDrawingTool && <ColorPicker showLabel />}
           {isDrawingTool && <PenStylePicker showLabel />}
@@ -166,12 +170,25 @@ function CompactLayout({
           <ViewModePicker showLabel />
 
           {/* Notebook Settings row */}
-          <div className="flex items-center gap-1.5">
+          <div className="flex flex-wrap items-center gap-1.5">
             <span className="w-12 shrink-0 text-xs font-medium text-gray-500">Setup</span>
             <PageActionButtons
               currentPageId={currentPage?.id ?? null}
               notebookId={notebookId}
               testIdSuffix="compact"
+              showMetaActions={false}
+            />
+          </div>
+
+          {/* Metadata row */}
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="w-12 shrink-0 text-xs font-medium text-gray-500">Meta</span>
+            <PageActionButtons
+              currentPageId={currentPage?.id ?? null}
+              notebookId={notebookId}
+              testIdSuffix="compact"
+              showPageActions={false}
+              showSettings={false}
             />
           </div>
 
@@ -198,6 +215,8 @@ function CompactLayout({
 
 interface FullLayoutProps {
   isDrawingTool: boolean;
+  expanded: boolean;
+  toggleExpanded: () => void;
   currentPageId: string;
   currentPage: { id: string } | null;
   notebookId: string | undefined;
@@ -208,6 +227,8 @@ interface FullLayoutProps {
 
 function FullLayout({
   isDrawingTool,
+  expanded,
+  toggleExpanded,
   currentPageId,
   currentPage,
   notebookId,
@@ -217,11 +238,13 @@ function FullLayout({
 }: FullLayoutProps) {
   return (
     <>
-      {/* Row 1: Drawing tools */}
-      <div className="flex flex-wrap items-center gap-2">
+      {/* Primary row: always single-line; advanced controls are in explicit expand panel */}
+      <div className="flex flex-nowrap items-center gap-2">
         <ToolbarButton onClick={() => navigate("/")} aria-label="Home">
           Home
         </ToolbarButton>
+
+        <PageNavControls showNavigation={false} addPageFirst />
 
         <Divider />
 
@@ -255,33 +278,19 @@ function FullLayout({
         <Divider />
 
         <UndoRedoButtons pageId={currentPageId} />
-      </div>
-
-      {/* Row 2: Page & view controls */}
-      <div className="mt-1.5 flex flex-wrap items-center gap-2 border-t border-gray-200 pt-1.5">
-        <PageNavControls />
 
         <Divider />
 
-        <PageActionButtons
-          currentPageId={currentPage?.id ?? null}
-          notebookId={notebookId}
-        />
-
-        <GridTypePicker />
-        <LineSpacingPicker />
-
-        <Divider />
-
-        <ZoomControls />
+        <ToolbarButton
+          onClick={toggleExpanded}
+          active={expanded}
+          aria-label={expanded ? "Collapse toolbar" : "Expand toolbar"}
+          aria-expanded={expanded}
+        >
+          {expanded ? "\u25B2" : "\u22EF"}
+        </ToolbarButton>
 
         <div className="flex-1" />
-
-        {viewMode === "single" && currentPage && (
-          <TranscriptionIndicator pageId={currentPage.id} />
-        )}
-
-        <ViewModePicker />
 
         <SyncIndicator />
         <OfflineIndicator />
@@ -289,6 +298,47 @@ function FullLayout({
           <span className="text-xs text-gray-600">{debugLastPointCount}pts</span>
         )}
       </div>
+
+      {expanded && (
+        <div className="mt-1.5 space-y-1.5 border-t border-gray-200 pt-1.5">
+          <div className="flex flex-wrap items-center gap-2">
+            <PageNavControls showAddPage={false} />
+
+            <Divider />
+
+            <PageActionButtons
+              currentPageId={currentPage?.id ?? null}
+              notebookId={notebookId}
+              showMetaActions={false}
+            />
+
+            <GridTypePicker />
+            <LineSpacingPicker />
+
+            <Divider />
+
+            <ZoomControls />
+
+            <div className="flex-1" />
+
+            {viewMode === "single" && currentPage && (
+              <TranscriptionIndicator pageId={currentPage.id} />
+            )}
+
+            <ViewModePicker />
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="w-10 shrink-0 text-xs font-medium text-gray-500">Meta</span>
+            <PageActionButtons
+              currentPageId={currentPage?.id ?? null}
+              notebookId={notebookId}
+              showPageActions={false}
+              showSettings={false}
+            />
+          </div>
+        </div>
+      )}
     </>
   );
 }

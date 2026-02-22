@@ -7,6 +7,7 @@ const PAGE_RENDER_HEIGHT = PAGE_RENDER_WIDTH * (PAGE_HEIGHT / PAGE_WIDTH);
 const MINIMAP_WIDTH = 160;
 const MINIMAP_HEIGHT = 120;
 const MINIMAP_PADDING = 8;
+const COLLAPSE_TAB_WIDTH = 20;
 
 interface MinimapProps {
   pagePositions: { id: string; x: number; y: number }[];
@@ -18,6 +19,7 @@ export function Minimap({ pagePositions, containerWidth, containerHeight }: Mini
   const canvasTransform = useViewStore((s) => s.canvasTransform);
   const setCanvasTransform = useViewStore((s) => s.setCanvasTransform);
   const [isDragging, setIsDragging] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(false);
   const minimapRef = useRef<HTMLDivElement>(null);
 
   // Calculate the bounding box of all pages
@@ -170,80 +172,126 @@ export function Minimap({ pagePositions, containerWidth, containerHeight }: Mini
 
   return (
     <div
-      ref={minimapRef}
-      className="absolute bottom-4 right-4 cursor-crosshair rounded-lg border border-gray-300 bg-white/95 shadow-md backdrop-blur-sm"
+      className="absolute top-4 right-0"
       style={{
-        width: MINIMAP_WIDTH,
-        height: MINIMAP_HEIGHT,
-        touchAction: "none",
+        transform: isCollapsed
+          ? `translateX(${MINIMAP_WIDTH}px)`
+          : "translateX(0)",
+        transition: "transform 200ms ease-in-out",
+        paddingRight: 16,
       }}
-      onPointerDown={handlePointerDown}
-      onPointerMove={handlePointerMove}
-      onPointerUp={handlePointerUp}
-      onPointerCancel={handlePointerUp}
-      data-testid="canvas-minimap"
     >
-      {/* Background grid pattern */}
-      <svg
-        width="100%"
-        height="100%"
-        className="absolute inset-0"
-        style={{ opacity: 0.1 }}
+      {/* Collapse/expand tab */}
+      <button
+        className="absolute top-1/2 cursor-pointer rounded-l-md border border-r-0 border-gray-300 bg-white/95 shadow-sm backdrop-blur-sm"
+        style={{
+          left: -COLLAPSE_TAB_WIDTH,
+          width: COLLAPSE_TAB_WIDTH,
+          height: 40,
+          transform: "translateY(-50%)",
+        }}
+        onClick={() => setIsCollapsed((c) => !c)}
+        aria-label={isCollapsed ? "Show minimap" : "Hide minimap"}
+        data-testid="minimap-toggle"
       >
-        <pattern
-          id="minimap-grid"
+        <svg
           width="10"
           height="10"
-          patternUnits="userSpaceOnUse"
+          viewBox="0 0 10 10"
+          className="mx-auto text-gray-400"
+          style={{
+            transform: isCollapsed ? "rotate(180deg)" : "rotate(0deg)",
+            transition: "transform 200ms ease-in-out",
+          }}
         >
           <path
-            d="M 10 0 L 0 0 0 10"
+            d="M7 1 L3 5 L7 9"
             fill="none"
-            stroke="#9ca3af"
-            strokeWidth="0.5"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
           />
-        </pattern>
-        <rect width="100%" height="100%" fill="url(#minimap-grid)" />
-      </svg>
+        </svg>
+      </button>
 
-      {/* Page rectangles */}
-      <svg
-        width="100%"
-        height="100%"
-        className="absolute inset-0"
-        style={{ overflow: "visible" }}
+      {/* Minimap body */}
+      <div
+        ref={minimapRef}
+        className="cursor-crosshair rounded-lg border border-gray-300 bg-white/95 shadow-md backdrop-blur-sm"
+        style={{
+          width: MINIMAP_WIDTH,
+          height: MINIMAP_HEIGHT,
+          touchAction: "none",
+        }}
+        onPointerDown={isCollapsed ? undefined : handlePointerDown}
+        onPointerMove={isCollapsed ? undefined : handlePointerMove}
+        onPointerUp={isCollapsed ? undefined : handlePointerUp}
+        onPointerCancel={isCollapsed ? undefined : handlePointerUp}
+        data-testid="canvas-minimap"
       >
-        {pageRects.map((rect) => (
+        {/* Background grid pattern */}
+        <svg
+          width="100%"
+          height="100%"
+          className="absolute inset-0"
+          style={{ opacity: 0.1 }}
+        >
+          <pattern
+            id="minimap-grid"
+            width="10"
+            height="10"
+            patternUnits="userSpaceOnUse"
+          >
+            <path
+              d="M 10 0 L 0 0 0 10"
+              fill="none"
+              stroke="#9ca3af"
+              strokeWidth="0.5"
+            />
+          </pattern>
+          <rect width="100%" height="100%" fill="url(#minimap-grid)" />
+        </svg>
+
+        {/* Page rectangles */}
+        <svg
+          width="100%"
+          height="100%"
+          className="absolute inset-0"
+          style={{ overflow: "visible" }}
+        >
+          {pageRects.map((rect) => (
+            <rect
+              key={rect.id}
+              x={rect.x}
+              y={rect.y}
+              width={rect.width}
+              height={rect.height}
+              fill="#f3f4f6"
+              stroke="#9ca3af"
+              strokeWidth="0.5"
+              rx="1"
+            />
+          ))}
+
+          {/* Viewport indicator */}
           <rect
-            key={rect.id}
-            x={rect.x}
-            y={rect.y}
-            width={rect.width}
-            height={rect.height}
-            fill="#f3f4f6"
-            stroke="#9ca3af"
-            strokeWidth="0.5"
-            rx="1"
+            x={viewport.x}
+            y={viewport.y}
+            width={Math.max(viewport.width, 4)}
+            height={Math.max(viewport.height, 4)}
+            fill="rgba(59, 130, 246, 0.15)"
+            stroke="#3b82f6"
+            strokeWidth="1.5"
+            rx="2"
+            data-testid="minimap-viewport"
           />
-        ))}
+        </svg>
 
-        {/* Viewport indicator */}
-        <rect
-          x={viewport.x}
-          y={viewport.y}
-          width={Math.max(viewport.width, 4)}
-          height={Math.max(viewport.height, 4)}
-          fill="rgba(59, 130, 246, 0.15)"
-          stroke="#3b82f6"
-          strokeWidth="1.5"
-          rx="2"
-          data-testid="minimap-viewport"
-        />
-      </svg>
-
-      {/* Label */}
-      <div className="absolute bottom-1 left-2 text-[9px] font-medium text-gray-400">
-        {pagePositions.length} page{pagePositions.length !== 1 ? "s" : ""}
+        {/* Label */}
+        <div className="absolute bottom-1 left-2 text-[9px] font-medium text-gray-400">
+          {pagePositions.length} page{pagePositions.length !== 1 ? "s" : ""}
+        </div>
       </div>
     </div>
   );

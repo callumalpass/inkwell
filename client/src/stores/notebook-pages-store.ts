@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import * as pagesApi from "../api/pages";
 import * as notebooksApi from "../api/notebooks";
-import type { NotebookSettings } from "../api/notebooks";
+import type { NotebookBookmark, NotebookSettings } from "../api/notebooks";
 import { useSettingsStore } from "./settings-store";
 import { useDrawingStore } from "./drawing-store";
 import { useViewStore, type ViewMode } from "./view-store";
@@ -25,10 +25,21 @@ interface NotebookPagesStore {
   goToNextPage: () => void;
   goToPrevPage: () => void;
   addNewPage: () => Promise<pagesApi.PageMeta>;
+  addPageToRight: () => Promise<pagesApi.PageMeta>;
   duplicatePage: (pageId: string) => Promise<pagesApi.PageMeta>;
   updatePagePosition: (pageId: string, canvasX: number, canvasY: number) => Promise<void>;
   updatePageLinks: (pageId: string, links: string[]) => Promise<void>;
   updatePageTags: (pageId: string, tags: string[]) => Promise<void>;
+  addBookmark: (
+    pageId: string,
+    options?: { label?: string; parentId?: string | null },
+  ) => Promise<NotebookBookmark>;
+  removeBookmark: (bookmarkId: string) => Promise<void>;
+  updateBookmark: (
+    bookmarkId: string,
+    updates: { label?: string; parentId?: string | null; order?: number },
+  ) => Promise<void>;
+  toggleBookmark: (pageId: string) => Promise<void>;
   reorderPages: (orderedIds: string[]) => Promise<void>;
   removePages: (pageIds: string[]) => Promise<void>;
   movePages: (pageIds: string[], targetNotebookId: string) => Promise<void>;
@@ -137,6 +148,47 @@ export const useNotebookPagesStore = create<NotebookPagesStore>((set, get) => ({
     return page;
   },
 
+  addPageToRight: async () => {
+    const { notebookId, pages, currentPageIndex } = get();
+    if (!notebookId) throw new Error("No notebook loaded");
+
+    const currentPage = pages[currentPageIndex];
+    if (!currentPage) {
+      const page = await pagesApi.createPage(notebookId);
+      set({ pages: [...pages, page] });
+      return page;
+    }
+
+    // Keep in sync with server-side auto-position dimensions.
+    const PAGE_RENDER_WIDTH = 400;
+    const CANVAS_GAP = 60;
+    const rowPages = pages.filter((page) => page.canvasY === currentPage.canvasY);
+    const rightMostX = rowPages.length
+      ? Math.max(...rowPages.map((page) => page.canvasX))
+      : currentPage.canvasX;
+
+    const createdPage = await pagesApi.createPage(notebookId);
+    const positionedPage = await pagesApi.updatePage(createdPage.id, {
+      canvasX: rightMostX + PAGE_RENDER_WIDTH + CANVAS_GAP,
+      canvasY: currentPage.canvasY,
+    });
+
+    const currentLinks = currentPage.links ?? [];
+    const updatedCurrentPage = await pagesApi.updatePage(currentPage.id, {
+      links: [...currentLinks, positionedPage.id],
+    });
+
+    set((state) => ({
+      pages: [...state.pages, positionedPage].map((page) => {
+        if (page.id === positionedPage.id) return positionedPage;
+        if (page.id === updatedCurrentPage.id) return updatedCurrentPage;
+        return page;
+      }),
+    }));
+
+    return positionedPage;
+  },
+
   duplicatePage: async (pageId: string) => {
     const { pages } = get();
     const page = await pagesApi.duplicatePage(pageId);
@@ -166,6 +218,118 @@ export const useNotebookPagesStore = create<NotebookPagesStore>((set, get) => ({
     set({
       pages: pages.map((p) => (p.id === pageId ? updated : p)),
     });
+  },
+
+  addBookmark: async (pageId, options) => {
+    const { notebookId, settings } = get();
+    if (!notebookId) throw new Error("No notebook loaded");
+
+    const current = settings.bookmarks ?? [];
+    const existing = current.find((b) => b.pageId === pageId);
+    if (existing) return existing;
+
+    const parentId = normalizeParentId(current, options?.parentId ?? null);
+    const maxOrder = current.length > 0 ? Math.max(...current.map((b) => b.order)) : -1;
+    const bookmark: NotebookBookmark = {
+      id: createBookmarkId(),
+      pageId,
+      label: normalizeBookmarkLabel(options?.label),
+      parentId,
+      createdAt: new Date().toISOString(),
+      order: maxOrder + 1,
+    };
+    const nextBookmarks = [...current, bookmark];
+    const mergedSettings = { ...settings, bookmarks: nextBookmarks };
+
+    await notebooksApi.updateNotebook(notebookId, { settings: mergedSettings });
+    set({ settings: mergedSettings });
+    return bookmark;
+  },
+
+  removeBookmark: async (bookmarkId) => {
+    const { notebookId, settings } = get();
+    if (!notebookId) throw new Error("No notebook loaded");
+
+    const current = settings.bookmarks ?? [];
+    const removed = current.find((b) => b.id === bookmarkId);
+    if (!removed) return;
+
+    const nextBookmarks = current
+      .filter((b) => b.id !== bookmarkId)
+      .map((b) =>
+        b.parentId === bookmarkId
+          ? { ...b, parentId: null }
+          : b,
+      );
+    const mergedSettings = { ...settings, bookmarks: nextBookmarks };
+
+    await notebooksApi.updateNotebook(notebookId, { settings: mergedSettings });
+    set({ settings: mergedSettings });
+  },
+
+  updateBookmark: async (bookmarkId, updates) => {
+    const { notebookId, settings } = get();
+    if (!notebookId) throw new Error("No notebook loaded");
+
+    const current = settings.bookmarks ?? [];
+    const idx = current.findIndex((b) => b.id === bookmarkId);
+    if (idx < 0) return;
+
+    const existing = current[idx];
+    const parentId =
+      updates.parentId !== undefined
+        ? normalizeParentId(current, updates.parentId, bookmarkId)
+        : existing.parentId ?? null;
+
+    const order =
+      typeof updates.order === "number" && Number.isFinite(updates.order)
+        ? updates.order
+        : existing.order;
+
+    const updatedBookmark: NotebookBookmark = {
+      ...existing,
+      label:
+        updates.label !== undefined
+          ? normalizeBookmarkLabel(updates.label)
+          : existing.label,
+      parentId,
+      order,
+    };
+
+    const nextBookmarks = current.map((b) =>
+      b.id === bookmarkId ? updatedBookmark : b,
+    );
+    const mergedSettings = { ...settings, bookmarks: nextBookmarks };
+
+    await notebooksApi.updateNotebook(notebookId, { settings: mergedSettings });
+    set({ settings: mergedSettings });
+  },
+
+  toggleBookmark: async (pageId) => {
+    const { notebookId, settings } = get();
+    if (!notebookId) throw new Error("No notebook loaded");
+
+    const current = settings.bookmarks ?? [];
+    const existing = current.find((b) => b.pageId === pageId);
+    const nextBookmarks = existing
+      ? current
+          .filter((b) => b.id !== existing.id)
+          .map((b) => (b.parentId === existing.id ? { ...b, parentId: null } : b))
+      : [
+          ...current,
+          {
+            id: createBookmarkId(),
+            pageId,
+            label: undefined,
+            parentId: null,
+            createdAt: new Date().toISOString(),
+            order: current.length > 0 ? Math.max(...current.map((b) => b.order)) + 1 : 0,
+          },
+        ];
+
+    const mergedSettings = { ...settings, bookmarks: nextBookmarks };
+    await notebooksApi.updateNotebook(notebookId, { settings: mergedSettings });
+    set({ settings: mergedSettings });
   },
 
   reorderPages: async (orderedIds) => {
@@ -240,4 +404,41 @@ function normalizeViewMode(mode?: string): ViewMode {
   if (mode === "canvas" || mode === "overview" || mode === "single") return mode;
   if (mode === "scroll") return "overview";
   return "single";
+}
+
+function createBookmarkId(): string {
+  return `bm_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function normalizeBookmarkLabel(label: string | undefined): string | undefined {
+  const trimmed = (label ?? "").trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+}
+
+function normalizeParentId(
+  bookmarks: NotebookBookmark[],
+  parentId: string | null | undefined,
+  targetId?: string,
+): string | null {
+  if (!parentId) return null;
+  const exists = bookmarks.some((b) => b.id === parentId);
+  if (!exists) return null;
+  if (!targetId) return parentId;
+  if (targetId === parentId) return null;
+  if (createsBookmarkCycle(bookmarks, targetId, parentId)) return null;
+  return parentId;
+}
+
+function createsBookmarkCycle(
+  bookmarks: NotebookBookmark[],
+  targetId: string,
+  parentId: string,
+): boolean {
+  let cursor: string | null = parentId;
+  const byId = new Map(bookmarks.map((b) => [b.id, b] as const));
+  while (cursor) {
+    if (cursor === targetId) return true;
+    cursor = byId.get(cursor)?.parentId ?? null;
+  }
+  return false;
 }

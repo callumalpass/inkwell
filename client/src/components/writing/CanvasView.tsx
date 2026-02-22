@@ -26,6 +26,7 @@ const PAGE_RENDER_HEIGHT = PAGE_RENDER_WIDTH * (PAGE_HEIGHT / PAGE_WIDTH);
 export function CanvasView() {
   const pages = useNotebookPagesStore((s) => s.pages);
   const currentPageIndex = useNotebookPagesStore((s) => s.currentPageIndex);
+  const setCurrentPageIndex = useNotebookPagesStore((s) => s.setCurrentPageIndex);
   const currentPageId = pages[currentPageIndex]?.id ?? "";
   const gridType = useNotebookPagesStore((s) => (s.settings.gridType ?? "none") as GridType);
   const lineSpacing = useNotebookPagesStore(
@@ -111,6 +112,16 @@ export function CanvasView() {
       y: page.canvasY ?? 0,
     }));
   }, [pages]);
+  const pageIndexById = useMemo(
+    () => new Map(pages.map((page, index) => [page.id, index] as const)),
+    [pages],
+  );
+
+  const setActivePage = useCallback((pageId: string) => {
+    const pageIndex = pageIndexById.get(pageId);
+    if (pageIndex === undefined || pageIndex === currentPageIndex) return;
+    setCurrentPageIndex(pageIndex);
+  }, [pageIndexById, currentPageIndex, setCurrentPageIndex]);
 
   // Determine which pages are visible in the viewport
   useEffect(() => {
@@ -251,6 +262,8 @@ export function CanvasView() {
   // This lets pointer events reach DrawingLayer for pen/eraser.
   const handlePagePointerDown = useCallback(
     (e: React.PointerEvent, pageId: string, canvasX: number, canvasY: number) => {
+      setActivePage(pageId);
+
       // Touch: single-finger on page → drag page; second finger → cancel for pinch-zoom
       if (e.pointerType === "touch") {
         activeTouchIds.current.add(e.pointerId);
@@ -300,13 +313,15 @@ export function CanvasView() {
       setDragOffset({ dx: 0, dy: 0 });
       (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
     },
-    [cancelTouchDrag],
+    [cancelTouchDrag, setActivePage],
   );
 
   // Drag handle: always starts a drag on left-click or single-finger touch, regardless of active tool.
   // This gives a mouse-friendly grip target that works even when pen/eraser is selected.
   const handleDragHandlePointerDown = useCallback(
     (e: React.PointerEvent, pageId: string, canvasX: number, canvasY: number) => {
+      setActivePage(pageId);
+
       if (e.pointerType === "touch") {
         activeTouchIds.current.add(e.pointerId);
         if (activeTouchIds.current.size > 1) {
@@ -340,7 +355,7 @@ export function CanvasView() {
         }
       }
     },
-    [cancelTouchDrag],
+    [cancelTouchDrag, setActivePage],
   );
 
   const handlePointerMove = useCallback(

@@ -172,6 +172,88 @@ describe("addNewPage", () => {
   });
 });
 
+describe("addPageToRight", () => {
+  it("creates a page to the right and links current page to it", async () => {
+    const { createPage, updatePage } = await import("../api/pages");
+    const current = { ...threePages[0], canvasX: 120, canvasY: 240, links: ["p2"] };
+    const created = makePage("p4", 4);
+    const positioned = { ...created, canvasX: 580, canvasY: 240 };
+    const updatedCurrent = { ...current, links: ["p2", "p4"] };
+
+    vi.mocked(createPage).mockResolvedValue(created);
+    vi.mocked(updatePage)
+      .mockResolvedValueOnce(positioned)
+      .mockResolvedValueOnce(updatedCurrent);
+
+    useNotebookPagesStore.setState({
+      notebookId: "nb_test",
+      pages: [current, threePages[1], threePages[2]],
+      currentPageIndex: 0,
+    });
+
+    const result = await useNotebookPagesStore.getState().addPageToRight();
+
+    expect(result).toEqual(positioned);
+    expect(updatePage).toHaveBeenNthCalledWith(1, "p4", { canvasX: 580, canvasY: 240 });
+    expect(updatePage).toHaveBeenNthCalledWith(2, "p1", { links: ["p2", "p4"] });
+
+    const state = useNotebookPagesStore.getState();
+    expect(state.pages).toHaveLength(4);
+    expect(state.pages.find((p) => p.id === "p4")?.canvasX).toBe(580);
+    expect(state.pages.find((p) => p.id === "p1")?.links).toEqual(["p2", "p4"]);
+  });
+
+  it("places new page at the row's right-most position", async () => {
+    const { createPage, updatePage } = await import("../api/pages");
+    const current = { ...threePages[0], canvasX: 120, canvasY: 240, links: [] };
+    const rowRightMost = { ...threePages[1], canvasX: 580, canvasY: 240 };
+    const otherRow = { ...threePages[2], canvasX: 900, canvasY: 700 };
+    const created = makePage("p4", 4);
+    const positioned = { ...created, canvasX: 1040, canvasY: 240 };
+    const updatedCurrent = { ...current, links: ["p4"] };
+
+    vi.mocked(createPage).mockResolvedValue(created);
+    vi.mocked(updatePage)
+      .mockResolvedValueOnce(positioned)
+      .mockResolvedValueOnce(updatedCurrent);
+
+    useNotebookPagesStore.setState({
+      notebookId: "nb_test",
+      pages: [current, rowRightMost, otherRow],
+      currentPageIndex: 0,
+    });
+
+    await useNotebookPagesStore.getState().addPageToRight();
+
+    expect(updatePage).toHaveBeenNthCalledWith(1, "p4", { canvasX: 1040, canvasY: 240 });
+  });
+
+  it("falls back to regular create when current page is missing", async () => {
+    const { createPage, updatePage } = await import("../api/pages");
+    const created = makePage("p4", 4);
+
+    vi.mocked(createPage).mockResolvedValue(created);
+
+    useNotebookPagesStore.setState({
+      notebookId: "nb_test",
+      pages: [],
+      currentPageIndex: 0,
+    });
+
+    const result = await useNotebookPagesStore.getState().addPageToRight();
+
+    expect(result).toEqual(created);
+    expect(updatePage).not.toHaveBeenCalled();
+    expect(useNotebookPagesStore.getState().pages).toEqual([created]);
+  });
+
+  it("throws when no notebook loaded", async () => {
+    await expect(useNotebookPagesStore.getState().addPageToRight()).rejects.toThrow(
+      "No notebook loaded",
+    );
+  });
+});
+
 describe("updateSettings", () => {
   it("merges new settings and persists via API", async () => {
     const { updateNotebook } = await import("../api/notebooks");
@@ -211,6 +293,119 @@ describe("updateSettings", () => {
     await expect(
       useNotebookPagesStore.getState().updateSettings({ gridType: "grid" }),
     ).rejects.toThrow("No notebook loaded");
+  });
+});
+
+describe("bookmarks", () => {
+  it("adds a bookmark to notebook settings", async () => {
+    const { updateNotebook } = await import("../api/notebooks");
+    vi.mocked(updateNotebook).mockResolvedValue({} as any);
+
+    useNotebookPagesStore.setState({
+      notebookId: "nb_test",
+      settings: {},
+    });
+
+    const bookmark = await useNotebookPagesStore.getState().addBookmark("p1", {
+      label: "First",
+    });
+
+    expect(bookmark.pageId).toBe("p1");
+    expect(bookmark.label).toBe("First");
+    expect(useNotebookPagesStore.getState().settings.bookmarks).toHaveLength(1);
+    expect(updateNotebook).toHaveBeenCalledWith("nb_test", {
+      settings: expect.objectContaining({
+        bookmarks: expect.arrayContaining([
+          expect.objectContaining({
+            pageId: "p1",
+            label: "First",
+          }),
+        ]),
+      }),
+    });
+  });
+
+  it("removes a bookmark and promotes children to top-level", async () => {
+    const { updateNotebook } = await import("../api/notebooks");
+    vi.mocked(updateNotebook).mockResolvedValue({} as any);
+
+    useNotebookPagesStore.setState({
+      notebookId: "nb_test",
+      settings: {
+        bookmarks: [
+          {
+            id: "bm_root",
+            pageId: "p1",
+            createdAt: new Date().toISOString(),
+            order: 0,
+          },
+          {
+            id: "bm_child",
+            pageId: "p2",
+            parentId: "bm_root",
+            createdAt: new Date().toISOString(),
+            order: 1,
+          },
+        ],
+      },
+    });
+
+    await useNotebookPagesStore.getState().removeBookmark("bm_root");
+    const bookmarks = useNotebookPagesStore.getState().settings.bookmarks ?? [];
+    expect(bookmarks).toHaveLength(1);
+    expect(bookmarks[0].id).toBe("bm_child");
+    expect(bookmarks[0].parentId).toBeNull();
+  });
+
+  it("toggleBookmark adds then removes the current page bookmark", async () => {
+    const { updateNotebook } = await import("../api/notebooks");
+    vi.mocked(updateNotebook).mockResolvedValue({} as any);
+
+    useNotebookPagesStore.setState({
+      notebookId: "nb_test",
+      settings: {},
+    });
+
+    await useNotebookPagesStore.getState().toggleBookmark("p1");
+    expect(useNotebookPagesStore.getState().settings.bookmarks).toHaveLength(1);
+
+    await useNotebookPagesStore.getState().toggleBookmark("p1");
+    expect(useNotebookPagesStore.getState().settings.bookmarks).toHaveLength(0);
+  });
+
+  it("prevents cyclical parent assignments in updateBookmark", async () => {
+    const { updateNotebook } = await import("../api/notebooks");
+    vi.mocked(updateNotebook).mockResolvedValue({} as any);
+
+    useNotebookPagesStore.setState({
+      notebookId: "nb_test",
+      settings: {
+        bookmarks: [
+          {
+            id: "bm_root",
+            pageId: "p1",
+            createdAt: new Date().toISOString(),
+            order: 0,
+          },
+          {
+            id: "bm_child",
+            pageId: "p2",
+            parentId: "bm_root",
+            createdAt: new Date().toISOString(),
+            order: 1,
+          },
+        ],
+      },
+    });
+
+    await useNotebookPagesStore.getState().updateBookmark("bm_root", {
+      parentId: "bm_child",
+    });
+
+    const root = (useNotebookPagesStore.getState().settings.bookmarks ?? []).find(
+      (b) => b.id === "bm_root",
+    );
+    expect(root?.parentId).toBeNull();
   });
 });
 

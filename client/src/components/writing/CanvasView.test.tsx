@@ -207,4 +207,18 @@ describe("CanvasView - Page rendering", () => {
       screen.queryByTestId("page-surface-pg_2"),
     ).not.toBeInTheDocument();
   });
+
+  it("marks interacted canvas page as active", () => {
+    render(<CanvasView />);
+    expect(useNotebookPagesStore.getState().currentPageIndex).toBe(0);
+
+    fireEvent.pointerDown(screen.getByTestId("page-surface-pg_2"), {
+      button: 0,
+      clientX: 120,
+      clientY: 120,
+      pointerId: 7,
+    });
+
+    expect(useNotebookPagesStore.getState().currentPageIndex).toBe(1);
+  });
 });

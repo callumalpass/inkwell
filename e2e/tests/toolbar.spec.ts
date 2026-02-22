@@ -232,18 +232,15 @@ test.describe("Toolbar - Multi-page navigation", () => {
     await expect(page.getByText("2/3")).toBeVisible();
   });
 
-  test("Add Page creates a new page and navigates to it", async ({ page }) => {
-    await openNotebook(page, notebookTitle);
-
-    // Switch to single mode
-    await page.getByRole("button", { name: "Single" }).click();
-    await expect(page.locator(".touch-none").first()).toBeVisible({ timeout: 5000 });
+  test("Add Page below creates a new page and navigates to it", async ({ page }) => {
+    await openNotebookSingleMode(page, notebookTitle);
 
     // Should start with 3 pages
     await expect(page.getByText("1/3")).toBeVisible();
 
-    // Click "+ Page" to add a new page (aria-label is "Add new page")
+    // Click "+ Page" and choose "below"
     await page.getByRole("button", { name: /add new page/i }).click();
+    await page.getByTestId("add-page-below").click();
 
     // Should now show 4 pages, and navigate to the new page (page 4)
     await expect(page.getByText(/4\/4/)).toBeVisible({ timeout: 5000 });

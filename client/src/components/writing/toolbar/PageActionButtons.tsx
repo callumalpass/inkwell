@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useLinksPanelStore } from "../../../stores/links-panel-store";
 import { useTagsPanelStore } from "../../../stores/tags-panel-store";
+import { useBookmarkPanelStore } from "../../../stores/bookmark-panel-store";
 import { useNotebookPagesStore } from "../../../stores/notebook-pages-store";
 import { usePageStore } from "../../../stores/page-store";
 import { useUndoRedoStore } from "../../../stores/undo-redo-store";
@@ -17,12 +18,18 @@ interface PageActionButtonsProps {
   notebookId: string | undefined;
   /** data-testid suffix — "compact" or omitted for full layout */
   testIdSuffix?: string;
+  showPageActions?: boolean;
+  showMetaActions?: boolean;
+  showSettings?: boolean;
 }
 
 export function PageActionButtons({
   currentPageId,
   notebookId,
   testIdSuffix,
+  showPageActions = true,
+  showMetaActions = true,
+  showSettings = true,
 }: PageActionButtonsProps) {
   const navigate = useNavigate();
   const { notebookId: routeNotebookId } = useParams<{ notebookId: string }>();
@@ -34,10 +41,19 @@ export function PageActionButtons({
   const openTagsPanel = useTagsPanelStore((s) => s.openPanel);
   const closeTagsPanel = useTagsPanelStore((s) => s.closePanel);
 
+  const bookmarksPanelOpen = useBookmarkPanelStore((s) => s.panelOpen);
+  const openBookmarksPanel = useBookmarkPanelStore((s) => s.openPanel);
+  const closeBookmarksPanel = useBookmarkPanelStore((s) => s.closePanel);
+
   const duplicatePage = useNotebookPagesStore((s) => s.duplicatePage);
   const pages = useNotebookPagesStore((s) => s.pages);
   const currentPageIndex = useNotebookPagesStore((s) => s.currentPageIndex);
   const removePages = useNotebookPagesStore((s) => s.removePages);
+  const currentPageBookmarked = useNotebookPagesStore((s) =>
+    currentPageId
+      ? (s.settings.bookmarks ?? []).some((bookmark) => bookmark.pageId === currentPageId)
+      : false,
+  );
 
   const [exportOpen, setExportOpen] = useState(false);
   const [notebookSettingsOpen, setNotebookSettingsOpen] = useState(false);
@@ -56,6 +72,7 @@ export function PageActionButtons({
       closeLinksPanel();
     } else {
       closeTagsPanel();
+      closeBookmarksPanel();
       openLinksPanel(currentPageId);
     }
   };
@@ -66,7 +83,19 @@ export function PageActionButtons({
       closeTagsPanel();
     } else {
       closeLinksPanel();
+      closeBookmarksPanel();
       openTagsPanel(currentPageId);
+    }
+  };
+
+  const handleToggleBookmarks = () => {
+    if (!currentPageId) return;
+    if (bookmarksPanelOpen) {
+      closeBookmarksPanel();
+    } else {
+      closeLinksPanel();
+      closeTagsPanel();
+      openBookmarksPanel(currentPageId);
     }
   };
 
@@ -145,43 +174,47 @@ export function PageActionButtons({
     <>
       {currentPageId && (
         <>
-          <ToolbarButton
-            onClick={handleDuplicate}
-            disabled={duplicating}
-            aria-label="Duplicate page"
-            data-testid={`toolbar-duplicate${suffix}`}
-          >
-            {duplicating ? "..." : "Duplicate"}
-          </ToolbarButton>
-          <ToolbarButton
-            onClick={() => setExportOpen(true)}
-            aria-label="Export page"
-            data-testid={`toolbar-export${suffix}`}
-          >
-            Export
-          </ToolbarButton>
-          <ToolbarButton
-            onClick={() => setClearConfirmOpen(true)}
-            disabled={clearing}
-            aria-label="Clear page"
-            data-testid={`toolbar-clear${suffix}`}
-          >
-            {clearing ? "..." : "Clear"}
-          </ToolbarButton>
-          <ToolbarButton
-            onClick={() => setDeleteConfirmOpen(true)}
-            disabled={deleting}
-            aria-label="Delete page"
-            data-testid={`toolbar-delete${suffix}`}
-            variant="danger"
-          >
-            {deleting ? "..." : "Delete"}
-          </ToolbarButton>
-          <Divider />
+          {showPageActions && (
+            <>
+              <ToolbarButton
+                onClick={handleDuplicate}
+                disabled={duplicating}
+                aria-label="Duplicate page"
+                data-testid={`toolbar-duplicate${suffix}`}
+              >
+                {duplicating ? "..." : "Duplicate"}
+              </ToolbarButton>
+              <ToolbarButton
+                onClick={() => setExportOpen(true)}
+                aria-label="Export page"
+                data-testid={`toolbar-export${suffix}`}
+              >
+                Export
+              </ToolbarButton>
+              <ToolbarButton
+                onClick={() => setClearConfirmOpen(true)}
+                disabled={clearing}
+                aria-label="Clear page"
+                data-testid={`toolbar-clear${suffix}`}
+              >
+                {clearing ? "..." : "Clear"}
+              </ToolbarButton>
+              <ToolbarButton
+                onClick={() => setDeleteConfirmOpen(true)}
+                disabled={deleting}
+                aria-label="Delete page"
+                data-testid={`toolbar-delete${suffix}`}
+                variant="danger"
+              >
+                {deleting ? "..." : "Delete"}
+              </ToolbarButton>
+              {(showMetaActions || showSettings) && <Divider />}
+            </>
+          )}
         </>
       )}
 
-      {currentPageId && (
+      {showMetaActions && currentPageId && (
         <>
           <ToolbarButton
             onClick={handleToggleLinks}
@@ -191,12 +224,6 @@ export function PageActionButtons({
           >
             Links
           </ToolbarButton>
-          <Divider />
-        </>
-      )}
-
-      {currentPageId && (
-        <>
           <ToolbarButton
             onClick={handleToggleTags}
             active={tagsPanelOpen}
@@ -205,17 +232,27 @@ export function PageActionButtons({
           >
             Tags
           </ToolbarButton>
-          <Divider />
+          <ToolbarButton
+            onClick={handleToggleBookmarks}
+            active={bookmarksPanelOpen}
+            aria-label="Page bookmarks"
+            data-testid={`toolbar-bookmarks${suffix}`}
+          >
+            {currentPageBookmarked ? "Bookmarked" : "Bookmarks"}
+          </ToolbarButton>
+          {showSettings && <Divider />}
         </>
       )}
 
-      <ToolbarButton
-        onClick={() => setNotebookSettingsOpen(true)}
-        aria-label="Notebook settings"
-        data-testid={`toolbar-notebook-settings${suffix}`}
-      >
-        {testIdSuffix === "compact" ? "Notebook Settings" : "Settings"}
-      </ToolbarButton>
+      {showSettings && (
+        <ToolbarButton
+          onClick={() => setNotebookSettingsOpen(true)}
+          aria-label="Notebook settings"
+          data-testid={`toolbar-notebook-settings${suffix}`}
+        >
+          {testIdSuffix === "compact" ? "Notebook Settings" : "Settings"}
+        </ToolbarButton>
+      )}
 
       {currentPageId && (
         <ExportDialog
