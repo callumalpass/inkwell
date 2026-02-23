@@ -5,7 +5,7 @@ import type { PenStyle } from "../lib/pen-styles";
 import { generateStrokeId } from "../lib/id";
 import { DEFAULT_STROKE_COLOR, DEFAULT_STROKE_WIDTH } from "../lib/constants";
 
-export type Tool = "pen" | "highlighter" | "eraser";
+export type Tool = "pen" | "highlighter" | "eraser" | "link";
 
 interface ActiveStroke {
   id: string;

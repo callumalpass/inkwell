@@ -43,10 +43,18 @@ function resolvePageVariable(
     case "tags":
       return page.tags ?? [];
     case "links":
-      return page.links ?? [];
+      return resolvePageLinks(page);
     default:
       return undefined;
   }
+}
+
+function resolvePageLinks(page: PageMeta): string[] {
+  const legacyLinks = page.links ?? [];
+  const inlinePageLinks = (page.inlineLinks ?? []).flatMap((link) =>
+    link.target.type === "page" ? [link.target.pageId] : [],
+  );
+  return Array.from(new Set([...legacyLinks, ...inlinePageLinks]));
 }
 
 function resolveNotebookVariable(

@@ -54,20 +54,25 @@ function addStrokePageToPdf(
 }
 
 /**
- * Add a transcription text page to the PDF.
+ * Overlay transcription text as an invisible layer on the current PDF page.
+ * The text is not visible but is present in the content stream, making the PDF searchable.
  */
-function addTranscriptionPage(
+function addInvisibleTranscriptionLayer(
   doc: PDFKit.PDFDocument,
   content: string,
   dims: PageDimensions,
 ) {
-  doc.addPage({ size: [dims.width, dims.height], margin: 50 });
-  doc.fontSize(12).font("Helvetica").fillColor("#000000");
-  doc.text(content, 50, 50, {
-    width: dims.width - 100,
+  const margin = 20;
+  doc.save();
+  doc.fillOpacity(0).strokeOpacity(0);
+  doc.fontSize(10).font("Helvetica").fillColor("#000000");
+  doc.text(content, margin, margin, {
+    width: dims.width - margin * 2,
+    height: dims.height - margin * 2,
     align: "left",
-    lineGap: 4,
+    lineGap: 2,
   });
+  doc.restore();
 }
 
 /**
@@ -103,7 +108,7 @@ export async function exportPagePdf(
   if (options.includeTranscription) {
     const content = await getTranscriptionContent(pageId);
     if (content && content.trim()) {
-      addTranscriptionPage(doc, content, dims);
+      addInvisibleTranscriptionLayer(doc, content, dims);
     }
   }
 
@@ -148,7 +153,7 @@ export async function exportNotebookPdf(
     if (options.includeTranscription) {
       const content = await getTranscriptionContent(page.id);
       if (content && content.trim()) {
-        addTranscriptionPage(doc, content, dims);
+        addInvisibleTranscriptionLayer(doc, content, dims);
       }
     }
   }

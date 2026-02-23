@@ -48,6 +48,7 @@ Full-text search across transcriptions. Open with the Search button or Cmd+K.
 - Full-text search across transcriptions
 - PDF and PNG export
 - Page tags and links
+- Inline handwriting links (cross-notebook + external URLs)
 - Markdown sync to external directories (e.g. Obsidian vault)
 - Offline support via service worker
 

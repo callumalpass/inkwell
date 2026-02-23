@@ -4,6 +4,8 @@ import { PageLinksPanel } from "./PageLinksPanel";
 import { useLinksPanelStore } from "../../stores/links-panel-store";
 import { useNotebookPagesStore } from "../../stores/notebook-pages-store";
 import type { PageMeta } from "../../api/pages";
+import * as pagesApi from "../../api/pages";
+import * as notebooksApi from "../../api/notebooks";
 
 const mockNavigate = vi.fn();
 vi.mock("react-router-dom", () => ({
@@ -13,9 +15,14 @@ vi.mock("react-router-dom", () => ({
 
 vi.mock("../../api/pages", () => ({
   updatePage: vi.fn(),
+  getPage: vi.fn(),
+  listPages: vi.fn(),
+  createPage: vi.fn(),
 }));
 
 vi.mock("../../api/notebooks", () => ({
+  listNotebooks: vi.fn(),
+  createNotebook: vi.fn(),
   getNotebook: vi.fn().mockResolvedValue({
     id: "nb_test",
     title: "Test Notebook",
@@ -60,6 +67,29 @@ beforeEach(() => {
     error: null,
     settings: {},
   });
+  vi.mocked(notebooksApi.listNotebooks).mockResolvedValue([
+    {
+      id: "nb_test",
+      title: "Test Notebook",
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    },
+    {
+      id: "nb_other",
+      title: "Other Notebook",
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    },
+  ]);
+  vi.mocked(notebooksApi.createNotebook).mockResolvedValue({
+    id: "nb_new",
+    title: "New Notebook",
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  });
+  vi.mocked(pagesApi.listPages).mockResolvedValue(threePages);
+  vi.mocked(pagesApi.createPage).mockResolvedValue(makePage("pg_new", 4));
+  vi.mocked(pagesApi.getPage).mockResolvedValue(makePage("pg_remote", 9));
   mockNavigate.mockClear();
 });
 
@@ -135,34 +165,30 @@ describe("PageLinksPanel", () => {
     expect(useLinksPanelStore.getState().panelOpen).toBe(false);
   });
 
-  it("opens add link menu when Add button is clicked", async () => {
+  it("opens shared link modal when Add button is clicked", async () => {
     const user = userEvent.setup();
     useLinksPanelStore.setState({ panelOpen: true, panelPageId: "pg_1" });
     render(<PageLinksPanel />);
 
     await user.click(screen.getByTestId("add-link-button"));
-    expect(screen.getByTestId("add-link-menu")).toBeInTheDocument();
+    expect(screen.getByTestId("inline-link-editor-backdrop")).toBeInTheDocument();
   });
 
-  it("shows only available pages in add menu (excludes self and already linked)", async () => {
+  it("allows creating a target page directly from the shared modal", async () => {
     const user = userEvent.setup();
-    // pg_1 has link to pg_2, so only pg_3 should be available
+    const { createPage } = await import("../../api/pages");
     useLinksPanelStore.setState({ panelOpen: true, panelPageId: "pg_1" });
     render(<PageLinksPanel />);
 
     await user.click(screen.getByTestId("add-link-button"));
-    expect(screen.getByTestId("add-link-option-pg_3")).toBeInTheDocument();
-    expect(
-      screen.queryByTestId("add-link-option-pg_1"),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.queryByTestId("add-link-option-pg_2"),
-    ).not.toBeInTheDocument();
+    await user.click(screen.getByTestId("inline-link-create-page"));
+    expect(createPage).toHaveBeenCalled();
   });
 
-  it("disables Add button when no pages available to link", () => {
+  it("keeps Add enabled even when no direct local targets are available", () => {
     // pg_1 links to pg_2, pg_3 links to pg_1
-    // If we give pg_1 links to both pg_2 and pg_3, no pages are available
+    // If we give pg_1 links to both pg_2 and pg_3, local list is empty, but
+    // users can still create a page/notebook from the modal.
     const pagesAllLinked = [
       makePage("pg_1", 1, { links: ["pg_2", "pg_3"] }),
       makePage("pg_2", 2),
@@ -172,23 +198,25 @@ describe("PageLinksPanel", () => {
     useLinksPanelStore.setState({ panelOpen: true, panelPageId: "pg_1" });
     render(<PageLinksPanel />);
 
-    expect(screen.getByTestId("add-link-button")).toBeDisabled();
+    expect(screen.getByTestId("add-link-button")).toBeEnabled();
   });
 
-  it("adds a link when a page option is clicked", async () => {
+  it("adds a link when a page is selected and saved in modal", async () => {
     const user = userEvent.setup();
-    const { updatePage } = await import("../../api/pages");
-    const updatedPage = makePage("pg_1", 1, { links: ["pg_2", "pg_3"] });
+    const { updatePage, createPage } = await import("../../api/pages");
+    const updatedPage = makePage("pg_1", 1, { links: ["pg_2", "pg_new"] });
     vi.mocked(updatePage).mockResolvedValue(updatedPage);
+    vi.mocked(createPage).mockResolvedValue(makePage("pg_new", 4));
 
     useLinksPanelStore.setState({ panelOpen: true, panelPageId: "pg_1" });
     render(<PageLinksPanel />);
 
     await user.click(screen.getByTestId("add-link-button"));
-    await user.click(screen.getByTestId("add-link-option-pg_3"));
+    await user.click(screen.getByTestId("inline-link-create-page"));
+    await user.click(screen.getByTestId("inline-link-save"));
 
     expect(updatePage).toHaveBeenCalledWith("pg_1", {
-      links: ["pg_2", "pg_3"],
+      links: ["pg_2", "pg_new"],
     });
   });
 
@@ -243,20 +271,21 @@ describe("PageLinksPanel", () => {
     expect(useNotebookPagesStore.getState().currentPageIndex).toBe(1);
   });
 
-  it("closes add menu after selecting a page", async () => {
+  it("closes add modal after saving", async () => {
     const user = userEvent.setup();
     const { updatePage } = await import("../../api/pages");
-    const updatedPage = makePage("pg_1", 1, { links: ["pg_2", "pg_3"] });
+    const updatedPage = makePage("pg_1", 1, { links: ["pg_2", "pg_new"] });
     vi.mocked(updatePage).mockResolvedValue(updatedPage);
 
     useLinksPanelStore.setState({ panelOpen: true, panelPageId: "pg_1" });
     render(<PageLinksPanel />);
 
     await user.click(screen.getByTestId("add-link-button"));
-    expect(screen.getByTestId("add-link-menu")).toBeInTheDocument();
+    expect(screen.getByTestId("inline-link-editor-backdrop")).toBeInTheDocument();
 
-    await user.click(screen.getByTestId("add-link-option-pg_3"));
-    expect(screen.queryByTestId("add-link-menu")).not.toBeInTheDocument();
+    await user.click(screen.getByTestId("inline-link-create-page"));
+    await user.click(screen.getByTestId("inline-link-save"));
+    expect(screen.queryByTestId("inline-link-editor-backdrop")).not.toBeInTheDocument();
   });
 });
 

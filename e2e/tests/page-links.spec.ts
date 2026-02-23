@@ -51,25 +51,24 @@ test.describe("Page Links Panel", () => {
 
   test("add a link to another page", async ({ page }) => {
     await openNotebook(page, notebookTitle);
-    const pageIds = await getPageIds(notebookId);
 
     // Open links panel
     await page.getByTestId("toolbar-links").click();
     await expect(page.getByTestId("links-panel")).toBeVisible();
 
-    // Click the "+ Add" button to open the link menu
+    // Click the "+ Add" button to open the shared link modal
     await page.getByTestId("add-link-button").click();
-    const linkMenu = page.getByTestId("add-link-menu");
-    await expect(linkMenu).toBeVisible();
+    const linkModal = page.getByTestId("inline-link-editor-backdrop");
+    await expect(linkModal).toBeVisible();
 
-    // Should show other pages to link to (not the current page)
-    // Click the first available link option
-    const firstOption = linkMenu.locator("button").first();
+    // Click the first available page option, then save
+    const firstOption = page.getByTestId("inline-link-page-list").locator("button").first();
     await expect(firstOption).toBeVisible();
     await firstOption.click();
+    await page.getByTestId("inline-link-save").click();
 
-    // Link menu should close
-    await expect(linkMenu).not.toBeVisible();
+    // Modal should close
+    await expect(linkModal).not.toBeVisible();
 
     // Links list should now show the linked page
     const linksList = page.getByTestId("links-list");
@@ -79,7 +78,6 @@ test.describe("Page Links Panel", () => {
 
   test("remove a link", async ({ page }) => {
     await openNotebook(page, notebookTitle);
-    const pageIds = await getPageIds(notebookId);
 
     // Open links panel
     await page.getByTestId("toolbar-links").click();
@@ -87,9 +85,10 @@ test.describe("Page Links Panel", () => {
 
     // Add a link first
     await page.getByTestId("add-link-button").click();
-    const linkMenu = page.getByTestId("add-link-menu");
-    await expect(linkMenu).toBeVisible();
-    await linkMenu.locator("button").first().click();
+    const linkModal = page.getByTestId("inline-link-editor-backdrop");
+    await expect(linkModal).toBeVisible();
+    await page.getByTestId("inline-link-page-list").locator("button").first().click();
+    await page.getByTestId("inline-link-save").click();
 
     // Should now show 1 link
     await expect(page.getByText("Links (1)")).toBeVisible();
@@ -119,8 +118,9 @@ test.describe("Page Links Panel", () => {
     await expect(page.getByTestId("links-panel")).toBeVisible();
 
     await page.getByTestId("add-link-button").click();
-    await expect(page.getByTestId("add-link-menu")).toBeVisible();
-    await page.getByTestId("add-link-menu").locator("button").first().click();
+    await expect(page.getByTestId("inline-link-editor-backdrop")).toBeVisible();
+    await page.getByTestId("inline-link-page-list").locator("button").first().click();
+    await page.getByTestId("inline-link-save").click();
 
     // Click the linked page to navigate to it
     const linksList = page.getByTestId("links-list");
@@ -147,11 +147,12 @@ test.describe("Page Links Panel", () => {
     await expect(page.getByTestId("links-panel")).toBeVisible();
 
     await page.getByTestId("add-link-button").click();
-    await expect(page.getByTestId("add-link-menu")).toBeVisible();
+    await expect(page.getByTestId("inline-link-editor-backdrop")).toBeVisible();
 
     // Link to the second page
-    const page2Option = page.getByTestId(`add-link-option-${pageIds[1]}`);
+    const page2Option = page.getByTestId(`inline-link-page-option-${pageIds[1]}`);
     await page2Option.click();
+    await page.getByTestId("inline-link-save").click();
     await expect(page.getByText("Links (1)")).toBeVisible();
 
     // Close the links panel

@@ -2,6 +2,7 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import { QuickActionsBar } from "./QuickActionsBar";
 import { useNotebookPagesStore } from "../../stores/notebook-pages-store";
 import { useViewStore } from "../../stores/view-store";
+import { useDrawingStore } from "../../stores/drawing-store";
 import { useLinksPanelStore } from "../../stores/links-panel-store";
 import { useTagsPanelStore } from "../../stores/tags-panel-store";
 import { useBookmarkPanelStore } from "../../stores/bookmark-panel-store";
@@ -49,6 +50,15 @@ beforeEach(() => {
   useLinksPanelStore.setState({ panelOpen: false, panelPageId: null });
   useTagsPanelStore.setState({ panelOpen: false, panelPageId: null });
   useBookmarkPanelStore.setState({ panelOpen: false, panelPageId: null });
+  useDrawingStore.setState({
+    tool: "pen",
+    color: "#000000",
+    width: 3,
+    penStyle: "pressure",
+    activeStroke: null,
+    pendingStrokesByPage: {},
+    debugLastPointCount: 0,
+  });
 });
 
 describe("QuickActionsBar", () => {
@@ -94,15 +104,14 @@ describe("QuickActionsBar", () => {
     expect(nextTransform.y).toBeCloseTo(123.3333, 4);
   });
 
-  it("toggles links, tags, and bookmarks as mutually-exclusive shortcuts", () => {
+  it("toggles inline link tool and keeps tag/bookmark shortcuts working", () => {
     render(<QuickActionsBar />);
 
-    fireEvent.click(screen.getByLabelText("Toggle links panel"));
-    expect(useLinksPanelStore.getState().panelOpen).toBe(true);
-    expect(useLinksPanelStore.getState().panelPageId).toBe("pg_1");
+    fireEvent.click(screen.getByLabelText("Toggle inline link tool"));
+    expect(useDrawingStore.getState().tool).toBe("link");
 
     fireEvent.click(screen.getByLabelText("Toggle tags panel"));
-    expect(useLinksPanelStore.getState().panelOpen).toBe(false);
+    expect(useDrawingStore.getState().tool).toBe("link");
     expect(useTagsPanelStore.getState().panelOpen).toBe(true);
     expect(useTagsPanelStore.getState().panelPageId).toBe("pg_1");
 
@@ -110,6 +119,9 @@ describe("QuickActionsBar", () => {
     expect(useTagsPanelStore.getState().panelOpen).toBe(false);
     expect(useBookmarkPanelStore.getState().panelOpen).toBe(true);
     expect(useBookmarkPanelStore.getState().panelPageId).toBe("pg_1");
+
+    fireEvent.click(screen.getByLabelText("Toggle inline link tool"));
+    expect(useDrawingStore.getState().tool).toBe("pen");
   });
 
   it("navigates through last active page history", () => {

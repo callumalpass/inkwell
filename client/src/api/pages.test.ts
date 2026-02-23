@@ -157,6 +157,36 @@ describe("pages API", () => {
       expect(result.tags).toEqual(["tag1", "tag2", "tag3"]);
     });
 
+    it("should handle page with inline links", async () => {
+      const pageWithInlineLinks: PageMeta = {
+        ...mockPage,
+        inlineLinks: [
+          {
+            id: "lnk_1",
+            rect: { x: 120, y: 140, width: 240, height: 90 },
+            target: {
+              type: "page",
+              pageId: "pg_target",
+              notebookId: "nb_other",
+              label: "Other notebook page",
+            },
+            createdAt: "2024-01-01T00:00:00Z",
+            updatedAt: "2024-01-01T00:00:00Z",
+          },
+        ],
+      };
+
+      globalThis.fetch = vi.fn().mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve(pageWithInlineLinks),
+      });
+
+      const result = await getPage("pg_123");
+      expect(result.inlineLinks).toHaveLength(1);
+      expect(result.inlineLinks?.[0].target.type).toBe("page");
+    });
+
     it("should handle page with transcription metadata", async () => {
       const pageWithTranscription: PageMeta = {
         ...mockPage,

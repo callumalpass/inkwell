@@ -173,7 +173,7 @@ export function ExportDialog({
                     className="h-4 w-4 rounded border-gray-300"
                     data-testid="include-transcription"
                   />
-                  Include transcription
+                  Include searchable text layer
                 </label>
               </div>
             </>

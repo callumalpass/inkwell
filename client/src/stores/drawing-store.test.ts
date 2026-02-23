@@ -28,6 +28,11 @@ describe("tool selection", () => {
     useDrawingStore.getState().setTool("highlighter");
     expect(useDrawingStore.getState().tool).toBe("highlighter");
   });
+
+  it("switches to link", () => {
+    useDrawingStore.getState().setTool("link");
+    expect(useDrawingStore.getState().tool).toBe("link");
+  });
 });
 
 describe("stroke lifecycle", () => {

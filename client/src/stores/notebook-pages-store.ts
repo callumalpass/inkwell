@@ -29,6 +29,7 @@ interface NotebookPagesStore {
   duplicatePage: (pageId: string) => Promise<pagesApi.PageMeta>;
   updatePagePosition: (pageId: string, canvasX: number, canvasY: number) => Promise<void>;
   updatePageLinks: (pageId: string, links: string[]) => Promise<void>;
+  updatePageInlineLinks: (pageId: string, inlineLinks: pagesApi.InlineLink[]) => Promise<void>;
   updatePageTags: (pageId: string, tags: string[]) => Promise<void>;
   addBookmark: (
     pageId: string,
@@ -206,6 +207,14 @@ export const useNotebookPagesStore = create<NotebookPagesStore>((set, get) => ({
 
   updatePageLinks: async (pageId, links) => {
     const updated = await pagesApi.updatePage(pageId, { links });
+    const { pages } = get();
+    set({
+      pages: pages.map((p) => (p.id === pageId ? updated : p)),
+    });
+  },
+
+  updatePageInlineLinks: async (pageId, inlineLinks) => {
+    const updated = await pagesApi.updatePage(pageId, { inlineLinks });
     const { pages } = get();
     set({
       pages: pages.map((p) => (p.id === pageId ? updated : p)),

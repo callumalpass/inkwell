@@ -87,6 +87,53 @@ describe("resolveTemplateString", () => {
     expect(result).toEqual(["pg_target1", "pg_target2"]);
   });
 
+  it("includes inline page link targets in page.links", () => {
+    const ctx2 = makeContext({
+      page: {
+        ...makeContext().page,
+        links: ["pg_target1"],
+        inlineLinks: [
+          {
+            id: "lnk_1",
+            rect: { x: 100, y: 120, width: 220, height: 80 },
+            target: { type: "page", pageId: "pg_target2", notebookId: "nb_xyz789" },
+            createdAt: "2025-01-28T10:46:00Z",
+            updatedAt: "2025-01-28T10:46:00Z",
+          },
+          {
+            id: "lnk_2",
+            rect: { x: 400, y: 320, width: 220, height: 80 },
+            target: { type: "url", url: "https://example.com" },
+            createdAt: "2025-01-28T10:47:00Z",
+            updatedAt: "2025-01-28T10:47:00Z",
+          },
+        ],
+      },
+    });
+    const result = resolveTemplateString("{{page.links}}", ctx2);
+    expect(result).toEqual(["pg_target1", "pg_target2"]);
+  });
+
+  it("deduplicates links between legacy and inline page targets", () => {
+    const ctx2 = makeContext({
+      page: {
+        ...makeContext().page,
+        links: ["pg_target1", "pg_target2"],
+        inlineLinks: [
+          {
+            id: "lnk_1",
+            rect: { x: 100, y: 120, width: 220, height: 80 },
+            target: { type: "page", pageId: "pg_target2", notebookId: "nb_xyz789" },
+            createdAt: "2025-01-28T10:46:00Z",
+            updatedAt: "2025-01-28T10:46:00Z",
+          },
+        ],
+      },
+    });
+    const result = resolveTemplateString("{{page.links}}", ctx2);
+    expect(result).toEqual(["pg_target1", "pg_target2"]);
+  });
+
   it("resolves notebook.id", () => {
     expect(resolveTemplateString("{{notebook.id}}", ctx)).toBe("nb_xyz789");
   });

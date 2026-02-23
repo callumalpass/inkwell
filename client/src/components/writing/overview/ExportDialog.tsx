@@ -132,7 +132,7 @@ export function ExportDialog({ open, pageIds, onClose }: ExportDialogProps) {
                   onChange={(e) => setIncludeTranscription(e.target.checked)}
                   className="h-4 w-4 rounded border-gray-300"
                 />
-                Include transcription
+                Include searchable text layer
               </label>
             </>
           )}

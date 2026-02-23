@@ -238,6 +238,72 @@ describe("PATCH /api/pages/:pageId (links)", () => {
   });
 });
 
+describe("PATCH /api/pages/:pageId (inline links)", () => {
+  it("sets inline links on a page", async () => {
+    const nb = await createNotebook();
+    const { body: page1 } = await createPage(nb.id);
+    const { body: page2 } = await createPage(nb.id);
+
+    const inlineLinks = [
+      {
+        id: "lnk_1",
+        rect: { x: 100, y: 120, width: 220, height: 80 },
+        target: {
+          type: "page",
+          pageId: page2.id,
+          notebookId: nb.id,
+          label: "Related page",
+        },
+        createdAt: "2025-01-28T10:46:00.000Z",
+        updatedAt: "2025-01-28T10:46:00.000Z",
+      },
+      {
+        id: "lnk_2",
+        rect: { x: 360, y: 260, width: 260, height: 90 },
+        target: {
+          type: "url",
+          url: "https://example.com/docs",
+          label: "External docs",
+        },
+        createdAt: "2025-01-28T10:47:00.000Z",
+        updatedAt: "2025-01-28T10:47:00.000Z",
+      },
+    ];
+
+    const res = await app.inject({
+      method: "PATCH",
+      url: `/api/pages/${page1.id}`,
+      payload: { inlineLinks },
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(res.json().inlineLinks).toEqual(inlineLinks);
+  });
+
+  it("rejects invalid inline link target payload", async () => {
+    const nb = await createNotebook();
+    const { body: page } = await createPage(nb.id);
+
+    const res = await app.inject({
+      method: "PATCH",
+      url: `/api/pages/${page.id}`,
+      payload: {
+        inlineLinks: [
+          {
+            id: "lnk_bad",
+            rect: { x: 100, y: 120, width: 220, height: 80 },
+            target: { type: "page", notebookId: nb.id },
+            createdAt: "2025-01-28T10:46:00.000Z",
+            updatedAt: "2025-01-28T10:46:00.000Z",
+          },
+        ],
+      },
+    });
+
+    expect(res.statusCode).toBe(400);
+  });
+});
+
 describe("PATCH /api/pages/:pageId (tags)", () => {
   it("sets tags on a page", async () => {
     const nb = await createNotebook();

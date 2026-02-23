@@ -1,5 +1,15 @@
 export type { NotebookMeta, NotebookSettings, NotebookBookmark } from "./notebook.js";
-export type { PageMeta, PageIndex, TranscriptionStatus, TranscriptionMeta } from "./page.js";
+export type {
+  PageMeta,
+  PageIndex,
+  TranscriptionStatus,
+  TranscriptionMeta,
+  InlineLink,
+  InlineLinkRect,
+  InlineLinkTarget,
+  InlinePageLinkTarget,
+  InlineUrlLinkTarget,
+} from "./page.js";
 export type { Stroke, StrokePoint } from "./stroke.js";
 export type {
   FrontmatterTemplate,

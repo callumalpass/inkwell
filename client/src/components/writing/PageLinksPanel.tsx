@@ -1,7 +1,11 @@
-import { useState, useMemo, useRef } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import type { PageMeta } from "../../api/pages";
+import { getPage } from "../../api/pages";
 import { useLinksPanelStore } from "../../stores/links-panel-store";
 import { useNotebookPagesStore } from "../../stores/notebook-pages-store";
+import { InlineLinkEditor } from "./InlineLinkEditor";
+import { showError, showInfo } from "../../stores/toast-store";
 
 export function PageLinksPanel() {
   const panelOpen = useLinksPanelStore((s) => s.panelOpen);
@@ -10,6 +14,7 @@ export function PageLinksPanel() {
 
   const pages = useNotebookPagesStore((s) => s.pages);
   const updatePageLinks = useNotebookPagesStore((s) => s.updatePageLinks);
+  const updatePageInlineLinks = useNotebookPagesStore((s) => s.updatePageInlineLinks);
   const updatePageTags = useNotebookPagesStore((s) => s.updatePageTags);
   const notebookId = useNotebookPagesStore((s) => s.notebookId);
   const setCurrentPageIndex = useNotebookPagesStore(
@@ -19,7 +24,10 @@ export function PageLinksPanel() {
   const navigate = useNavigate();
   const params = useParams<{ notebookId: string }>();
 
-  const [addMenuOpen, setAddMenuOpen] = useState(false);
+  const [addLinkModalOpen, setAddLinkModalOpen] = useState(false);
+  const [resolvedLinkedPages, setResolvedLinkedPages] = useState<
+    Record<string, PageMeta | null>
+  >({});
   const [tagInput, setTagInput] = useState("");
   const tagInputRef = useRef<HTMLInputElement>(null);
 
@@ -29,33 +37,61 @@ export function PageLinksPanel() {
   );
 
   const links = currentPage?.links ?? [];
+  const inlineLinks = currentPage?.inlineLinks ?? [];
   const tags = currentPage?.tags ?? [];
 
-  // Pages that this page links to
-  const linkedPages = useMemo(
-    () =>
-      links
-        .map((linkId) => pages.find((p) => p.id === linkId))
-        .filter(Boolean) as typeof pages,
-    [links, pages],
-  );
+  useEffect(() => {
+    if (!panelOpen || links.length === 0) return;
+
+    const localPageIds = new Set(pages.map((page) => page.id));
+    const unresolvedIds = links.filter(
+      (linkId) => !localPageIds.has(linkId) && !(linkId in resolvedLinkedPages),
+    );
+    if (unresolvedIds.length === 0) return;
+
+    let cancelled = false;
+
+    void Promise.all(
+      unresolvedIds.map(async (linkId) => {
+        try {
+          const linkedPage = await getPage(linkId);
+          return [linkId, linkedPage] as const;
+        } catch {
+          return [linkId, null] as const;
+        }
+      }),
+    ).then((results) => {
+      if (cancelled) return;
+      setResolvedLinkedPages((prev) => {
+        const next = { ...prev };
+        for (const [linkId, page] of results) {
+          next[linkId] = page;
+        }
+        return next;
+      });
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [panelOpen, links, pages, resolvedLinkedPages]);
 
   // Pages that link to this page (backlinks)
   const backlinks = useMemo(
     () =>
       panelPageId
         ? pages.filter(
-            (p) => p.id !== panelPageId && p.links?.includes(panelPageId),
+            (p) =>
+              p.id !== panelPageId &&
+              (p.links?.includes(panelPageId) ||
+                p.inlineLinks?.some(
+                  (link) =>
+                    link.target.type === "page" &&
+                    link.target.pageId === panelPageId,
+                )),
           )
         : [],
     [pages, panelPageId],
-  );
-
-  // Pages available to link (not already linked, not self)
-  const availablePages = useMemo(
-    () =>
-      pages.filter((p) => p.id !== panelPageId && !links.includes(p.id)),
-    [pages, panelPageId, links],
   );
 
   if (!panelOpen || !panelPageId) return null;
@@ -65,10 +101,9 @@ export function PageLinksPanel() {
     await updatePageLinks(panelPageId, newLinks);
   };
 
-  const handleAddLink = async (targetPageId: string) => {
-    const newLinks = [...links, targetPageId];
-    await updatePageLinks(panelPageId, newLinks);
-    setAddMenuOpen(false);
+  const handleRemoveInlineLink = async (linkId: string) => {
+    const newInlineLinks = inlineLinks.filter((link) => link.id !== linkId);
+    await updatePageInlineLinks(panelPageId, newInlineLinks);
   };
 
   const handleAddTag = async () => {
@@ -95,18 +130,41 @@ export function PageLinksPanel() {
     }
   };
 
-  const navigateToPage = (pageId: string) => {
-    const nbId = params.notebookId ?? notebookId;
+  const navigateToPage = (pageId: string, targetNotebookId?: string | null) => {
+    const nbId = targetNotebookId ?? params.notebookId ?? notebookId;
     if (!nbId) return;
-    const pageIndex = pages.findIndex((p) => p.id === pageId);
-    if (pageIndex >= 0) {
-      setCurrentPageIndex(pageIndex);
+    if (nbId === (params.notebookId ?? notebookId)) {
+      const pageIndex = pages.findIndex((p) => p.id === pageId);
+      if (pageIndex >= 0) {
+        setCurrentPageIndex(pageIndex);
+      }
     }
     navigate(`/notebook/${nbId}/page/${pageId}`, { replace: true });
   };
 
-  const pageLabel = (page: { id: string; pageNumber: number }) =>
-    `Page ${page.pageNumber}`;
+  const navigateToInlineLink = (link: (typeof inlineLinks)[number]) => {
+    if (link.target.type === "url") {
+      window.open(link.target.url, "_blank", "noopener,noreferrer");
+      return;
+    }
+    const nbId = link.target.notebookId;
+    if (!nbId) return;
+    if (nbId === (params.notebookId ?? notebookId)) {
+      const pageIndex = pages.findIndex((p) => p.id === link.target.pageId);
+      if (pageIndex >= 0) {
+        setCurrentPageIndex(pageIndex);
+      }
+    }
+    navigate(`/notebook/${nbId}/page/${link.target.pageId}`, { replace: true });
+  };
+
+  const pageLabel = (page: { id: string; pageNumber: number; notebookId: string }) => {
+    const base = `Page ${page.pageNumber}`;
+    if (page.notebookId !== (params.notebookId ?? notebookId)) {
+      return `${base} (${page.notebookId})`;
+    }
+    return base;
+  };
 
   return (
     <div
@@ -198,62 +256,102 @@ export function PageLinksPanel() {
         <div className="border-b border-gray-100 px-4 py-3">
           <div className="mb-2 flex items-center justify-between">
             <h3 className="text-xs font-medium uppercase tracking-wide text-gray-500">
-              Links ({linkedPages.length})
+              Links ({links.length})
             </h3>
-            <div className="relative">
-              <button
-                onClick={() => setAddMenuOpen(!addMenuOpen)}
-                className="rounded px-2 py-1 text-xs text-gray-600 hover:bg-gray-100"
-                data-testid="add-link-button"
-                disabled={availablePages.length === 0}
-              >
-                + Add
-              </button>
-              {addMenuOpen && availablePages.length > 0 && (
-                <div
-                  className="absolute right-0 top-full z-10 mt-1 max-h-48 w-48 overflow-y-auto rounded-md border border-gray-200 bg-white shadow-lg"
-                  data-testid="add-link-menu"
-                >
-                  {availablePages.map((page) => (
-                    <button
-                      key={page.id}
-                      onClick={() => handleAddLink(page.id)}
-                      className="block w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
-                      data-testid={`add-link-option-${page.id}`}
-                    >
-                      {pageLabel(page)}
-                      <span className="ml-1 text-xs text-gray-400">
-                        {page.id}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
+            <button
+              onClick={() => setAddLinkModalOpen(true)}
+              className="rounded px-2 py-1 text-xs text-gray-600 hover:bg-gray-100"
+              data-testid="add-link-button"
+            >
+              + Add
+            </button>
           </div>
-          {linkedPages.length === 0 ? (
+          {links.length === 0 ? (
             <p className="text-sm text-gray-400">
-              No links yet. Link to other pages in this notebook.
+              No links yet. Link to pages in this or other notebooks.
             </p>
           ) : (
             <ul className="space-y-1" data-testid="links-list">
-              {linkedPages.map((page) => (
+              {links.map((linkId) => {
+                const linkedPage =
+                  pages.find((page) => page.id === linkId) ??
+                  resolvedLinkedPages[linkId] ??
+                  null;
+                const label = linkedPage
+                  ? pageLabel(linkedPage)
+                  : `Page ${linkId}`;
+                const targetNotebookId = linkedPage?.notebookId ?? null;
+
+                return (
+                  <li
+                    key={linkId}
+                    className="flex items-center justify-between rounded px-2 py-1.5 hover:bg-gray-50"
+                  >
+                    <button
+                      onClick={() => navigateToPage(linkId, targetNotebookId)}
+                      className="text-sm text-gray-800 hover:text-black"
+                      data-testid={`link-navigate-${linkId}`}
+                    >
+                      {label}
+                    </button>
+                    <button
+                      onClick={() => handleRemoveLink(linkId)}
+                      className="rounded p-0.5 text-gray-300 hover:bg-gray-100 hover:text-gray-600"
+                      aria-label={`Remove link to ${label}`}
+                      data-testid={`remove-link-${linkId}`}
+                    >
+                      <svg
+                        width="14"
+                        height="14"
+                        viewBox="0 0 14 14"
+                        fill="none"
+                      >
+                        <path
+                          d="M4 4L10 10M10 4L4 10"
+                          stroke="currentColor"
+                          strokeWidth="1.5"
+                          strokeLinecap="round"
+                        />
+                      </svg>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
+
+        {/* Backlinks */}
+        <div className="border-b border-gray-100 px-4 py-3">
+          <h3 className="mb-2 text-xs font-medium uppercase tracking-wide text-gray-500">
+            Inline links ({inlineLinks.length})
+          </h3>
+          {inlineLinks.length === 0 ? (
+            <p className="text-sm text-gray-400">
+              No inline links yet.
+            </p>
+          ) : (
+            <ul className="space-y-1" data-testid="inline-links-list">
+              {inlineLinks.map((link) => (
                 <li
-                  key={page.id}
+                  key={link.id}
                   className="flex items-center justify-between rounded px-2 py-1.5 hover:bg-gray-50"
                 >
                   <button
-                    onClick={() => navigateToPage(page.id)}
-                    className="text-sm text-gray-800 hover:text-black"
-                    data-testid={`link-navigate-${page.id}`}
+                    onClick={() => navigateToInlineLink(link)}
+                    className="truncate text-left text-sm text-gray-800 hover:text-black"
+                    data-testid={`inline-link-navigate-${link.id}`}
                   >
-                    {pageLabel(page)}
+                    {link.target.label?.trim() ||
+                      (link.target.type === "page"
+                        ? `Page ${link.target.pageId}`
+                        : link.target.url)}
                   </button>
                   <button
-                    onClick={() => handleRemoveLink(page.id)}
+                    onClick={() => handleRemoveInlineLink(link.id)}
                     className="rounded p-0.5 text-gray-300 hover:bg-gray-100 hover:text-gray-600"
-                    aria-label={`Remove link to ${pageLabel(page)}`}
-                    data-testid={`remove-link-${page.id}`}
+                    aria-label="Remove inline link"
+                    data-testid={`remove-inline-link-${link.id}`}
                   >
                     <svg
                       width="14"
@@ -304,6 +402,27 @@ export function PageLinksPanel() {
           )}
         </div>
       </div>
+      <InlineLinkEditor
+        open={addLinkModalOpen}
+        mode="create"
+        currentNotebookId={params.notebookId ?? notebookId ?? ""}
+        initialLink={null}
+        allowedTargetTypes={["page"]}
+        excludedPageIds={[panelPageId, ...links]}
+        onClose={() => setAddLinkModalOpen(false)}
+        onSave={async (target) => {
+          if (target.type !== "page") {
+            throw new Error("Page links only");
+          }
+
+          if (links.includes(target.pageId)) {
+            showInfo("This page is already linked");
+            return;
+          }
+
+          await updatePageLinks(panelPageId, [...links, target.pageId]);
+        }}
+      />
     </div>
   );
 }

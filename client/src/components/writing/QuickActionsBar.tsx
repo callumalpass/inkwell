@@ -2,6 +2,7 @@ import { useMemo, useState, useCallback, useRef, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useNotebookPagesStore } from "../../stores/notebook-pages-store";
 import { useViewStore } from "../../stores/view-store";
+import { useDrawingStore } from "../../stores/drawing-store";
 import { useLinksPanelStore } from "../../stores/links-panel-store";
 import { useTagsPanelStore } from "../../stores/tags-panel-store";
 import { useBookmarkPanelStore } from "../../stores/bookmark-panel-store";
@@ -29,10 +30,9 @@ export function QuickActionsBar() {
   const pages = useNotebookPagesStore((s) => s.pages);
   const currentPageIndex = useNotebookPagesStore((s) => s.currentPageIndex);
   const setCurrentPageIndex = useNotebookPagesStore((s) => s.setCurrentPageIndex);
+  const tool = useDrawingStore((s) => s.tool);
+  const setTool = useDrawingStore((s) => s.setTool);
 
-  const linksPanelOpen = useLinksPanelStore((s) => s.panelOpen);
-  const linksPanelPageId = useLinksPanelStore((s) => s.panelPageId);
-  const openLinksPanel = useLinksPanelStore((s) => s.openPanel);
   const closeLinksPanel = useLinksPanelStore((s) => s.closePanel);
 
   const tagsPanelOpen = useTagsPanelStore((s) => s.panelOpen);
@@ -202,19 +202,18 @@ export function QuickActionsBar() {
     goToPage(targetPageId);
   }, [canHistoryForward, goToPage, updateHistoryControls]);
 
-  const linksActive = linksPanelOpen;
+  const linksActive = tool === "link";
   const tagsActive = tagsPanelOpen;
   const bookmarksActive = bookmarksPanelOpen;
 
   const toggleLinks = useCallback(() => {
-    if (!currentPageId) return;
     if (linksActive) {
-      closeLinksPanel();
+      setTool("pen");
       return;
     }
     closeMetaPanels();
-    openLinksPanel(currentPageId);
-  }, [currentPageId, linksActive, closeLinksPanel, closeMetaPanels, openLinksPanel]);
+    setTool("link");
+  }, [linksActive, closeMetaPanels, setTool]);
 
   const toggleTags = useCallback(() => {
     if (!currentPageId) return;
@@ -310,8 +309,8 @@ export function QuickActionsBar() {
             <MetaButton
               onClick={toggleLinks}
               active={linksActive}
-              ariaLabel="Toggle links panel"
-              title="Links"
+              ariaLabel="Toggle inline link tool"
+              title="Inline links"
             >
               L
             </MetaButton>

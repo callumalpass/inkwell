@@ -9,6 +9,8 @@ import { regenerateFrontmatter } from "../services/markdown-sync.js";
 const CANVAS_PAGE_WIDTH = 400;
 const CANVAS_PAGE_HEIGHT = Math.round(CANVAS_PAGE_WIDTH * (1872 / 1404));
 const CANVAS_GAP = 60;
+const PAGE_WIDTH = 1404;
+const PAGE_HEIGHT = 1872;
 
 function autoPosition(pages: PageMeta[]): { canvasX: number; canvasY: number } {
   if (pages.length === 0) {
@@ -72,6 +74,7 @@ export function pageRoutes(app: FastifyInstance) {
       canvasY?: number;
       pageNumber?: number;
       links?: string[];
+      inlineLinks?: PageMeta["inlineLinks"];
       tags?: string[];
     };
   }>(
@@ -88,6 +91,55 @@ export function pageRoutes(app: FastifyInstance) {
               type: "array",
               items: { type: "string", pattern: "^[a-zA-Z0-9_-]+$" },
             },
+            inlineLinks: {
+              type: "array",
+              items: {
+                type: "object",
+                required: ["id", "rect", "target", "createdAt", "updatedAt"],
+                properties: {
+                  id: { type: "string", pattern: "^[a-zA-Z0-9_-]+$" },
+                  rect: {
+                    type: "object",
+                    required: ["x", "y", "width", "height"],
+                    properties: {
+                      x: { type: "number", minimum: 0, maximum: PAGE_WIDTH },
+                      y: { type: "number", minimum: 0, maximum: PAGE_HEIGHT },
+                      width: { type: "number", minimum: 1, maximum: PAGE_WIDTH },
+                      height: { type: "number", minimum: 1, maximum: PAGE_HEIGHT },
+                    },
+                    additionalProperties: false,
+                  },
+                  target: {
+                    oneOf: [
+                      {
+                        type: "object",
+                        required: ["type", "pageId", "notebookId"],
+                        properties: {
+                          type: { const: "page" },
+                          pageId: { type: "string", pattern: "^pg_[a-zA-Z0-9_-]+$" },
+                          notebookId: { type: "string", pattern: "^nb_[a-zA-Z0-9_-]+$" },
+                          label: { type: "string", maxLength: 200 },
+                        },
+                        additionalProperties: false,
+                      },
+                      {
+                        type: "object",
+                        required: ["type", "url"],
+                        properties: {
+                          type: { const: "url" },
+                          url: { type: "string", pattern: "^https?://", maxLength: 2000 },
+                          label: { type: "string", maxLength: 200 },
+                        },
+                        additionalProperties: false,
+                      },
+                    ],
+                  },
+                  createdAt: { type: "string", format: "date-time" },
+                  updatedAt: { type: "string", format: "date-time" },
+                },
+                additionalProperties: false,
+              },
+            },
             tags: {
               type: "array",
               items: { type: "string", minLength: 1, maxLength: 100 },
@@ -98,19 +150,20 @@ export function pageRoutes(app: FastifyInstance) {
       },
     },
     async (req, reply) => {
-      const { canvasX, canvasY, pageNumber, links, tags } = req.body;
-      const updates: Partial<Pick<PageMeta, "canvasX" | "canvasY" | "pageNumber" | "links" | "tags" | "transcription">> = {};
+      const { canvasX, canvasY, pageNumber, links, inlineLinks, tags } = req.body;
+      const updates: Partial<Pick<PageMeta, "canvasX" | "canvasY" | "pageNumber" | "links" | "inlineLinks" | "tags" | "transcription">> = {};
       if (canvasX !== undefined) updates.canvasX = canvasX;
       if (canvasY !== undefined) updates.canvasY = canvasY;
       if (pageNumber !== undefined) updates.pageNumber = pageNumber;
       if (links !== undefined) updates.links = links;
+      if (inlineLinks !== undefined) updates.inlineLinks = inlineLinks;
       if (tags !== undefined) updates.tags = tags;
 
       const updated = await pageStore.updatePage(req.params.pageId, updates);
       if (!updated) return reply.code(404).send({ error: "Page not found" });
 
       // Regenerate frontmatter when tags/links metadata changes
-      if (tags !== undefined || links !== undefined) {
+      if (tags !== undefined || links !== undefined || inlineLinks !== undefined) {
         regenerateFrontmatter(req.params.pageId).catch(() => {
           // Best-effort: frontmatter regeneration failure is non-fatal
         });

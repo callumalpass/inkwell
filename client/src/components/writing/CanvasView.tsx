@@ -292,7 +292,7 @@ export function CanvasView() {
       }
 
       const tool = useDrawingStore.getState().tool;
-      if (tool === "pen" || tool === "highlighter" || tool === "eraser") {
+      if (tool === "pen" || tool === "highlighter" || tool === "eraser" || tool === "link") {
         if (e.button !== 1) return; // let event reach DrawingLayer
       } else {
         if (e.button !== 0) return;

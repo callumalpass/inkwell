@@ -7,6 +7,36 @@ export interface TranscriptionMeta {
   error: string | null;
 }
 
+export interface InlineLinkRect {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+export interface InlinePageLinkTarget {
+  type: "page";
+  pageId: string;
+  notebookId: string;
+  label?: string;
+}
+
+export interface InlineUrlLinkTarget {
+  type: "url";
+  url: string;
+  label?: string;
+}
+
+export type InlineLinkTarget = InlinePageLinkTarget | InlineUrlLinkTarget;
+
+export interface InlineLink {
+  id: string;
+  rect: InlineLinkRect;
+  target: InlineLinkTarget;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface PageMeta {
   id: string;
   notebookId: string;
@@ -16,6 +46,7 @@ export interface PageMeta {
   createdAt: string;
   updatedAt: string;
   links?: string[];
+  inlineLinks?: InlineLink[];
   tags?: string[];
   transcription?: TranscriptionMeta;
 }
@@ -41,6 +72,7 @@ export function updatePage(
     canvasY?: number;
     pageNumber?: number;
     links?: string[];
+    inlineLinks?: InlineLink[];
     tags?: string[];
   },
 ) {

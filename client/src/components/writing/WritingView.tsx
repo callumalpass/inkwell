@@ -163,6 +163,14 @@ export function WritingView() {
       return;
     }
 
+    // L toggles inline link tool
+    if (e.key === "l" && !e.metaKey && !e.ctrlKey && !e.altKey) {
+      e.preventDefault();
+      const currentTool = useDrawingStore.getState().tool;
+      setTool(currentTool === "link" ? "pen" : "link");
+      return;
+    }
+
     // B toggles bookmark on current page; Shift+B opens bookmarks panel
     if (e.key.toLowerCase() === "b" && !e.metaKey && !e.ctrlKey && !e.altKey) {
       e.preventDefault();
