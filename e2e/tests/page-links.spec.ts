@@ -99,7 +99,9 @@ test.describe("Page Links Panel", () => {
     await removeBtn.click();
 
     // Link should be removed
-    await expect(page.getByText("Links (0)")).toBeVisible();
+    await expect(
+      page.getByTestId("links-panel").getByRole("heading", { name: "Links (0)", exact: true }),
+    ).toBeVisible();
     await expect(page.getByText("No links yet")).toBeVisible();
   });
 

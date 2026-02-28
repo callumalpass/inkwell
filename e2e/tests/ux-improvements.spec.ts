@@ -273,10 +273,11 @@ test.describe("Keyboard Shortcuts Help Dialog", () => {
     await expect(page.getByTestId("shortcuts-dialog")).toBeVisible();
 
     // Check for shortcut groups
-    await expect(page.getByText("Global")).toBeVisible();
-    await expect(page.getByText("Drawing")).toBeVisible();
-    await expect(page.getByText("Canvas View")).toBeVisible();
-    await expect(page.getByText("Page Navigation")).toBeVisible();
+    const dialog = page.getByTestId("shortcuts-dialog");
+    await expect(dialog.getByRole("heading", { name: "Global" })).toBeVisible();
+    await expect(dialog.getByRole("heading", { name: "Drawing" })).toBeVisible();
+    await expect(dialog.getByRole("heading", { name: "Canvas View" })).toBeVisible();
+    await expect(dialog.getByRole("heading", { name: "Page Navigation" })).toBeVisible();
   });
 
   test("shortcuts dialog shows Cmd+K for search", async ({ page }) => {
@@ -302,7 +303,7 @@ test.describe("Keyboard Shortcuts Help Dialog", () => {
     await expect(page.getByTestId("shortcuts-dialog")).toBeVisible();
 
     // Click close button
-    await page.getByTestId("shortcuts-dialog-close").click();
+    await page.getByTestId("shortcuts-dialog-close").first().click();
 
     // Dialog should close
     await expect(page.getByTestId("shortcuts-dialog")).not.toBeVisible();

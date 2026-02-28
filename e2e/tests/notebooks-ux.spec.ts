@@ -9,12 +9,18 @@ import {
 
 test.describe("Notebook Sorting", () => {
   let notebooks: { id: string; title: string }[] = [];
+  let alphaTitle: string;
+  let middleTitle: string;
+  let zebraTitle: string;
 
   test.beforeEach(async () => {
     // Create notebooks with different characteristics
-    const nb1 = await createNotebook("Alpha Notebook");
-    const nb2 = await createNotebook("Zebra Notebook");
-    const nb3 = await createNotebook("Middle Notebook");
+    alphaTitle = uniqueTitle("Alpha Notebook");
+    middleTitle = uniqueTitle("Middle Notebook");
+    zebraTitle = uniqueTitle("Zebra Notebook");
+    const nb1 = await createNotebook(alphaTitle);
+    const nb2 = await createNotebook(zebraTitle);
+    const nb3 = await createNotebook(middleTitle);
 
     // Add different page counts
     await addPage(nb1.id);
@@ -48,12 +54,12 @@ test.describe("Notebook Sorting", () => {
     await page.getByTestId("sort-name").click();
 
     // Get notebook titles in order
-    const cards = page.locator("h3");
-    const titles = await cards.allTextContents();
+    const cards = page.locator("div.group.cursor-pointer h3");
+    const titles = (await cards.allTextContents()).map((title) => title.trim());
 
     // Alpha should come first when sorted by name ascending
-    expect(titles.indexOf("Alpha Notebook")).toBeLessThan(titles.indexOf("Middle Notebook"));
-    expect(titles.indexOf("Middle Notebook")).toBeLessThan(titles.indexOf("Zebra Notebook"));
+    expect(titles.indexOf(alphaTitle)).toBeLessThan(titles.indexOf(middleTitle));
+    expect(titles.indexOf(middleTitle)).toBeLessThan(titles.indexOf(zebraTitle));
   });
 
   test("clicking same sort toggles order", async ({ page }) => {
@@ -69,9 +75,9 @@ test.describe("Notebook Sorting", () => {
     await expect(page.getByTestId("sort-name")).toContainText("↓");
 
     // Verify Zebra now comes first
-    const cards = page.locator("h3");
-    const titles = await cards.allTextContents();
-    expect(titles.indexOf("Zebra Notebook")).toBeLessThan(titles.indexOf("Alpha Notebook"));
+    const cards = page.locator("div.group.cursor-pointer h3");
+    const titles = (await cards.allTextContents()).map((title) => title.trim());
+    expect(titles.indexOf(zebraTitle)).toBeLessThan(titles.indexOf(alphaTitle));
   });
 
   test("sort by page count", async ({ page }) => {
@@ -81,12 +87,12 @@ test.describe("Notebook Sorting", () => {
     await page.getByTestId("sort-pageCount").click();
 
     // By default, descending order - most pages first
-    const cards = page.locator("h3");
-    const titles = await cards.allTextContents();
+    const cards = page.locator("div.group.cursor-pointer h3");
+    const titles = (await cards.allTextContents()).map((title) => title.trim());
 
     // Alpha has 3 pages, should be first
-    expect(titles.indexOf("Alpha Notebook")).toBeLessThan(titles.indexOf("Middle Notebook"));
-    expect(titles.indexOf("Middle Notebook")).toBeLessThan(titles.indexOf("Zebra Notebook"));
+    expect(titles.indexOf(alphaTitle)).toBeLessThan(titles.indexOf(middleTitle));
+    expect(titles.indexOf(middleTitle)).toBeLessThan(titles.indexOf(zebraTitle));
   });
 
   test("default sort is by last modified descending", async ({ page }) => {
@@ -140,12 +146,15 @@ test.describe("Overview View Keyboard Navigation", () => {
     // Focus the overview
     await page.getByTestId("overview-view").focus();
 
-    // Arrow right should focus first page, then move to second
-    await page.keyboard.press("ArrowRight");
+    // First page is focused when the overview receives focus
     await expect(page.getByTestId("overview-page-0")).toHaveAttribute("data-focused", "true");
 
+    // Arrow right moves to the next page
     await page.keyboard.press("ArrowRight");
     await expect(page.getByTestId("overview-page-1")).toHaveAttribute("data-focused", "true");
+
+    await page.keyboard.press("ArrowRight");
+    await expect(page.getByTestId("overview-page-2")).toHaveAttribute("data-focused", "true");
   });
 
   test("Enter opens focused page", async ({ page }) => {

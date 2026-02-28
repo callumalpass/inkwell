@@ -81,7 +81,7 @@ test.describe("Keyboard shortcuts", () => {
 
     // Should show transcription started toast
     await expect(page.getByTestId("toast-info")).toBeVisible({ timeout: 3000 });
-    await expect(page.getByText(/transcription/i)).toBeVisible();
+    await expect(page.getByTestId("toast-info")).toContainText(/transcription/i);
   });
 
   test("? key shows keyboard shortcuts dialog", async ({ page }) => {
@@ -92,7 +92,7 @@ test.describe("Keyboard shortcuts", () => {
 
     // Should show shortcuts dialog
     await expect(page.getByTestId("shortcuts-dialog")).toBeVisible();
-    await expect(page.getByText("Keyboard Shortcuts")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Keyboard Shortcuts" })).toBeVisible();
 
     // Should show the T shortcut for transcription
     await expect(page.getByText("Transcribe current page")).toBeVisible();

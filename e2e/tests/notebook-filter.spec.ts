@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { createNotebook, deleteNotebook, uniqueTitle } from "../helpers";
+import { createNotebook, deleteNotebook, uniqueTitle, updateNotebook } from "../helpers";
 
 test.describe("Notebook filter functionality", () => {
   test("filter input is visible on notebooks page", async ({ page }) => {
@@ -139,6 +139,76 @@ test.describe("Notebook filter functionality", () => {
     } finally {
       await deleteNotebook(projectNb.id);
       await deleteNotebook(notesNb.id);
+    }
+  });
+
+  test("tag filter supports include and exclude states", async ({ page }) => {
+    const projectNb = await createNotebook(uniqueTitle("TagFilter_Project"));
+    const personalNb = await createNotebook(uniqueTitle("TagFilter_Personal"));
+    const sharedNb = await createNotebook(uniqueTitle("TagFilter_Shared"));
+
+    try {
+      await updateNotebook(projectNb.id, { tags: ["project", "shared"] });
+      await updateNotebook(personalNb.id, { tags: ["personal"] });
+      await updateNotebook(sharedNb.id, { tags: ["shared"] });
+
+      await page.goto("/");
+      await expect(page.getByTestId("tag-filter-controls")).toBeVisible();
+
+      // Include "project"
+      await page.getByTestId("tag-filter-chip-project").click();
+      await expect(page.getByText(projectNb.title)).toBeVisible();
+      await expect(page.getByText(personalNb.title)).not.toBeVisible();
+      await expect(page.getByText(sharedNb.title)).not.toBeVisible();
+
+      // Exclude "project"
+      await page.getByTestId("tag-filter-chip-project").click();
+      await expect(page.getByText(projectNb.title)).not.toBeVisible();
+      await expect(page.getByText(personalNb.title)).toBeVisible();
+      await expect(page.getByText(sharedNb.title)).toBeVisible();
+
+      // Clear back to off
+      await page.getByTestId("tag-filter-chip-project").click();
+      await expect(page.getByText(projectNb.title)).toBeVisible();
+      await expect(page.getByText(personalNb.title)).toBeVisible();
+      await expect(page.getByText(sharedNb.title)).toBeVisible();
+    } finally {
+      await deleteNotebook(projectNb.id);
+      await deleteNotebook(personalNb.id);
+      await deleteNotebook(sharedNb.id);
+    }
+  });
+
+  test("tag filter supports match-all mode", async ({ page }) => {
+    const bothNb = await createNotebook(uniqueTitle("TagAll_Both"));
+    const onlyProjectNb = await createNotebook(uniqueTitle("TagAll_Project"));
+    const onlySharedNb = await createNotebook(uniqueTitle("TagAll_Shared"));
+
+    try {
+      await updateNotebook(bothNb.id, { tags: ["project", "shared"] });
+      await updateNotebook(onlyProjectNb.id, { tags: ["project"] });
+      await updateNotebook(onlySharedNb.id, { tags: ["shared"] });
+
+      await page.goto("/");
+      await expect(page.getByTestId("tag-filter-controls")).toBeVisible();
+
+      await page.getByTestId("tag-filter-chip-project").click();
+      await page.getByTestId("tag-filter-chip-shared").click();
+
+      // Match-any should show notebooks with either tag.
+      await expect(page.getByText(bothNb.title)).toBeVisible();
+      await expect(page.getByText(onlyProjectNb.title)).toBeVisible();
+      await expect(page.getByText(onlySharedNb.title)).toBeVisible();
+
+      // Match-all should only show notebook containing both tags.
+      await page.getByTestId("tag-match-all").click();
+      await expect(page.getByText(bothNb.title)).toBeVisible();
+      await expect(page.getByText(onlyProjectNb.title)).not.toBeVisible();
+      await expect(page.getByText(onlySharedNb.title)).not.toBeVisible();
+    } finally {
+      await deleteNotebook(bothNb.id);
+      await deleteNotebook(onlyProjectNb.id);
+      await deleteNotebook(onlySharedNb.id);
     }
   });
 });
