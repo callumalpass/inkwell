@@ -191,7 +191,7 @@ describe("pages API", () => {
       const pageWithTranscription: PageMeta = {
         ...mockPage,
         transcription: {
-          status: "completed",
+          status: "complete",
           lastAttempt: "2024-01-15T12:00:00Z",
           error: null,
         },
@@ -206,7 +206,7 @@ describe("pages API", () => {
       const result = await getPage("pg_123");
 
       expect(result.transcription).toEqual({
-        status: "completed",
+        status: "complete",
         lastAttempt: "2024-01-15T12:00:00Z",
         error: null,
       });
@@ -960,7 +960,7 @@ describe("pages API", () => {
       const pageWithInProgressTranscription: PageMeta = {
         ...mockPage,
         transcription: {
-          status: "transcribing",
+          status: "processing",
           lastAttempt: "2024-01-15T12:00:00Z",
           error: null,
         },
@@ -973,7 +973,7 @@ describe("pages API", () => {
       });
 
       const result = await getPage("pg_123");
-      expect(result.transcription?.status).toBe("transcribing");
+      expect(result.transcription?.status).toBe("processing");
     });
 
     it("should correctly encode special characters in notebook id", async () => {

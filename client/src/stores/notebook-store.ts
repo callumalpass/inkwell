@@ -7,8 +7,9 @@ interface NotebookStore {
   loading: boolean;
   error: string | null;
   fetchNotebooks: () => Promise<void>;
-  createNotebook: (title: string) => Promise<notebooksApi.NotebookMeta>;
+  createNotebook: (title: string, tags?: string[]) => Promise<notebooksApi.NotebookMeta>;
   renameNotebook: (id: string, title: string) => Promise<notebooksApi.NotebookMeta>;
+  updateNotebookTags: (id: string, tags: string[]) => Promise<notebooksApi.NotebookMeta>;
   duplicateNotebook: (id: string) => Promise<notebooksApi.NotebookMeta>;
   deleteNotebook: (id: string) => Promise<void>;
 }
@@ -29,8 +30,10 @@ export const useNotebookStore = create<NotebookStore>((set, get) => ({
     }
   },
 
-  createNotebook: async (title: string) => {
-    const notebook = await notebooksApi.createNotebook(title);
+  createNotebook: async (title: string, tags?: string[]) => {
+    const notebook = tags === undefined
+      ? await notebooksApi.createNotebook(title)
+      : await notebooksApi.createNotebook(title, tags);
     set({ notebooks: [notebook, ...get().notebooks] });
     return notebook;
   },
@@ -44,6 +47,19 @@ export const useNotebookStore = create<NotebookStore>((set, get) => ({
       return updated;
     } catch (err) {
       showError("Failed to rename notebook");
+      throw err;
+    }
+  },
+
+  updateNotebookTags: async (id: string, tags: string[]) => {
+    try {
+      const updated = await notebooksApi.updateNotebook(id, { tags });
+      set({
+        notebooks: get().notebooks.map((n) => (n.id === id ? updated : n)),
+      });
+      return updated;
+    } catch (err) {
+      showError("Failed to update notebook tags");
       throw err;
     }
   },

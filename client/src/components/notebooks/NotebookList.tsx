@@ -11,10 +11,18 @@ interface NotebookListProps {
   onDelete: (id: string) => void;
   onDuplicate: (id: string) => void;
   onRename: (id: string, title: string) => void;
+  onUpdateTags: (id: string, tags: string[]) => void;
   onExport: (notebook: NotebookMeta) => void;
 }
 
-export function NotebookList({ notebooks, onDelete, onDuplicate, onRename, onExport }: NotebookListProps) {
+export function NotebookList({
+  notebooks,
+  onDelete,
+  onDuplicate,
+  onRename,
+  onUpdateTags,
+  onExport,
+}: NotebookListProps) {
   const navigate = useNavigate();
   const [deleteTarget, setDeleteTarget] = useState<NotebookMeta | null>(null);
 
@@ -87,6 +95,7 @@ export function NotebookList({ notebooks, onDelete, onDuplicate, onRename, onExp
             onDelete={() => setDeleteTarget(nb)}
             onDuplicate={() => onDuplicate(nb.id)}
             onRename={(title) => onRename(nb.id, title)}
+            onUpdateTags={(tags) => onUpdateTags(nb.id, tags)}
             onExport={() => onExport(nb)}
           />
         ))}

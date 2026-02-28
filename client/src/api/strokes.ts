@@ -13,6 +13,9 @@ export function postStrokes(pageId: string, strokes: Stroke[]) {
   return apiFetch<{ count: number }>(`/pages/${pageId}/strokes`, {
     method: "POST",
     body: JSON.stringify({ strokes }),
+    // Fail fast so offline fallback can queue strokes quickly when connectivity is bad.
+    maxRetries: 0,
+    timeoutMs: 3000,
   });
 }
 

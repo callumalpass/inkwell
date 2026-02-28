@@ -8,16 +8,50 @@ interface NotebookCardProps {
   onDuplicate: () => void;
   onExport: () => void;
   onRename: (newTitle: string) => void;
+  onUpdateTags: (tags: string[]) => void;
 }
 
-export function NotebookCard({ notebook, onClick, onDelete, onDuplicate, onExport, onRename }: NotebookCardProps) {
+function parseTags(input: string): string[] {
+  const seen = new Set<string>();
+  const parsed: string[] = [];
+  for (const raw of input.split(",")) {
+    const tag = raw.trim();
+    if (!tag) continue;
+    const key = tag.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    parsed.push(tag);
+  }
+  return parsed;
+}
+
+function tagsEqual(a: string[], b: string[]): boolean {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i += 1) {
+    if (a[i] !== b[i]) return false;
+  }
+  return true;
+}
+
+export function NotebookCard({
+  notebook,
+  onClick,
+  onDelete,
+  onDuplicate,
+  onExport,
+  onRename,
+  onUpdateTags,
+}: NotebookCardProps) {
   const thumbnailUrl = notebook.coverPageId
     ? `/api/pages/${notebook.coverPageId}/thumbnail`
     : null;
 
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState(notebook.title);
+  const [isTagEditing, setIsTagEditing] = useState(false);
+  const [tagValue, setTagValue] = useState((notebook.tags ?? []).join(", "));
   const inputRef = useRef<HTMLInputElement>(null);
+  const tagInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (isEditing && inputRef.current) {
@@ -25,6 +59,19 @@ export function NotebookCard({ notebook, onClick, onDelete, onDuplicate, onExpor
       inputRef.current.select();
     }
   }, [isEditing]);
+
+  useEffect(() => {
+    if (isTagEditing && tagInputRef.current) {
+      tagInputRef.current.focus();
+      tagInputRef.current.select();
+    }
+  }, [isTagEditing]);
+
+  useEffect(() => {
+    if (!isTagEditing) {
+      setTagValue((notebook.tags ?? []).join(", "));
+    }
+  }, [notebook.tags, isTagEditing]);
 
   const handleDoubleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -48,6 +95,15 @@ export function NotebookCard({ notebook, onClick, onDelete, onDuplicate, onExpor
       onRename(trimmed);
     }
     setIsEditing(false);
+  };
+
+  const submitTags = () => {
+    const parsed = parseTags(tagValue);
+    const current = notebook.tags ?? [];
+    if (!tagsEqual(parsed, current)) {
+      onUpdateTags(parsed);
+    }
+    setIsTagEditing(false);
   };
 
   return (
@@ -97,8 +153,7 @@ export function NotebookCard({ notebook, onClick, onDelete, onDuplicate, onExpor
                 }
               }}
               tabIndex={0}
-              role="button"
-              aria-label={`${notebook.title}. Press Enter or F2 to rename`}
+              aria-label={notebook.title}
               title="Double-click or press Enter to rename"
             >
               {notebook.title}
@@ -137,6 +192,21 @@ export function NotebookCard({ notebook, onClick, onDelete, onDuplicate, onExpor
               className="text-gray-400 opacity-0 hover:text-gray-700 group-hover:opacity-100"
               onClick={(e) => {
                 e.stopPropagation();
+                setTagValue((notebook.tags ?? []).join(", "));
+                setIsTagEditing(true);
+              }}
+              aria-label="Edit notebook tags"
+              title="Edit tags"
+            >
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M2 8l6-6h6v6l-6 6H2V8z" />
+                <circle cx="11.5" cy="4.5" r="1.2" />
+              </svg>
+            </button>
+            <button
+              className="text-gray-400 opacity-0 hover:text-gray-700 group-hover:opacity-100"
+              onClick={(e) => {
+                e.stopPropagation();
                 onExport();
               }}
               aria-label="Export notebook"
@@ -159,11 +229,72 @@ export function NotebookCard({ notebook, onClick, onDelete, onDuplicate, onExpor
             </button>
           </div>
         </div>
+        {(notebook.tags?.length ?? 0) > 0 && (
+          <div className="mt-2 flex flex-wrap gap-1" data-testid="notebook-tags">
+            {(notebook.tags ?? []).map((tag) => (
+              <span
+                key={tag}
+                className="rounded-full border border-gray-200 bg-gray-50 px-2 py-0.5 text-xs text-gray-600"
+              >
+                {tag}
+              </span>
+            ))}
+          </div>
+        )}
         <p className="mt-1 text-sm text-gray-500">
           {notebook.pageCount ?? 0} {notebook.pageCount === 1 ? "page" : "pages"}
           {" \u00b7 "}
           {new Date(notebook.updatedAt).toLocaleDateString()}
         </p>
+        {isTagEditing && (
+          <div
+            className="mt-3 rounded border border-gray-200 bg-gray-50 p-2"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <input
+              ref={tagInputRef}
+              value={tagValue}
+              onChange={(e) => setTagValue(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  submitTags();
+                } else if (e.key === "Escape") {
+                  e.preventDefault();
+                  setIsTagEditing(false);
+                  setTagValue((notebook.tags ?? []).join(", "));
+                }
+              }}
+              placeholder="comma-separated tags"
+              className="w-full rounded border border-gray-300 px-2 py-1 text-sm focus:border-gray-500 focus:outline-none"
+              aria-label="Notebook tags"
+              data-testid="notebook-tags-input"
+            />
+            <div className="mt-2 flex justify-end gap-2">
+              <button
+                type="button"
+                className="rounded px-2 py-1 text-xs text-gray-600 hover:bg-gray-200"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsTagEditing(false);
+                  setTagValue((notebook.tags ?? []).join(", "));
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="rounded bg-gray-900 px-2 py-1 text-xs text-white hover:bg-gray-800"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  submitTags();
+                }}
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

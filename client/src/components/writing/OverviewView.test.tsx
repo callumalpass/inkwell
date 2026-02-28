@@ -384,7 +384,7 @@ describe("OverviewView - Export Dialog", () => {
     expect(screen.getByText("Original")).toBeInTheDocument();
     expect(screen.getByText("A4")).toBeInTheDocument();
     expect(screen.getByText("Letter")).toBeInTheDocument();
-    expect(screen.getByText("Include transcription")).toBeInTheDocument();
+    expect(screen.getByText("Include searchable text layer")).toBeInTheDocument();
   });
 
   it("shows PNG options when PNG format is selected", async () => {

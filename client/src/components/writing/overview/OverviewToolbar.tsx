@@ -100,14 +100,16 @@ export function OverviewToolbar({
         >
           {transcribing ? "Transcribing..." : "Transcribe"}
         </button>
-        <button
-          onClick={onTranscribeAll}
-          className={`${BTN} ${!transcribing ? BTN_INACTIVE : `${BTN_INACTIVE} ${BTN_DISABLED}`}`}
-          disabled={transcribing}
-          title="Transcribe all pages that haven't been transcribed yet"
-        >
-          Transcribe All
-        </button>
+        {!hasSelection && (
+          <button
+            onClick={onTranscribeAll}
+            className={`${BTN} ${!transcribing ? BTN_INACTIVE : `${BTN_INACTIVE} ${BTN_DISABLED}`}`}
+            disabled={transcribing}
+            title="Transcribe all pages that haven't been transcribed yet"
+          >
+            Transcribe All
+          </button>
+        )}
         <button
           onClick={onDelete}
           className={`${BTN} ${hasSelection && !deleting ? "bg-red-600 text-white" : `${BTN_INACTIVE} ${BTN_DISABLED}`}`}

@@ -1,11 +1,25 @@
 import { useSyncExternalStore } from "react";
 
 function subscribe(callback: () => void) {
-  window.addEventListener("online", callback);
-  window.addEventListener("offline", callback);
+  const handleStatusEvent = () => callback();
+  window.addEventListener("online", handleStatusEvent);
+  window.addEventListener("offline", handleStatusEvent);
+
+  // Playwright's context.setOffline may not always dispatch browser online/offline
+  // events consistently, so poll navigator.onLine and notify on transitions.
+  let last = navigator.onLine;
+  const id = window.setInterval(() => {
+    const next = navigator.onLine;
+    if (next !== last) {
+      last = next;
+      callback();
+    }
+  }, 500);
+
   return () => {
-    window.removeEventListener("online", callback);
-    window.removeEventListener("offline", callback);
+    window.removeEventListener("online", handleStatusEvent);
+    window.removeEventListener("offline", handleStatusEvent);
+    window.clearInterval(id);
   };
 }
 

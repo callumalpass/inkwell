@@ -249,8 +249,8 @@ export function QuickActionsBar() {
             <DirectionButton
               onClick={handleHistoryBack}
               disabled={!canHistoryBack}
-              ariaLabel="Navigate to previous active page"
-              title="Previous active page"
+              ariaLabel="Navigate backward through page history"
+              title="Page history backward"
             >
               {"\u2039"}
             </DirectionButton>
@@ -265,8 +265,8 @@ export function QuickActionsBar() {
             <DirectionButton
               onClick={handleHistoryForward}
               disabled={!canHistoryForward}
-              ariaLabel="Navigate to next active page"
-              title="Next active page"
+              ariaLabel="Navigate forward through page history"
+              title="Page history forward"
             >
               {"\u203A"}
             </DirectionButton>

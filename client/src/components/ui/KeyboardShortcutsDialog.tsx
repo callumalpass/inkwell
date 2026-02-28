@@ -15,7 +15,7 @@ const SHORTCUT_GROUPS: ShortcutGroup[] = [
     title: "Global",
     shortcuts: [
       { keys: ["Cmd", "K"], description: "Open search" },
-      { keys: ["?"], description: "Show keyboard shortcuts" },
+      { keys: ["?"], description: "Open shortcuts dialog" },
       { keys: ["Esc"], description: "Close dialog / Cancel" },
     ],
   },
@@ -23,12 +23,12 @@ const SHORTCUT_GROUPS: ShortcutGroup[] = [
     title: "View Modes",
     shortcuts: [
       { keys: ["1"], description: "Single page view" },
-      { keys: ["2"], description: "Canvas view" },
+      { keys: ["2"], description: "Switch to canvas mode" },
       { keys: ["3"], description: "Overview" },
     ],
   },
   {
-    title: "Pages",
+    title: "Page Navigation",
     shortcuts: [
       { keys: ["N"], description: "New page" },
       { keys: ["G"], description: "Go to page (jump)" },
@@ -60,9 +60,9 @@ const SHORTCUT_GROUPS: ShortcutGroup[] = [
     title: "Canvas View",
     shortcuts: [
       { keys: ["F"], description: "Fit all pages" },
-      { keys: ["2-finger drag"], description: "Pan canvas" },
-      { keys: ["Pinch"], description: "Zoom in/out" },
-      { keys: ["Scroll wheel"], description: "Zoom in/out" },
+      { keys: ["2-finger drag"], description: "Pan in canvas mode" },
+      { keys: ["Pinch"], description: "Zoom canvas in/out" },
+      { keys: ["Scroll wheel"], description: "Zoom canvas in/out" },
     ],
   },
 ];
@@ -103,7 +103,7 @@ export function KeyboardShortcutsDialog({
       }}
     >
       <div
-        className="w-full max-w-lg rounded-lg bg-white p-6 shadow-lg"
+        className="max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-lg bg-white p-6 shadow-lg"
         role="dialog"
         aria-modal="true"
         aria-labelledby="shortcuts-dialog-title"

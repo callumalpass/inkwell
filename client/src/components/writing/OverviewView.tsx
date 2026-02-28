@@ -250,6 +250,9 @@ export function OverviewView() {
       `Transcribing ${selectedCount} page${selectedCount > 1 ? "s" : ""}`,
       selectedCount,
     );
+    showInfo(
+      `Queuing ${selectedCount} page${selectedCount > 1 ? "s" : ""} for transcription...`,
+    );
 
     try {
       let queued = 0;

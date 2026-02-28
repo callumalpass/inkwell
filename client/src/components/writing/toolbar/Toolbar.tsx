@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useDrawingStore } from "../../../stores/drawing-store";
 import { useViewStore } from "../../../stores/view-store";
 import { useNotebookPagesStore } from "../../../stores/notebook-pages-store";
@@ -35,16 +35,23 @@ export function Toolbar() {
   const navigate = useNavigate();
   const { notebookId } = useParams<{ notebookId: string }>();
 
-  const [expanded, setExpanded] = useState(false);
   const [isCompact, setIsCompact] = useState(
     typeof window !== "undefined" && window.innerWidth < COMPACT_BREAKPOINT,
   );
+  const [expanded, setExpanded] = useState(
+    typeof window !== "undefined" ? window.innerWidth >= COMPACT_BREAKPOINT : true,
+  );
+  const prevCompactRef = useRef(isCompact);
 
   useEffect(() => {
     const check = () => {
       const compact = window.innerWidth < COMPACT_BREAKPOINT;
       setIsCompact(compact);
-      if (!compact) setExpanded(false);
+      if (compact !== prevCompactRef.current) {
+        // Keep key controls visible by default on desktop, collapsed on compact screens.
+        setExpanded(!compact);
+        prevCompactRef.current = compact;
+      }
     };
     check();
     window.addEventListener("resize", check);
@@ -176,6 +183,7 @@ function CompactLayout({
               currentPageId={currentPage?.id ?? null}
               notebookId={notebookId}
               testIdSuffix="compact"
+              showPageActions={viewMode !== "overview"}
               showMetaActions={false}
             />
           </div>
@@ -309,6 +317,7 @@ function FullLayout({
             <PageActionButtons
               currentPageId={currentPage?.id ?? null}
               notebookId={notebookId}
+              showPageActions={viewMode !== "overview"}
               showMetaActions={false}
             />
 

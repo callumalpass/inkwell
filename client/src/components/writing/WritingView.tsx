@@ -17,7 +17,6 @@ import { PageLinksPanel } from "./PageLinksPanel";
 import { PageTagsPanel } from "./PageTagsPanel";
 import { PageBookmarksPanel } from "./PageBookmarksPanel";
 import { SearchView } from "../search/SearchView";
-import { KeyboardShortcutsDialog } from "../ui/KeyboardShortcutsDialog";
 import { ViewErrorBoundary } from "../ui/ViewErrorBoundary";
 import { WelcomeTooltip } from "../ui/WelcomeTooltip";
 import { PageJumpDialog } from "./PageJumpDialog";
@@ -52,7 +51,6 @@ export function WritingView() {
   const bookmarksPanelPageId = useBookmarkPanelStore((s) => s.panelPageId);
   const openBookmarksPanel = useBookmarkPanelStore((s) => s.openPanel);
   const [searchOpen, setSearchOpen] = useState(false);
-  const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [creatingPage, setCreatingPage] = useState(false);
   const previousViewModeRef = useRef(viewMode);
 
@@ -94,13 +92,6 @@ export function WritingView() {
       target.isContentEditable;
 
     if (isInputField) return;
-
-    // ? to show keyboard shortcuts
-    if (e.key === "?") {
-      e.preventDefault();
-      setShortcutsOpen(true);
-      return;
-    }
 
     // N to create new page (without modifiers)
     if (e.key === "n" && !e.metaKey && !e.ctrlKey && !e.altKey) {
@@ -262,10 +253,6 @@ export function WritingView() {
       <PageTagsPanel />
       <PageBookmarksPanel />
       <SearchView open={searchOpen} onClose={() => setSearchOpen(false)} />
-      <KeyboardShortcutsDialog
-        open={shortcutsOpen}
-        onClose={() => setShortcutsOpen(false)}
-      />
       <PageJumpDialog
         open={pageJumpOpen}
         onClose={() => setPageJumpOpen(false)}

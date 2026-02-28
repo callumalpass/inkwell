@@ -11,6 +11,7 @@ import type { NotebookMeta } from "../api/notebooks";
 
 type SortField = "name" | "modified" | "pageCount";
 type SortOrder = "asc" | "desc";
+type TagMatchMode = "any" | "all";
 
 const SORT_OPTIONS: { field: SortField; label: string; defaultOrder: SortOrder }[] = [
   { field: "modified", label: "Last Modified", defaultOrder: "desc" },
@@ -19,7 +20,16 @@ const SORT_OPTIONS: { field: SortField; label: string; defaultOrder: SortOrder }
 ];
 
 export function NotebooksPage() {
-  const { notebooks, loading, fetchNotebooks, createNotebook, renameNotebook, duplicateNotebook, deleteNotebook } =
+  const {
+    notebooks,
+    loading,
+    fetchNotebooks,
+    createNotebook,
+    renameNotebook,
+    updateNotebookTags,
+    duplicateNotebook,
+    deleteNotebook,
+  } =
     useNotebookStore();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -28,16 +38,60 @@ export function NotebooksPage() {
   const [sortField, setSortField] = useState<SortField>("modified");
   const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
   const [filterQuery, setFilterQuery] = useState("");
+  const [includedTags, setIncludedTags] = useState<string[]>([]);
+  const [excludedTags, setExcludedTags] = useState<string[]>([]);
+  const [tagMatchMode, setTagMatchMode] = useState<TagMatchMode>("any");
+
+  const allTags = useMemo(() => {
+    const byKey = new Map<string, { label: string; count: number }>();
+    for (const notebook of notebooks) {
+      for (const tag of notebook.tags ?? []) {
+        const trimmed = tag.trim();
+        if (!trimmed) continue;
+        const key = trimmed.toLowerCase();
+        const existing = byKey.get(key);
+        if (existing) {
+          existing.count += 1;
+        } else {
+          byKey.set(key, { label: trimmed, count: 1 });
+        }
+      }
+    }
+    return Array.from(byKey.entries())
+      .map(([key, value]) => ({
+        key,
+        label: value.label,
+        count: value.count,
+        testIdKey: key.replace(/[^a-z0-9_-]/g, "-"),
+      }))
+      .sort((a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: "base" }));
+  }, [notebooks]);
+
+  const hasTagFilters = includedTags.length > 0 || excludedTags.length > 0;
+  const hasActiveFilters = Boolean(filterQuery.trim()) || hasTagFilters;
+  const noResultsMessage = filterQuery.trim() && !hasTagFilters
+    ? `No notebooks match "${filterQuery}"`
+    : "No notebooks match current filters";
 
   const filteredAndSortedNotebooks = useMemo(() => {
-    // First filter by name
-    const filtered = filterQuery.trim()
-      ? notebooks.filter((nb) =>
-          nb.title.toLowerCase().includes(filterQuery.toLowerCase())
-        )
-      : notebooks;
+    const query = filterQuery.trim().toLowerCase();
+    const filtered = notebooks.filter((nb) => {
+      if (query && !nb.title.toLowerCase().includes(query)) return false;
 
-    // Then sort
+      const tagSet = new Set((nb.tags ?? []).map((tag) => tag.toLowerCase()));
+      if (excludedTags.some((tag) => tagSet.has(tag))) return false;
+
+      if (includedTags.length > 0) {
+        if (tagMatchMode === "all") {
+          if (!includedTags.every((tag) => tagSet.has(tag))) return false;
+        } else if (!includedTags.some((tag) => tagSet.has(tag))) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+
     return [...filtered].sort((a, b) => {
       let comparison = 0;
       switch (sortField) {
@@ -53,25 +107,46 @@ export function NotebooksPage() {
       }
       return sortOrder === "asc" ? comparison : -comparison;
     });
-  }, [notebooks, sortField, sortOrder, filterQuery]);
+  }, [notebooks, sortField, sortOrder, filterQuery, includedTags, excludedTags, tagMatchMode]);
 
   const handleSortChange = (field: SortField) => {
     if (field === sortField) {
-      // Toggle order if same field
       setSortOrder(sortOrder === "asc" ? "desc" : "asc");
     } else {
-      // Use default order for new field
       const option = SORT_OPTIONS.find((o) => o.field === field);
       setSortField(field);
       setSortOrder(option?.defaultOrder ?? "desc");
     }
   };
 
+  const cycleTagFilterState = (tagKey: string) => {
+    const isIncluded = includedTags.includes(tagKey);
+    const isExcluded = excludedTags.includes(tagKey);
+
+    if (!isIncluded && !isExcluded) {
+      setIncludedTags((prev) => [...prev, tagKey]);
+      return;
+    }
+
+    if (isIncluded) {
+      setIncludedTags((prev) => prev.filter((tag) => tag !== tagKey));
+      setExcludedTags((prev) => [...prev, tagKey]);
+      return;
+    }
+
+    setExcludedTags((prev) => prev.filter((tag) => tag !== tagKey));
+  };
+
+  const tagStateFor = (tagKey: string): "off" | "include" | "exclude" => {
+    if (includedTags.includes(tagKey)) return "include";
+    if (excludedTags.includes(tagKey)) return "exclude";
+    return "off";
+  };
+
   useEffect(() => {
     fetchNotebooks();
   }, [fetchNotebooks]);
 
-  // Global keyboard shortcut: Ctrl+K or Cmd+K to open search
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === "k") {
@@ -88,7 +163,6 @@ export function NotebooksPage() {
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <h2 className="text-xl font-semibold">Notebooks</h2>
         <div className="flex flex-wrap items-center gap-2">
-          {/* Filter input */}
           <div className="relative">
             <input
               type="text"
@@ -110,8 +184,10 @@ export function NotebooksPage() {
               </button>
             )}
           </div>
-          {/* Sort controls */}
-          <div className="flex items-center gap-1 rounded border border-gray-200 bg-gray-50 p-1" data-testid="sort-controls">
+          <div
+            className="flex items-center gap-1 rounded border border-gray-200 bg-gray-50 p-1"
+            data-testid="sort-controls"
+          >
             <span className="px-2 text-xs text-gray-500">Sort:</span>
             {SORT_OPTIONS.map((option) => (
               <button
@@ -158,11 +234,83 @@ export function NotebooksPage() {
           </button>
         </div>
       </div>
+      {allTags.length > 0 && (
+        <div
+          className="mb-4 rounded-lg border border-gray-200 bg-gray-50 p-3"
+          data-testid="tag-filter-controls"
+        >
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs font-medium uppercase tracking-wide text-gray-500">Tag filters</span>
+            <button
+              onClick={() => setTagMatchMode("any")}
+              className={`rounded px-2 py-1 text-xs ${
+                tagMatchMode === "any"
+                  ? "bg-gray-900 text-white"
+                  : "border border-gray-300 text-gray-600 hover:bg-gray-100"
+              }`}
+              data-testid="tag-match-any"
+            >
+              Match any
+            </button>
+            <button
+              onClick={() => setTagMatchMode("all")}
+              className={`rounded px-2 py-1 text-xs ${
+                tagMatchMode === "all"
+                  ? "bg-gray-900 text-white"
+                  : "border border-gray-300 text-gray-600 hover:bg-gray-100"
+              }`}
+              data-testid="tag-match-all"
+            >
+              Match all
+            </button>
+            {hasTagFilters && (
+              <button
+                onClick={() => {
+                  setIncludedTags([]);
+                  setExcludedTags([]);
+                }}
+                className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-600 hover:bg-gray-100"
+                data-testid="clear-tag-filters"
+              >
+                Clear tags
+              </button>
+            )}
+          </div>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {allTags.map((tag) => {
+              const state = tagStateFor(tag.key);
+              const style =
+                state === "include"
+                  ? "border-emerald-300 bg-emerald-50 text-emerald-800"
+                  : state === "exclude"
+                    ? "border-rose-300 bg-rose-50 text-rose-800"
+                    : "border-gray-300 bg-white text-gray-700 hover:bg-gray-100";
+
+              return (
+                <button
+                  key={tag.key}
+                  onClick={() => cycleTagFilterState(tag.key)}
+                  className={`rounded-full border px-2 py-1 text-xs ${style}`}
+                  data-testid={`tag-filter-chip-${tag.testIdKey}`}
+                  data-state={state}
+                  aria-label={`${tag.label} (${state})`}
+                >
+                  {tag.label}
+                  <span className="ml-1 text-[10px] opacity-70">{tag.count}</span>
+                </button>
+              );
+            })}
+          </div>
+          <p className="mt-2 text-xs text-gray-500">
+            Click a tag to include it, click again to exclude it, click a third time to clear.
+          </p>
+        </div>
+      )}
       {loading ? (
         <p className="text-center text-gray-500">Loading...</p>
-      ) : filteredAndSortedNotebooks.length === 0 && filterQuery ? (
+      ) : filteredAndSortedNotebooks.length === 0 && hasActiveFilters ? (
         <p className="text-center text-gray-500" data-testid="no-filter-results">
-          No notebooks match "{filterQuery}"
+          {noResultsMessage}
         </p>
       ) : (
         <NotebookList
@@ -170,6 +318,7 @@ export function NotebooksPage() {
           onDelete={deleteNotebook}
           onDuplicate={duplicateNotebook}
           onRename={renameNotebook}
+          onUpdateTags={updateNotebookTags}
           onExport={(nb) => setExportNotebook(nb)}
         />
       )}

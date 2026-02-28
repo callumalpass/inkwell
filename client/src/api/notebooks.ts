@@ -21,6 +21,7 @@ export interface NotebookSettings {
 export interface NotebookMeta {
   id: string;
   title: string;
+  tags?: string[];
   createdAt: string;
   updatedAt: string;
   pageCount?: number;
@@ -36,16 +37,16 @@ export function getNotebook(id: string) {
   return apiFetch<NotebookMeta>(`/notebooks/${id}`);
 }
 
-export function createNotebook(title: string) {
+export function createNotebook(title: string, tags?: string[]) {
   return apiFetch<NotebookMeta>("/notebooks", {
     method: "POST",
-    body: JSON.stringify({ title }),
+    body: JSON.stringify(tags ? { title, tags } : { title }),
   });
 }
 
 export function updateNotebook(
   id: string,
-  updates: { title?: string; settings?: NotebookSettings },
+  updates: { title?: string; settings?: NotebookSettings; tags?: string[] },
 ) {
   return apiFetch<NotebookMeta>(`/notebooks/${id}`, {
     method: "PATCH",

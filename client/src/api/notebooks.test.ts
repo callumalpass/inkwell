@@ -257,6 +257,33 @@ describe("notebooks API", () => {
       expect(error).toBeInstanceOf(ApiError);
       expect(error.status).toBe(400);
     });
+
+    it("should create notebook with tags", async () => {
+      const taggedNotebook: NotebookMeta = {
+        id: "nb_tagged",
+        title: "Tagged Notebook",
+        tags: ["work", "project-x"],
+        createdAt: "2024-01-15T00:00:00Z",
+        updatedAt: "2024-01-15T00:00:00Z",
+      };
+
+      globalThis.fetch = vi.fn().mockResolvedValueOnce({
+        ok: true,
+        status: 201,
+        json: () => Promise.resolve(taggedNotebook),
+      });
+
+      const result = await createNotebook("Tagged Notebook", ["work", "project-x"]);
+
+      expect(result.tags).toEqual(["work", "project-x"]);
+      expect(globalThis.fetch).toHaveBeenCalledWith(
+        "/api/notebooks",
+        expect.objectContaining({
+          method: "POST",
+          body: JSON.stringify({ title: "Tagged Notebook", tags: ["work", "project-x"] }),
+        }),
+      );
+    });
   });
 
   describe("updateNotebook", () => {
@@ -396,6 +423,29 @@ describe("notebooks API", () => {
         const result = await updateNotebook("nb_123", { settings: { gridType } });
         expect(result.settings?.gridType).toBe(gridType);
       }
+    });
+
+    it("should update notebook tags", async () => {
+      const updatedNotebook: NotebookMeta = {
+        ...mockNotebook,
+        tags: ["alpha", "beta"],
+      };
+
+      globalThis.fetch = vi.fn().mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve(updatedNotebook),
+      });
+
+      const result = await updateNotebook("nb_123", { tags: ["alpha", "beta"] });
+      expect(result.tags).toEqual(["alpha", "beta"]);
+      expect(globalThis.fetch).toHaveBeenCalledWith(
+        "/api/notebooks/nb_123",
+        expect.objectContaining({
+          method: "PATCH",
+          body: JSON.stringify({ tags: ["alpha", "beta"] }),
+        }),
+      );
     });
   });
 

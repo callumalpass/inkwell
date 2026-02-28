@@ -4,6 +4,8 @@ import type { NotebookMeta } from "../api/notebooks";
 vi.mock("../api/notebooks", () => ({
   listNotebooks: vi.fn(),
   createNotebook: vi.fn(),
+  updateNotebook: vi.fn(),
+  duplicateNotebook: vi.fn(),
   deleteNotebook: vi.fn(),
 }));
 
@@ -179,6 +181,42 @@ describe("createNotebook", () => {
     await useNotebookStore.getState().createNotebook("First");
 
     expect(useNotebookStore.getState().notebooks).toEqual([created]);
+  });
+
+  it("passes tags when creating notebook", async () => {
+    const { createNotebook } = await import("../api/notebooks");
+    const created = { ...makeNotebook("nb_tags"), tags: ["work", "project-x"] };
+    vi.mocked(createNotebook).mockResolvedValue(created);
+
+    await useNotebookStore.getState().createNotebook("Tagged", ["work", "project-x"]);
+
+    expect(createNotebook).toHaveBeenCalledWith("Tagged", ["work", "project-x"]);
+  });
+});
+
+describe("updateNotebookTags", () => {
+  it("updates tags for a notebook in the store", async () => {
+    const { updateNotebook } = await import("../api/notebooks");
+    const existing = makeNotebook("nb1");
+    useNotebookStore.setState({ notebooks: [existing] });
+
+    const updated = { ...existing, tags: ["alpha", "beta"] };
+    vi.mocked(updateNotebook).mockResolvedValue(updated);
+
+    const result = await useNotebookStore.getState().updateNotebookTags("nb1", ["alpha", "beta"]);
+
+    expect(updateNotebook).toHaveBeenCalledWith("nb1", { tags: ["alpha", "beta"] });
+    expect(result.tags).toEqual(["alpha", "beta"]);
+    expect(useNotebookStore.getState().notebooks[0].tags).toEqual(["alpha", "beta"]);
+  });
+
+  it("propagates errors", async () => {
+    const { updateNotebook } = await import("../api/notebooks");
+    vi.mocked(updateNotebook).mockRejectedValue(new Error("Nope"));
+
+    await expect(
+      useNotebookStore.getState().updateNotebookTags("nb1", ["alpha"]),
+    ).rejects.toThrow("Nope");
   });
 });
 

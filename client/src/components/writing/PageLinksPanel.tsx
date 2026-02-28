@@ -143,19 +143,21 @@ export function PageLinksPanel() {
   };
 
   const navigateToInlineLink = (link: (typeof inlineLinks)[number]) => {
-    if (link.target.type === "url") {
-      window.open(link.target.url, "_blank", "noopener,noreferrer");
+    const target = link.target;
+    if (target.type === "url") {
+      window.open(target.url, "_blank", "noopener,noreferrer");
       return;
     }
-    const nbId = link.target.notebookId;
+    const nbId = target.notebookId;
+    const pageId = target.pageId;
     if (!nbId) return;
     if (nbId === (params.notebookId ?? notebookId)) {
-      const pageIndex = pages.findIndex((p) => p.id === link.target.pageId);
+      const pageIndex = pages.findIndex((p) => p.id === pageId);
       if (pageIndex >= 0) {
         setCurrentPageIndex(pageIndex);
       }
     }
-    navigate(`/notebook/${nbId}/page/${link.target.pageId}`, { replace: true });
+    navigate(`/notebook/${nbId}/page/${pageId}`, { replace: true });
   };
 
   const pageLabel = (page: { id: string; pageNumber: number; notebookId: string }) => {

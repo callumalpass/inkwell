@@ -228,7 +228,7 @@ describe("strokes API", () => {
       const strokes: Stroke[] = [
         { ...mockStroke, id: "stroke_1", penStyle: "pressure" },
         { ...mockStroke, id: "stroke_2", penStyle: "uniform" },
-        { ...mockStroke, id: "stroke_3", penStyle: "tapered" },
+        { ...mockStroke, id: "stroke_3", penStyle: "ballpoint" },
       ];
 
       globalThis.fetch = vi.fn().mockResolvedValueOnce({
