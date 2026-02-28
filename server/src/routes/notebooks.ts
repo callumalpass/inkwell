@@ -3,6 +3,26 @@ import { nanoid } from "nanoid";
 import { notebookStore, pageStore } from "../storage/index.js";
 import type { NotebookMeta, NotebookSettings } from "../types/index.js";
 
+const MAX_NOTEBOOK_TAGS = 30;
+
+function normalizeTags(tags: string[] | undefined): string[] | undefined {
+  if (tags === undefined) return undefined;
+  const seen = new Set<string>();
+  const normalized: string[] = [];
+
+  for (const value of tags) {
+    const tag = value.trim();
+    if (!tag) continue;
+    const key = tag.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    normalized.push(tag);
+    if (normalized.length >= MAX_NOTEBOOK_TAGS) break;
+  }
+
+  return normalized;
+}
+
 export function notebookRoutes(app: FastifyInstance) {
   app.get("/api/notebooks", async () => {
     const notebooks = await notebookStore.listNotebooks();
@@ -25,20 +45,28 @@ export function notebookRoutes(app: FastifyInstance) {
     return notebook;
   });
 
-  app.post<{ Body: { title: string } }>("/api/notebooks", {
+  app.post<{ Body: { title: string; tags?: string[] } }>("/api/notebooks", {
     schema: {
       body: {
         type: "object",
         properties: {
           title: { type: "string", maxLength: 200 },
+          tags: {
+            type: "array",
+            items: { type: "string", minLength: 1, maxLength: 40 },
+            maxItems: MAX_NOTEBOOK_TAGS,
+          },
         },
+        additionalProperties: false,
       },
     },
   }, async (req, reply) => {
     const now = new Date().toISOString();
+    const tags = normalizeTags(req.body.tags);
     const meta: NotebookMeta = {
       id: `nb_${nanoid(12)}`,
       title: req.body.title || "Untitled",
+      ...(tags !== undefined ? { tags } : {}),
       createdAt: now,
       updatedAt: now,
     };
@@ -48,7 +76,7 @@ export function notebookRoutes(app: FastifyInstance) {
 
   app.patch<{
     Params: { id: string };
-    Body: { title?: string; settings?: NotebookSettings };
+    Body: { title?: string; settings?: NotebookSettings; tags?: string[] };
   }>(
     "/api/notebooks/:id",
     {
@@ -57,6 +85,11 @@ export function notebookRoutes(app: FastifyInstance) {
           type: "object",
           properties: {
             title: { type: "string", maxLength: 200 },
+            tags: {
+              type: "array",
+              items: { type: "string", minLength: 1, maxLength: 40 },
+              maxItems: MAX_NOTEBOOK_TAGS,
+            },
             settings: {
               type: "object",
               properties: {
@@ -111,8 +144,9 @@ export function notebookRoutes(app: FastifyInstance) {
       },
     },
     async (req, reply) => {
-      const updates: Partial<Pick<NotebookMeta, "title" | "settings">> = {};
+      const updates: Partial<Pick<NotebookMeta, "title" | "settings" | "tags">> = {};
       if (req.body.title !== undefined) updates.title = req.body.title;
+      if (req.body.tags !== undefined) updates.tags = normalizeTags(req.body.tags);
       if (req.body.settings !== undefined) updates.settings = req.body.settings;
 
       const updated = await notebookStore.updateNotebook(req.params.id, updates);

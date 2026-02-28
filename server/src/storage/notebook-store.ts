@@ -31,7 +31,7 @@ export async function createNotebook(meta: NotebookMeta): Promise<void> {
 
 export async function updateNotebook(
   id: string,
-  updates: Partial<Pick<NotebookMeta, "title" | "settings">>,
+  updates: Partial<Pick<NotebookMeta, "title" | "settings" | "tags">>,
 ): Promise<NotebookMeta | null> {
   const meta = await getNotebook(id);
   if (!meta) return null;
@@ -127,6 +127,12 @@ export async function duplicateNotebook(id: string): Promise<NotebookMeta | null
           };
           await writeJson(paths.pageMeta(newNotebookId, newPageId), updatedPageMeta);
         }
+
+        // Ensure copied page strokes are preserved under the new page ID.
+        const sourceStrokes = await readJson<import("../types/index.js").Stroke[]>(
+          paths.strokes(id, oldPageId),
+        );
+        await writeJson(paths.strokes(newNotebookId, newPageId), sourceStrokes ?? []);
 
         // Add to page index
         index[newPageId] = newNotebookId;

@@ -19,6 +19,7 @@ export interface NotebookSettings {
 export interface NotebookMeta {
   id: string;
   title: string;
+  tags?: string[];
   createdAt: string;
   updatedAt: string;
   settings?: NotebookSettings;

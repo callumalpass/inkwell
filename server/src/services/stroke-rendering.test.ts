@@ -68,14 +68,14 @@ function createMockCtx(): StrokeRenderingContext & {
   fill: ReturnType<typeof vi.fn>;
 } {
   return {
-    beginPath: vi.fn(),
-    moveTo: vi.fn(),
-    quadraticCurveTo: vi.fn(),
-    lineTo: vi.fn(),
-    closePath: vi.fn(),
-    fill: vi.fn(),
-    fillRect: vi.fn(),
-    scale: vi.fn(),
+    beginPath: vi.fn<() => void>(),
+    moveTo: vi.fn<(x: number, y: number) => void>(),
+    quadraticCurveTo: vi.fn<(cpx: number, cpy: number, x: number, y: number) => void>(),
+    lineTo: vi.fn<(x: number, y: number) => void>(),
+    closePath: vi.fn<() => void>(),
+    fill: vi.fn<() => void>(),
+    fillRect: vi.fn<(x: number, y: number, w: number, h: number) => void>(),
+    scale: vi.fn<(x: number, y: number) => void>(),
     fillStyle: "",
   };
 }

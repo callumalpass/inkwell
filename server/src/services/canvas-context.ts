@@ -7,7 +7,7 @@
  * to bridge this gap without using unsafe `as unknown` casts throughout the codebase.
  */
 
-import { createCanvas, type SKRSContext2D } from "@napi-rs/canvas";
+import { createCanvas, type Canvas } from "@napi-rs/canvas";
 
 /**
  * A subset of CanvasRenderingContext2D methods used in our stroke rendering.
@@ -33,7 +33,7 @@ export function createRenderingCanvas(
   width: number,
   height: number,
 ): {
-  canvas: ReturnType<typeof createCanvas>;
+  canvas: Canvas;
   ctx: StrokeRenderingContext;
 } {
   const canvas = createCanvas(width, height);
@@ -69,7 +69,7 @@ export function isStrokeRenderingContext(
  * Handles the type conversion from @napi-rs/canvas's toBuffer method.
  */
 export function canvasToPngBuffer(
-  canvas: ReturnType<typeof createCanvas>,
+  canvas: Canvas,
 ): Buffer {
   return canvas.toBuffer("image/png");
 }

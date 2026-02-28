@@ -54,6 +54,35 @@ describe("POST /api/notebooks", () => {
     expect(res.statusCode).toBe(201);
     expect(res.json().title).toBe("Untitled");
   });
+
+  it("creates a notebook with tags", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/notebooks",
+      payload: { title: "Tagged", tags: ["work", "project-x"] },
+    });
+    expect(res.statusCode).toBe(201);
+    expect(res.json().tags).toEqual(["work", "project-x"]);
+  });
+
+  it("normalizes tag spacing and duplicates", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/notebooks",
+      payload: { title: "Tagged", tags: ["  Work  ", "work", "Personal"] },
+    });
+    expect(res.statusCode).toBe(201);
+    expect(res.json().tags).toEqual(["Work", "Personal"]);
+  });
+
+  it("rejects invalid tag values", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/notebooks",
+      payload: { title: "Invalid", tags: [""] },
+    });
+    expect(res.statusCode).toBe(400);
+  });
 });
 
 describe("GET /api/notebooks/:id", () => {
@@ -101,6 +130,40 @@ describe("PATCH /api/notebooks/:id", () => {
       payload: { title: "Nope" },
     });
     expect(res.statusCode).toBe(404);
+  });
+
+  it("updates notebook tags", async () => {
+    const create = await app.inject({
+      method: "POST",
+      url: "/api/notebooks",
+      payload: { title: "Tag Update" },
+    });
+    const { id } = create.json();
+
+    const res = await app.inject({
+      method: "PATCH",
+      url: `/api/notebooks/${id}`,
+      payload: { tags: ["alpha", "beta"] },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json().tags).toEqual(["alpha", "beta"]);
+  });
+
+  it("clears notebook tags when empty array is provided", async () => {
+    const create = await app.inject({
+      method: "POST",
+      url: "/api/notebooks",
+      payload: { title: "Tag Clear", tags: ["keep"] },
+    });
+    const { id } = create.json();
+
+    const res = await app.inject({
+      method: "PATCH",
+      url: `/api/notebooks/${id}`,
+      payload: { tags: [] },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json().tags).toEqual([]);
   });
 });
 

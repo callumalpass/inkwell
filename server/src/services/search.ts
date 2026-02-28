@@ -412,9 +412,14 @@ export async function searchTranscriptions(
     matchType?: MatchType[];
   } = {},
 ): Promise<SearchResponse> {
-  // Use index if available
+  // Use index if available.
+  // If it returns no matches, fall back to disk scan because the in-memory
+  // index can be stale when files are written outside index update paths.
   if (isIndexInitialized()) {
-    return searchWithIndex(query, options);
+    const indexedResult = searchWithIndex(query, options);
+    if (indexedResult.total > 0) {
+      return indexedResult;
+    }
   }
 
   // Fall back to file-based search

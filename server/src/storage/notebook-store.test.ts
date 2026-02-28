@@ -91,6 +91,20 @@ describe("updateNotebook", () => {
     const result = await updateNotebook("nb_missing", { title: "Nope" });
     expect(result).toBeNull();
   });
+
+  it("updates notebook tags", async () => {
+    const meta = makeMeta({
+      id: "nb_tags1",
+      title: "Tagged",
+    });
+    await createNotebook(meta);
+
+    const updated = await updateNotebook("nb_tags1", {
+      tags: ["project-x", "urgent"],
+    });
+    expect(updated).not.toBeNull();
+    expect(updated!.tags).toEqual(["project-x", "urgent"]);
+  });
 });
 
 describe("deleteNotebook", () => {
