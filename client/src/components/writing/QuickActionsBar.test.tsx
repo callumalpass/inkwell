@@ -127,8 +127,8 @@ describe("QuickActionsBar", () => {
   it("navigates through last active page history", () => {
     render(<QuickActionsBar />);
 
-    const backBtn = screen.getByLabelText("Navigate to previous active page");
-    const forwardBtn = screen.getByLabelText("Navigate to next active page");
+    const backBtn = screen.getByLabelText("Navigate backward through page history");
+    const forwardBtn = screen.getByLabelText("Navigate forward through page history");
     expect(backBtn).toBeDisabled();
     expect(forwardBtn).toBeDisabled();
 
