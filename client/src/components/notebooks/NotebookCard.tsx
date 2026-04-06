@@ -9,6 +9,7 @@ interface NotebookCardProps {
   onExport: () => void;
   onRename: (newTitle: string) => void;
   onUpdateTags: (tags: string[]) => void;
+  availableTags?: string[];
 }
 
 function parseTags(input: string): string[] {
@@ -41,6 +42,7 @@ export function NotebookCard({
   onExport,
   onRename,
   onUpdateTags,
+  availableTags = [],
 }: NotebookCardProps) {
   const thumbnailUrl = notebook.coverPageId
     ? `/api/pages/${notebook.coverPageId}/thumbnail`
@@ -104,6 +106,15 @@ export function NotebookCard({
       onUpdateTags(parsed);
     }
     setIsTagEditing(false);
+  };
+
+  const selectedTags = parseTags(tagValue);
+  const selectedTagKeys = new Set(selectedTags.map((tag) => tag.toLowerCase()));
+  const suggestedTags = availableTags.filter((tag) => !selectedTagKeys.has(tag.toLowerCase()));
+
+  const addSuggestedTag = (tag: string) => {
+    setTagValue([...selectedTags, tag].join(", "));
+    tagInputRef.current?.focus();
   };
 
   return (
@@ -270,6 +281,29 @@ export function NotebookCard({
               aria-label="Notebook tags"
               data-testid="notebook-tags-input"
             />
+            {suggestedTags.length > 0 && (
+              <div className="mt-3">
+                <p className="mb-2 text-[11px] font-medium uppercase tracking-wide text-gray-500">
+                  Existing tags
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {suggestedTags.map((tag) => (
+                    <button
+                      key={tag}
+                      type="button"
+                      className="rounded-full border border-gray-300 bg-white px-2 py-1 text-xs text-gray-700 hover:bg-gray-100"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        addSuggestedTag(tag);
+                      }}
+                      data-testid={`notebook-tag-suggestion-${tag}`}
+                    >
+                      {tag}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
             <div className="mt-2 flex justify-end gap-2">
               <button
                 type="button"

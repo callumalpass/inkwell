@@ -13,6 +13,7 @@ interface NotebookListProps {
   onRename: (id: string, title: string) => void;
   onUpdateTags: (id: string, tags: string[]) => void;
   onExport: (notebook: NotebookMeta) => void;
+  availableTags?: string[];
 }
 
 export function NotebookList({
@@ -22,6 +23,7 @@ export function NotebookList({
   onRename,
   onUpdateTags,
   onExport,
+  availableTags = [],
 }: NotebookListProps) {
   const navigate = useNavigate();
   const [deleteTarget, setDeleteTarget] = useState<NotebookMeta | null>(null);
@@ -97,6 +99,7 @@ export function NotebookList({
             onRename={(title) => onRename(nb.id, title)}
             onUpdateTags={(tags) => onUpdateTags(nb.id, tags)}
             onExport={() => onExport(nb)}
+            availableTags={availableTags}
           />
         ))}
       </div>

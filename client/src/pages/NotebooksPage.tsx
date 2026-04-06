@@ -1,4 +1,5 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { AppShell } from "../components/layout/AppShell";
 import { NotebookList } from "../components/notebooks/NotebookList";
 import { CreateNotebookDialog } from "../components/notebooks/CreateNotebookDialog";
@@ -8,6 +9,8 @@ import { SettingsPanel } from "../components/settings/SettingsPanel";
 import { SearchView } from "../components/search/SearchView";
 import { useNotebookStore } from "../stores/notebook-store";
 import type { NotebookMeta } from "../api/notebooks";
+import * as pagesApi from "../api/pages";
+import { showError } from "../stores/toast-store";
 
 type SortField = "name" | "modified" | "pageCount";
 type SortOrder = "asc" | "desc";
@@ -19,7 +22,17 @@ const SORT_OPTIONS: { field: SortField; label: string; defaultOrder: SortOrder }
   { field: "pageCount", label: "Page Count", defaultOrder: "desc" },
 ];
 
+function formatQuickNotebookTitle(date: Date): string {
+  const pad = (value: number) => String(value).padStart(2, "0");
+  return [
+    date.getFullYear(),
+    pad(date.getMonth() + 1),
+    pad(date.getDate()),
+  ].join("-") + ` ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
 export function NotebooksPage() {
+  const navigate = useNavigate();
   const {
     notebooks,
     loading,
@@ -41,6 +54,7 @@ export function NotebooksPage() {
   const [includedTags, setIncludedTags] = useState<string[]>([]);
   const [excludedTags, setExcludedTags] = useState<string[]>([]);
   const [tagMatchMode, setTagMatchMode] = useState<TagMatchMode>("any");
+  const [creatingQuickNotebook, setCreatingQuickNotebook] = useState(false);
 
   const allTags = useMemo(() => {
     const byKey = new Map<string, { label: string; count: number }>();
@@ -158,6 +172,22 @@ export function NotebooksPage() {
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, []);
 
+  const handleQuickNotebook = useCallback(async () => {
+    if (creatingQuickNotebook) return;
+
+    setCreatingQuickNotebook(true);
+    try {
+      const notebook = await createNotebook(formatQuickNotebookTitle(new Date()), ["scratch"]);
+      const page = await pagesApi.createPage(notebook.id);
+      navigate(`/notebook/${notebook.id}/page/${page.id}`);
+    } catch (err) {
+      console.error("Failed to create quick notebook:", err);
+      showError("Failed to create quick notebook");
+    } finally {
+      setCreatingQuickNotebook(false);
+    }
+  }, [creatingQuickNotebook, createNotebook, navigate]);
+
   return (
     <AppShell>
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -225,6 +255,14 @@ export function NotebooksPage() {
             className="rounded border border-gray-300 px-4 py-2 text-sm text-gray-800 hover:bg-gray-100"
           >
             Settings
+          </button>
+          <button
+            onClick={handleQuickNotebook}
+            disabled={creatingQuickNotebook}
+            className="rounded border border-gray-300 px-4 py-2 text-sm text-gray-800 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-60"
+            data-testid="quick-notebook-button"
+          >
+            {creatingQuickNotebook ? "Creating..." : "Quick Notebook"}
           </button>
           <button
             onClick={() => setDialogOpen(true)}
@@ -320,12 +358,14 @@ export function NotebooksPage() {
           onRename={renameNotebook}
           onUpdateTags={updateNotebookTags}
           onExport={(nb) => setExportNotebook(nb)}
+          availableTags={allTags.map((tag) => tag.label)}
         />
       )}
       <CreateNotebookDialog
         open={dialogOpen}
         onClose={() => setDialogOpen(false)}
         onCreate={createNotebook}
+        availableTags={allTags.map((tag) => tag.label)}
       />
       <ExportDialog
         open={!!exportNotebook}

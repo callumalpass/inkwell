@@ -4,6 +4,7 @@ interface CreateNotebookDialogProps {
   open: boolean;
   onClose: () => void;
   onCreate: (title: string, tags?: string[]) => void;
+  availableTags?: string[];
 }
 
 function parseTags(input: string): string[] {
@@ -24,6 +25,7 @@ export function CreateNotebookDialog({
   open,
   onClose,
   onCreate,
+  availableTags = [],
 }: CreateNotebookDialogProps) {
   const [title, setTitle] = useState("");
   const [tags, setTags] = useState("");
@@ -39,6 +41,15 @@ export function CreateNotebookDialog({
     setTitle("");
     setTags("");
     onClose();
+  };
+
+  const selectedTags = parseTags(tags);
+  const selectedKeys = new Set(selectedTags.map((tag) => tag.toLowerCase()));
+  const suggestedTags = availableTags.filter((tag) => !selectedKeys.has(tag.toLowerCase()));
+
+  const addSuggestedTag = (tag: string) => {
+    const nextTags = [...selectedTags, tag];
+    setTags(nextTags.join(", "));
   };
 
   return (
@@ -62,6 +73,26 @@ export function CreateNotebookDialog({
             className="mt-2 w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-gray-500 focus:outline-none"
             aria-label="Notebook tags"
           />
+          {suggestedTags.length > 0 && (
+            <div className="mt-3">
+              <p className="mb-2 text-xs font-medium uppercase tracking-wide text-gray-500">
+                Existing tags
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {suggestedTags.map((tag) => (
+                  <button
+                    key={tag}
+                    type="button"
+                    onClick={() => addSuggestedTag(tag)}
+                    className="rounded-full border border-gray-300 bg-gray-50 px-2 py-1 text-xs text-gray-700 hover:bg-gray-100"
+                    data-testid={`create-tag-suggestion-${tag}`}
+                  >
+                    {tag}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
           <div className="mt-4 flex justify-end gap-2">
             <button
               type="button"

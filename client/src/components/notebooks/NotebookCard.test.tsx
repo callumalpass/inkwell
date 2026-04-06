@@ -184,4 +184,20 @@ describe("NotebookCard", () => {
 
     expect(onUpdateTags).toHaveBeenCalledWith(["work", "project-x"]);
   });
+
+  it("adds an existing tag suggestion to the tag editor", async () => {
+    const user = userEvent.setup();
+    const onUpdateTags = vi.fn();
+    renderCard({
+      onUpdateTags,
+      notebook: { ...notebook, tags: ["old"] },
+      availableTags: ["old", "scratch", "project-x"],
+    });
+
+    await user.click(screen.getByRole("button", { name: /edit notebook tags/i }));
+    await user.click(screen.getByTestId("notebook-tag-suggestion-scratch"));
+    await user.click(screen.getByRole("button", { name: "Save" }));
+
+    expect(onUpdateTags).toHaveBeenCalledWith(["old", "scratch"]);
+  });
 });
